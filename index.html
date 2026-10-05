@@ -1495,10 +1495,10 @@ princess</textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john' | 'john_native'
   var TARGET_NOTES = {
-    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Operators marked ⚠ in the add-step menu (colored red in the cheat sheet) only run in hashcat — John has no equivalent at all.',
-    both:        'John’s rule engine is a subset of hashcat’s, so this drops the hashcat-only operators (the ones colored red elsewhere) entirely — what’s left behaves identically in both.',
+    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Operators tagged [Hashcat] in the add-step menu (colored red in the cheat sheet) only run in hashcat — John has no equivalent at all.',
+    both:        'John’s rule engine is a subset of hashcat’s, so this drops the [Hashcat]-tagged operators (the ones colored red elsewhere) entirely — what’s left behaves identically in both.',
     john:        'John running hashcat-syntax rules (via "!! hashcat logic ON"). Same portable subset as Both, plus a reference list of what John can do that hashcat can’t.',
-    john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; the commands below with no hashcat equivalent are now real buildable steps.'
+    john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; commands tagged [John] in the add-step menu (colored teal in the cheat sheet) have no hashcat equivalent at all.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
   // are excluded from both/john/john_native; johnOnly ops are excluded from
@@ -1533,11 +1533,12 @@ princess</textarea>
   // isn't plain hashcat, John-incompatible ops are pulled out of their
   // normal category into a trailing, clearly-labeled group instead of
   // being hidden — you can still pick one, you just see the warning first.
-  // A hashcat-only op's label always carries a ⚠ marker, in every dropdown,
-  // regardless of target — so "is this safe for John?" never requires
-  // switching tabs to find out.
+  // A hashcat-only op's label always carries a [Hashcat] tag, in every
+  // dropdown, regardless of target — so "is this safe for John?" never
+  // requires switching tabs to find out. John-only ops carry the matching
+  // [John] tag once you're building John's own syntax.
   function opLabel(key){
-    if (JOHN_UNSUPPORTED[key]) return OPS[key].label + ' ⚠';
+    if (JOHN_UNSUPPORTED[key]) return OPS[key].label + ' [Hashcat]';
     if (OPS[key].johnOnly) return OPS[key].label + ' [John]';
     return OPS[key].label;
   }
