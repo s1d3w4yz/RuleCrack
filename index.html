@@ -210,17 +210,27 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 }
 .trace-row:not(:last-child){border-bottom:1px dashed var(--rule)}
 .trace-row .dot{
-  width:8px;height:8px;border-radius:50%;background:var(--accent);
+  width:8px;height:8px;border-radius:50%;background:var(--dim);
   margin-top:6px;justify-self:center;
+}
+/* .num replaces .dot on every row that corresponds to an actual chain
+   step (i.e. every row except "Starting word") — the number matches that
+   step's position in the chain (section 03) exactly, including gaps left
+   by disabled steps, so a trace entry maps back to its row at a glance. */
+.trace-row .num{
+  width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--bg);
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  margin-top:1px;justify-self:center;
 }
 .trace-row .content{min-width:0;display:flex;flex-direction:column;gap:3px}
 .trace-row .word{font-family:'IBM Plex Mono',monospace;font-size:1.1rem;word-break:break-all}
 .trace-row .word .hl{color:var(--accent);font-weight:600}
 .trace-row .caption{font-size:.78rem;color:var(--dim)}
 .trace-row.start .word{color:var(--dim)}
-.trace-row.final .dot{background:var(--good)}
+.trace-row.final .num{background:var(--good)}
 .trace-row.final .word{color:var(--good);font-weight:600;font-size:1.25rem}
-.trace-row.rejected .dot{background:var(--danger)}
+.trace-row.rejected .num{background:var(--danger)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
 .copyrow{display:flex;gap:8px;flex-wrap:wrap}
@@ -1662,14 +1672,14 @@ princess</textarea>
       if (res.reject){
         rejected = true;
         rejectCaption = op.caption(step.args, before, before, ctx) || 'Rejected';
-        trace.push({word: before, caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(before), rejected:true});
+        trace.push({word: before, caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(before), rejected:true, stepNum: s+1});
         break;
       }
 
       var after = (res.word!==undefined) ? res.word : before;
       var caption = op.caption(step.args, before, after, ctx);
       var changedHtml = highlightAfter(op, before, after);
-      trace.push({word: after, caption: caption, changedHtml: changedHtml, rejected:false});
+      trace.push({word: after, caption: caption, changedHtml: changedHtml, rejected:false, stepNum: s+1});
       current = after;
     }
 
@@ -1708,7 +1718,8 @@ princess</textarea>
       var isFirst = i===0;
       var isLast = i===result.trace.length-1 && result.trace.length>1 && !row.rejected;
       var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'');
-      return '<div class="'+cls+'"><span class="dot"></span>'+
+      var marker = row.stepNum ? '<span class="num" title="Step '+row.stepNum+' in the chain below">'+row.stepNum+'</span>' : '<span class="dot"></span>';
+      return '<div class="'+cls+'">'+marker+
         '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
     }).join('');
