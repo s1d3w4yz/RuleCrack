@@ -33,36 +33,54 @@ and batch-test it against a list of words.
   same engine that runs the chain — click one to drop it straight into the
   rule line, for learning the syntax by typing instead of clicking through
   the chain builder.
-- **Hashcat / John the Ripper compatibility**: a target switch with three
-  genuinely different views, since John's hashcat-compat rule engine is a
-  strict subset of hashcat's (verified against John's own source):
-  - **Hashcat** — the full operator set; every list (add-step menu, cheat
-    sheet) stays complete, but the 13 operators John can't run at all
-    (`3`, `B`, `h`, `H`, the nine `~`-class ops) carry a `⚠` marker and a
-    badge inline, everywhere, all the time — no tab-switching needed to
-    see what won't port.
-  - **Both (portable)** — those 13 are dropped from the add-step menu and
-    cheat sheet entirely, since they're simply not buildable for John;
-    what's left behaves identically in both tools.
-  - **John the Ripper** — the same portable subset, plus a distinctly
-    styled (teal-bordered) reference box listing commands John has that
-    hashcat (and so this tool) doesn't: pluralization, whole-string
-    insert, numeric variables, … each tagged with its own `✓ John-only`
-    badge — the mirror image of `⚠ HC-only`, including the `v` token
-    collision where the two tools disagree on what it means even in
-    John's hashcat-compat mode.
-  Any chain step already added also keeps its own `⚠ HC-only` badge and
-  full type dropdown regardless of target, and the Export panel always
-  shows a one-line portability verdict. See the comments above
-  `JOHN_UNSUPPORTED` in `index.html` for how the compatibility list was
-  verified against John's own source and docs.
+- **Hashcat / John the Ripper compatibility**: a four-way target switch,
+  since John's rule engine and hashcat's overlap but neither is a subset of
+  the other — hashcat has 13 operators John never implements at all, and
+  John has its own native grammar with commands hashcat has no concept of
+  (verified against both projects' own source, not from memory):
+  - **Hashcat** — the full 70-operator set. The 13 hashcat-only ops (`3`,
+    `B`, `h`, `H`, the nine `~`-class ops) carry a `⚠` marker and badge
+    inline, everywhere, all the time — no tab-switching needed to see
+    what won't port to John.
+  - **Both (portable)** — those 13 are dropped entirely; what's left (57
+    ops) behaves identically in hashcat and in John's hashcat-compat mode.
+  - **John (hashcat rules)** — the same portable 57, framed as "hashcat
+    syntax running inside John," plus a reference box of John-exclusive
+    commands this tool doesn't build in this mode.
+  - **John (native rules)** — switches to building rules in **John's own
+    syntax** instead. The 20 commands John has that hashcat can't express
+    at all — pluralization/past-tense/-ing-form, whole-string insert,
+    per-position keyboard-shift, vowel/consonant swap, UTF-8 validity
+    reject, early length-limit reject, the whole-word keyboard-adjacency
+    shift, and John's own (non-`~`) character classes — become real,
+    runnable, exportable steps here, each tagged `✓ John-only`. A separate
+    John-native parser understands this syntax too (including the
+    `p`/`pN` and `R`/`RN`/`L`/`LN` ambiguity John itself resolves by
+    whether a digit follows), and the rule-line export switches to John
+    syntax and relabels its copy button accordingly. The pluralize/past-
+    tense/-ing-form heuristics and the QWERTY keyboard-adjacency tables
+    are ported line-for-line from John's `rules.c`, not approximated —
+    verified against the worked examples in John's own `doc/RULES`
+    (`Crack96` → `cRACK(^` / `CRaCK96` / `Vtsvl07` / `Xeaxj85` for
+    `S`/`V`/`R`/`L`). A handful of John features stay reference-only even
+    here (numeric variables as position arguments, the target-format-
+    dependent line-level reject flags, single-crack word-pair commands) —
+    see the comments above `JOHN_ONLY` in `index.html` for why each one
+    is out of scope.
+  Any chain step already added keeps its own compatibility badge and full
+  type dropdown regardless of target, and the Export panel always shows a
+  one-line portability verdict for whichever direction is relevant.
 
-Operator semantics were verified against hashcat's own reference
+Hashcat operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
 `tools/rules-test-cases.yaml` in the [hashcat](https://github.com/hashcat/hashcat)
 repository) — positions are 0-indexed, most positional ops silently no-op
 when a position is out of range, and a handful of ops (memory extraction,
-some reject filters) reject the whole candidate instead.
+some reject filters) reject the whole candidate instead. John-specific
+semantics (including the hashcat-compat-mode disambiguation rules and the
+native grammar) were verified against `doc/RULES`, `doc/RULES-hashcat`, and
+`src/rules.c` in the [John the Ripper jumbo](https://github.com/openwall/john)
+repository.
 
 ## Usage
 
