@@ -127,7 +127,7 @@ header.page p strong{color:var(--ink);font-weight:600}
 #portabilityNote.ok{color:var(--good)}
 #portabilityNote.warn{color:var(--danger)}
 
-.grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
+.grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:stretch}
 .grid[hidden]{display:none}
 @media (max-width:1150px){ .grid{grid-template-columns:1fr 1fr} .grid .card.cheat{grid-column:1 / -1} }
 @media (max-width:800px){ .grid{grid-template-columns:1fr} .grid .card.cheat{grid-column:auto} }
@@ -371,7 +371,20 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 #ruleParseStatus.err{color:var(--danger)}
 #ruleTextInput.err{border-color:var(--danger)}
 
-.cheat{max-height:calc(100vh - 64px);overflow-y:auto}
+/* Stretched to match whichever of the other two columns is taller
+   (.grid's align-items:stretch), instead of the old viewport-relative
+   cap that made this column end at a different height than its
+   neighbors whenever the chain/trace columns grew past one screen's
+   worth of content. The h2 and legend stay put; only #cheatBody scrolls,
+   filling whatever height the stretch gives the card. */
+.cheat{display:flex;flex-direction:column;min-height:0}
+#cheatBody{flex:1;min-height:0;overflow-y:auto}
+/* Expanded: let the card grow to its own full content height instead of
+   being held to the row's stretched height or the viewport cap, same
+   "show everything, page scrolls instead of an inner box" behavior as
+   the 03/04 expand toggles. */
+.cheat.expanded{align-self:start;max-height:none}
+.cheat.expanded #cheatBody{flex:none;overflow-y:visible}
 .cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
 .cheat-legend .mono{color:var(--accent)}
 .cheat-group{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 6px;padding-top:10px;border-top:1px dashed var(--rule)}
@@ -529,8 +542,11 @@ princess</textarea>
     </div>
 
     <!-- FAR RIGHT: cheat sheet -->
-    <div class="card cheat">
-      <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
+    <div class="card cheat" id="cheatCard">
+      <div class="sectionhead">
+        <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
+        <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
+      </div>
       <div class="cheat-legend" id="cheatLegend"></div>
       <div id="cheatBody"></div>
     </div>
@@ -1677,6 +1693,7 @@ d $1$2$3"></textarea>
   }
   wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl);
   wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl);
+  wireExpandBtn(document.getElementById('cheatExpandBtn'), document.getElementById('cheatCard'));
   var hashcatOutput = document.getElementById('hashcatOutput');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
