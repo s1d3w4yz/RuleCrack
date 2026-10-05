@@ -995,9 +995,9 @@ princess</textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john'
   var TARGET_NOTES = {
-    hashcat: 'Every operator below runs in hashcat. Rows marked ⚠ have no John the Ripper equivalent at all.',
-    both:    'Showing the portable subset: identical behavior in hashcat and in John’s hashcat-compat mode.',
-    john:    'Assumes John’s hashcat-compat mode ("!! hashcat logic ON" in john.conf) — see the note below.'
+    hashcat: 'The full operator set. Rows marked ⚠ only run in hashcat — John has no equivalent at all.',
+    both:    'John’s rule engine is a subset of hashcat’s, so this hides the ⚠ hashcat-only operators — what’s left behaves identically in both.',
+    john:    'Same subset as Both, plus a reference list below of what John can do that hashcat (and this tool) can’t.'
   };
 
   var uid = 0;
@@ -1023,31 +1023,34 @@ princess</textarea>
   // isn't plain hashcat, John-incompatible ops are pulled out of their
   // normal category into a trailing, clearly-labeled group instead of
   // being hidden — you can still pick one, you just see the warning first.
-  function typeOptionsHtml(selectedKey){
+  // A hashcat-only op's label always carries a ⚠ marker, in every dropdown,
+  // regardless of target — so "is this safe for John?" never requires
+  // switching tabs to find out.
+  function opLabel(key){
+    return OPS[key].label + (isJohnCompatible(key) ? '' : ' ⚠');
+  }
+  // restrict=true drops hashcat-only ops from the list entirely (used for
+  // the "+ add step" menu when targeting John or Both, since John's rule
+  // engine is a strict subset of hashcat's and literally can't run them).
+  // restrict=false always lists everything (used for an existing step's
+  // own dropdown, so changing or just inspecting a step you already built
+  // never loses the option that's currently selected).
+  function typeOptionsHtml(selectedKey, restrict){
     var html = '';
     GROUPS.forEach(function(g){
       var keys = Object.keys(OPS).filter(function(k){
-        return OPS[k].group===g && (TARGET==='hashcat' || isJohnCompatible(k));
+        return OPS[k].group===g && (!restrict || isJohnCompatible(k));
       });
       if (!keys.length) return;
       var opts = keys.map(function(k){
-        return '<option value="'+k+'"'+(k===selectedKey?' selected':'')+'>'+OPS[k].label+'</option>';
+        return '<option value="'+k+'"'+(k===selectedKey?' selected':'')+'>'+escapeHtml(opLabel(k))+'</option>';
       }).join('');
       html += '<optgroup label="'+g+'">'+opts+'</optgroup>';
     });
-    if (TARGET !== 'hashcat'){
-      var warnKeys = Object.keys(OPS).filter(function(k){ return !isJohnCompatible(k); });
-      if (warnKeys.length){
-        var wopts = warnKeys.map(function(k){
-          return '<option value="'+k+'"'+(k===selectedKey?' selected':'')+'>'+OPS[k].label+'</option>';
-        }).join('');
-        html += '<optgroup label="⚠ Hashcat-only (no John equivalent)">'+wopts+'</optgroup>';
-      }
-    }
     return html;
   }
   function populateAddType(){
-    addType.innerHTML = typeOptionsHtml(null);
+    addType.innerHTML = typeOptionsHtml(null, TARGET !== 'hashcat');
   }
   populateAddType();
 
@@ -1081,7 +1084,7 @@ princess</textarea>
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
-            '<select class="s-type">'+typeOptionsHtml(step.type)+'</select>'+
+            '<select class="s-type">'+typeOptionsHtml(step.type, false)+'</select>'+
             (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
             (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
             (!isJohnCompatible(step.type) ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
@@ -1231,9 +1234,15 @@ princess</textarea>
   }
 
   function renderCheatsheet(){
+    var restrict = TARGET !== 'hashcat'; // Both/John: John's engine is a
+                                          // strict subset of hashcat's, so
+                                          // the reference list itself
+                                          // narrows to what's actually usable.
     var html = '';
     GROUPS.forEach(function(g){
-      var keys = Object.keys(OPS).filter(function(k){ return OPS[k].group===g; });
+      var keys = Object.keys(OPS).filter(function(k){
+        return OPS[k].group===g && (!restrict || isJohnCompatible(k));
+      });
       if (!keys.length) return;
       html += '<div class="cheat-group">'+escapeHtml(g)+'</div>';
       keys.forEach(function(k){
@@ -1250,7 +1259,7 @@ princess</textarea>
       });
     });
 
-    if (TARGET !== 'hashcat'){
+    if (restrict){
       html += '<div class="callout small" style="margin-top:14px">'+
         '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
         '<span class="mono">john.conf</span>:<br>'+
@@ -1261,7 +1270,9 @@ princess</textarea>
         'and <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>, <span class="mono">+</span>/<span class="mono">-</span> '+
         '(John falls back to its own meaning when hashcat mode is off and no digit follows).'+
       '</div>';
+    }
 
+    if (TARGET === 'john'){
       html += '<div class="cheat-group">John-exclusive syntax (reference only — not buildable here)</div>';
       JOHN_ONLY.forEach(function(j){
         html += '<div class="cheat-row">'+
