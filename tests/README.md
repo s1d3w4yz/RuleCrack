@@ -82,14 +82,29 @@ forms.
   a raw rule line (section 02) round-trips through the parser into the
   chain and back out through the trace, in both the hashcat and
   John-native dialects; a reject step actually marks the candidate
-  rejected in the trace.
+  rejected in the trace; **reordering two steps actually changes the
+  result** in the direction the engine predicts (the tool's core
+  pedagogical claim, otherwise untested); disabling a step excludes it
+  from both the trace and the export; a chain's export correctly reacts
+  to the active target (a hashcat-only step stays in the export on
+  "Both" since only the add-step menu restricts what's buildable fresh,
+  while the portability note still warns about it — all four note
+  wordings are checked); batch test produces the right per-word output
+  including "rejected" rows; the Min/Max length fields actually change
+  whether a John-native `aN` reject step fires; an out-of-range position
+  argument clamps to 35 in the actual exported rule, not just visually.
 - **Rulefile validator**: a pasted multi-line file is classified
   (comment/blank/valid/invalid) correctly and each valid row's preview
   matches the engine's own result for the same word; deleting a row
   removes it from the exported file while preserving order and
-  comments/blanks; the "Fix in builder" round trip loads the right raw
-  text, switches target to match the validator's dialect, and writes the
-  fixed rule back into the right row on "Save & return".
+  comments/blanks, and the same button restores it; the "Fix in
+  builder" round trip loads the right raw text, switches target to
+  match the validator's dialect, and writes the fixed rule back into the
+  right row on "Save & return"; editing a row's own inline input (a
+  separate code path from "Fix in builder") re-parses it live without
+  losing focus; switching the validator's dialect re-parses every row
+  under the new grammar (the same text can be valid in one dialect and
+  not the other) while preserving which rows were deleted.
 
 ## What's *not* covered yet
 

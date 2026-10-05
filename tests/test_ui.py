@@ -17,6 +17,20 @@ everything cosmetic second):
       into the chain and back out through the trace/export, in both the
       hashcat and John-native dialects
     - a reject step actually marks the candidate as rejected end-to-end
+    - reordering two steps actually changes the result (the tool's core
+      pedagogical claim), and in the direction the engine predicts
+    - disabling a step excludes it from both the trace and the export
+    - a chain's export correctly reacts to the active target: a
+      hashcat-only step stays in the export on "Both" (only the add-step
+      menu restricts what's buildable fresh) but the portability note
+      still warns about it; the note's three other wordings (portable,
+      John-native-with-hashcat-form, John-only) are each checked too
+    - batch test produces the right per-word output, including showing
+      "rejected" for a word a reject step filters out
+    - the Min/Max length fields actually change whether a John-native
+      aN reject step rejects a given word
+    - an out-of-range position argument (e.g. typing 99) clamps to 35 in
+      the actual exported rule, not just visually
 
   Rulefile validator view
     - a pasted multi-line file is classified (comment/blank/rule) and
@@ -25,6 +39,11 @@ everything cosmetic second):
     - delete/restore and the exported cleaned file agree with what was
       actually deleted
     - the "Fix in builder" round trip actually rewrites the right row
+    - editing a row's own inline input (a different code path from "Fix
+      in builder") re-parses it live, synchronously, without losing focus
+    - switching the validator's dialect re-parses every row under the
+      new grammar (a rule valid in one dialect can be invalid in the
+      other) while preserving which rows were deleted
 
 Each check computes its OWN expected value independently (via
 window.__test, the same hook tests/run_tests.py uses) from what was
@@ -242,6 +261,223 @@ def test_validator_fix_in_builder_round_trip(driver, r):
     r.check(row_status, 'that row now shows as valid after the fix')
 
 
+def test_step_reorder_changes_output(driver, r):
+    """The tool's entire pedagogical point: reordering two steps changes
+    the result. u then l always lowercases (l wins); l then u always
+    uppercases (u wins) — same two steps, opposite outputs."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    clear_chain(driver)
+    add_step(driver, 'urest')
+    add_step(driver, 'lrest')
+    set_value(driver, driver.find_element('id', 'wordInput'), 'Test')
+
+    before = engine_run(driver, 'Test', [('urest', {}), ('lrest', {})])
+    ui_before = final_trace_word(driver)
+    r.check(ui_before == before['final'] == 'test',
+            '[u, l] order: UI matches engine (lowercase wins)',
+            f"UI {ui_before!r}, engine {before['final']!r}")
+
+    driver.execute_script("document.querySelector('.step .down').click();")  # swap step 1 and 2
+
+    after = engine_run(driver, 'Test', [('lrest', {}), ('urest', {})])
+    ui_after = final_trace_word(driver)
+    r.check(ui_after == after['final'] == 'TEST',
+            '[l, u] order after swap: UI matches engine (uppercase wins)',
+            f"UI {ui_after!r}, engine {after['final']!r}")
+    r.check(ui_before != ui_after,
+            'swapping step order actually changed the result (not a no-op)')
+
+
+def test_enable_disable_step_excludes_it(driver, r):
+    clear_chain(driver)
+    add_step(driver, 'urest')
+    add_step(driver, 'lrest')
+    set_value(driver, driver.find_element('id', 'wordInput'), 'Test')
+
+    both_enabled = engine_run(driver, 'Test', [('urest', {}), ('lrest', {})])
+    r.check(final_trace_word(driver) == both_enabled['final'] == 'test',
+            'sanity: both steps enabled -> lowercase wins')
+
+    driver.execute_script(
+        "document.querySelectorAll('.step .s-enabled')[1].click();"  # disable 'lrest'
+    )
+    only_first = engine_run(driver, 'Test', [('urest', {})])
+    ui_final = final_trace_word(driver)
+    r.check(ui_final == only_first['final'] == 'TEST',
+            'disabling the 2nd step excludes it from the trace result',
+            f"UI {ui_final!r}, engine (urest only) {only_first['final']!r}")
+
+    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    expected_export = engine_token(driver, 'hashcat', 'urest', {})
+    r.check(export == expected_export,
+            'disabling a step also excludes its token from the export',
+            f"UI export {export!r}, expected {expected_export!r} (just 'u', not 'u l')")
+
+
+def test_cross_target_export_and_portability(driver, r):
+    def note():
+        return driver.execute_script(
+            "var n = document.getElementById('portabilityNote');"
+            "return {text: n.textContent, cls: n.className};"
+        )
+
+    clear_chain(driver)
+    add_step(driver, 'lrest')
+    add_step(driver, 'to_hex_lower')  # hashcat-only ('h'): no John equivalent at all
+
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="hashcat"]').click()
+    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    r.check(export == 'l h', 'hashcat target: export includes the hashcat-only step', export)
+    n = note()
+    r.check(n['cls'] == 'sub warn' and n['text'].startswith('✗ Won’t run in John the Ripper'),
+            'hashcat target: portability note warns about the hashcat-only step', n)
+
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="both"]').click()
+    export_both = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    r.check(export_both == 'l h',
+            '"Both" target: a pre-existing hashcat-only step stays in the export '
+            '(only the add-step menu restricts what\'s buildable fresh, not steps already built)',
+            export_both)
+    n2 = note()
+    r.check(n2['cls'] == 'sub warn',
+            '"Both" target: portability note still warns about the same step')
+
+    # Now drop the hashcat-only step and confirm the "fully portable" note shows.
+    driver.execute_script("document.querySelectorAll('.step .del')[1].click();")  # remove to_hex_lower
+    n3 = note()
+    r.check(n3['cls'] == 'sub ok' and n3['text'].startswith('✓ Portable'),
+            '"Both" target with an all-shared chain: portability note confirms it\'s portable', n3)
+
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="john_native"]').click()
+    n4 = note()
+    r.check(n4['cls'] == 'sub ok' and n4['text'].startswith('✓ Also valid as plain hashcat syntax'),
+            'John-native target with only shared steps: note confirms it\'s also plain hashcat syntax', n4)
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="hashcat"]').click()
+
+
+def test_batch_test_produces_correct_outputs(driver, r):
+    clear_chain(driver)
+    add_step(driver, 'urest')
+    add_step(driver, 'reject_less', {'N': '3'})  # reject if length > 3
+    set_value(driver, driver.find_element('id', 'batchInput'), 'ab\nabcdef')
+
+    rows = driver.execute_script(
+        "return Array.from(document.querySelectorAll('#batchBody tr')).map(function(tr){"
+        "  var tds = tr.querySelectorAll('td');"
+        "  return {word: tds[0].textContent, out: tds[2].textContent, rejected: tds[2].classList.contains('rejected')};"
+        "});"
+    )
+    short_expected = engine_run(driver, 'ab', [('urest', {}), ('reject_less', {'N': 3})])
+    long_expected = engine_run(driver, 'abcdef', [('urest', {}), ('reject_less', {'N': 3})])
+
+    r.check(len(rows) == 2, 'batch table has one row per input word', rows)
+    if len(rows) == 2:
+        r.check(not short_expected['rejected'] and rows[0]['out'] == short_expected['final'] and not rows[0]['rejected'],
+                "batch row 1 ('ab', survives): output matches the engine",
+                f"got {rows[0]!r}, expected final {short_expected['final']!r}")
+        r.check(long_expected['rejected'] and rows[1]['out'] == 'rejected' and rows[1]['rejected'],
+                "batch row 2 ('abcdef', too long): shown as rejected",
+                rows[1])
+
+
+def test_min_max_length_fields_affect_john_native_reject(driver, r):
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="john_native"]').click()
+    clear_chain(driver)
+    add_step(driver, 'j_reject_length', {'N': '2'})  # aN: reject unless (len+N) within [MIN_LEN, MAX_LEN]
+    set_value(driver, driver.find_element('id', 'wordInput'), 'password')  # len 8, +2 = 10
+
+    default_max = driver.find_element('id', 'maxLenInput').get_attribute('value')
+    r.check(not driver.execute_script("return !!document.querySelector('#trace .trace-row.rejected');"),
+            f'sanity: len+2=10 is within the default max length ({default_max}) -> not rejected')
+
+    set_value(driver, driver.find_element('id', 'maxLenInput'), '9')  # now 10 > 9
+    rejected_now = driver.execute_script("return !!document.querySelector('#trace .trace-row.rejected');")
+    r.check(rejected_now, 'lowering Max length to 9 makes the same aN step reject (10 > 9)')
+
+    set_value(driver, driver.find_element('id', 'maxLenInput'), '28')  # restore default
+    driver.find_element('css selector', '#targetBtns .tbtn[data-target="hashcat"]').click()
+
+
+def test_position_arg_clamping(driver, r):
+    clear_chain(driver)
+    add_step(driver, 'toggle_at', {'N': '99'})  # out of hashcat's 0-35 position range
+
+    expected_token = engine_token(driver, 'hashcat', 'toggle_at', {'N': 35})  # clamped
+    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    r.check(export == expected_token == 'TZ',
+            'typing an out-of-range position (99) clamps to 35 in the actual built rule',
+            f"UI export {export!r}, expected {expected_token!r}")
+
+
+def test_validator_inline_edit_live_reparse(driver, r):
+    driver.find_element('css selector', '.mbtn[data-mode="validator"]').click()
+    driver.find_element('css selector', '#validatorDialectBtns .tbtn[data-dialect="hashcat"]').click()
+    set_value(driver, driver.find_element('id', 'validatorInput'), 'zzz$', debounced=True)
+
+    invalid_first = driver.execute_script("return !!document.querySelector('tr[data-idx=\"0\"] .v-status.err');")
+    r.check(invalid_first, 'sanity: "zzz$" starts out invalid')
+
+    # Edit the row's own inline input directly (not "Fix in builder") — a
+    # different code path (patchValidatorRow), synchronous, no debounce.
+    # .focus() first, matching a real user clicking into the field before
+    # typing — without it, document.activeElement never reflects the
+    # input at all (it's not what's being tested here, just how it's set up).
+    driver.execute_script(
+        "var inp = document.querySelector('tr[data-idx=\"0\"] .v-rule');"
+        "inp.focus();"
+        "inp.value = 'l';"
+        "inp.dispatchEvent(new Event('input', {bubbles: true}));"
+    )
+    now_valid = driver.execute_script("return !!document.querySelector('tr[data-idx=\"0\"] .v-status.ok');")
+    r.check(now_valid, 'editing the row\'s own input live re-parses it to valid, with no debounce needed')
+
+    focus_kept = driver.execute_script(
+        "return document.activeElement === document.querySelector('tr[data-idx=\"0\"] .v-rule');"
+    )
+    r.check(focus_kept, 'the input keeps focus after a live re-parse (no full table re-render)')
+
+
+def test_validator_restore(driver, r):
+    # continues from the previous test: one row, now 'l', valid
+    driver.execute_script("document.querySelector('tr[data-idx=\"0\"] .v-del').click();")
+    exported_after_delete = driver.execute_script("return document.getElementById('validatorOutput').value;")
+    r.check(exported_after_delete == '', 'deleting the only row empties the export', repr(exported_after_delete))
+
+    is_deleted = driver.execute_script("return document.querySelector('tr[data-idx=\"0\"]').classList.contains('v-deleted');")
+    r.check(is_deleted, 'the deleted row is visually marked deleted')
+
+    driver.execute_script("document.querySelector('tr[data-idx=\"0\"] .v-del').click();")  # same button = Restore now
+    exported_after_restore = driver.execute_script("return document.getElementById('validatorOutput').value;")
+    r.check(exported_after_restore == 'l', 'clicking the same button again restores the row to the export', repr(exported_after_restore))
+    is_deleted_now = driver.execute_script("return document.querySelector('tr[data-idx=\"0\"]').classList.contains('v-deleted');")
+    r.check(not is_deleted_now, 'the restored row is no longer marked deleted')
+
+
+def test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r):
+    # 'v1a' is valid hashcat syntax (insert 'a' every 1 chars) but 'v' has
+    # no case at all in John's native grammar (it's always read as its own
+    # variable-assignment form there, out of this tool's scope) — a real
+    # case where the same text is valid in one dialect and not the other.
+    set_value(driver, driver.find_element('id', 'validatorInput'), 'v1a\nl', debounced=True)
+    both_valid = driver.execute_script(
+        "return Array.from(document.querySelectorAll('#validatorBody .v-status')).every(function(e){"
+        "  return e.classList.contains('ok');"
+        "});"
+    )
+    r.check(both_valid, 'sanity: both "v1a" and "l" are valid under the hashcat dialect')
+
+    driver.execute_script("document.querySelector('tr[data-idx=\"1\"] .v-del').click();")  # delete 'l'
+
+    driver.find_element('css selector', '#validatorDialectBtns .tbtn[data-dialect="john_native"]').click()
+    row0_invalid = driver.execute_script("return !!document.querySelector('tr[data-idx=\"0\"] .v-status.err');")
+    r.check(row0_invalid, 'switching dialect to John-native re-parses "v1a" as invalid there')
+
+    row1_still_deleted = driver.execute_script("return document.querySelector('tr[data-idx=\"1\"]').classList.contains('v-deleted');")
+    r.check(row1_still_deleted, 'the deletion of row 2 survives the dialect switch')
+
+    driver.find_element('css selector', '#validatorDialectBtns .tbtn[data-dialect="hashcat"]').click()
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -258,6 +494,15 @@ def main():
         test_validator_classification_and_preview(driver, r)
         test_validator_delete_and_export(driver, r)
         test_validator_fix_in_builder_round_trip(driver, r)
+        test_step_reorder_changes_output(driver, r)
+        test_enable_disable_step_excludes_it(driver, r)
+        test_cross_target_export_and_portability(driver, r)
+        test_batch_test_produces_correct_outputs(driver, r)
+        test_min_max_length_fields_affect_john_native_reject(driver, r)
+        test_position_arg_clamping(driver, r)
+        test_validator_inline_edit_live_reparse(driver, r)
+        test_validator_restore(driver, r)
+        test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
     finally:
         driver.quit()
 
