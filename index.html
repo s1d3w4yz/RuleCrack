@@ -47,16 +47,22 @@ header.page{margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
 header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
+header.page p strong{color:var(--ink);font-weight:600}
 
 .targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
 .targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
-.targetbtns{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px}
+.targetbtns{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px}
 .tbtn{
   font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--dim);
   background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;
 }
 .tbtn:hover{color:var(--ink)}
 .tbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
+.tbtn .rec{
+  display:inline-block;margin-left:6px;font-size:.6rem;letter-spacing:.04em;
+  color:var(--accent);border:1px solid var(--accent);border-radius:3px;
+  padding:0 4px;vertical-align:middle;text-transform:uppercase;
+}
 .targetnote{font-size:.78rem;color:var(--dim)}
 
 .badge{
@@ -280,9 +286,10 @@ table.batch td.out.rejected{color:var(--danger)}
       below, watch each step fire one at a time, and see what happens when you
       reorder, add, or remove a step. Start with
       <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule syntax</a>
-      (the default tab): it's unambiguous, it's what most published rule lists use,
-      and John the Ripper runs it byte-for-byte identically in its own hashcat-compat
-      mode — so it's portable without any extra thought. Reach for
+      (the default tab): <strong>it's unambiguous, and it's the de facto standard</strong> —
+      most published rule lists use it, and John the Ripper runs it byte-for-byte
+      identically in its own hashcat-compat mode, so it's portable without any extra
+      thought. Reach for
       <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's own native syntax</a>
       only when you need something hashcat genuinely can't express, like
       pluralization or John's own character classes.
@@ -290,7 +297,7 @@ table.batch td.out.rejected{color:var(--danger)}
     <div class="targetrow">
       <span class="targetlabel">Target:</span>
       <div class="targetbtns" id="targetBtns" role="tablist">
-        <button class="tbtn active" data-target="hashcat" type="button">Hashcat</button>
+        <button class="tbtn active" data-target="hashcat" type="button">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
         <button class="tbtn" data-target="both" type="button">Both (portable)</button>
         <button class="tbtn" data-target="john" type="button">John (hashcat rules)</button>
         <button class="tbtn" data-target="john_native" type="button">John (native rules)</button>
