@@ -449,7 +449,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 
   <div class="grid" id="builderView">
     <!-- LEFT: chain builder -->
-    <div class="card">
+    <div class="card" id="col1Card">
       <h2><span class="n">01</span>Word to transform</h2>
       <label class="field">
         <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false">
@@ -491,7 +491,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
     </div>
 
     <!-- RIGHT: trace + export + batch -->
-    <div class="card">
+    <div class="card" id="col2Card">
       <div class="sectionhead">
         <h2><span class="n">04</span>Step-by-step trace</h2>
         <button class="expandbtn" id="traceExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
@@ -1673,15 +1673,45 @@ d $1$2$3"></textarea>
   // place instead, with the page itself scrolling. Independent per
   // section and purely a display toggle, nothing about the underlying
   // data changes.
-  function wireExpandBtn(btn, el){
+  function wireExpandBtn(btn, el, onToggle){
     btn.addEventListener('click', function(){
       var expanded = el.classList.toggle('expanded');
       btn.innerHTML = expanded ? '&#10531; Collapse' : '&#10530; Expand';
+      if (onToggle) onToggle(expanded);
     });
   }
   wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl);
   wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl);
-  wireExpandBtn(document.getElementById('cheatExpandBtn'), document.getElementById('cheatCard'));
+
+  // Column 3 (cheat sheet) should match whichever of columns 1/2 is
+  // taller, WITHOUT ever influencing columns 1/2's own height back — a
+  // plain CSS align-items:stretch can't do that one-way match (a grid
+  // row's auto height is based on every item's own natural/full-content
+  // size, so the cheat sheet's ~90-operator list — taller than either
+  // other column — ended up setting the row height itself and never
+  // actually got clipped/scrolled, which is the opposite of what was
+  // wanted). Instead, measure columns 1/2 with a ResizeObserver and set
+  // the cheat card's max-height to match in JS; #cheatBody's own
+  // overflow-y:auto then scrolls its content within that imposed height.
+  var cheatCard = document.getElementById('cheatCard');
+  var col1Card = document.getElementById('col1Card');
+  var col2Card = document.getElementById('col2Card');
+  function syncCheatHeight(){
+    if (cheatCard.classList.contains('expanded')) return;
+    if (document.getElementById('builderView').hidden) return;
+    var h = Math.max(col1Card.getBoundingClientRect().height, col2Card.getBoundingClientRect().height);
+    if (h > 0) cheatCard.style.maxHeight = h + 'px';
+  }
+  if (window.ResizeObserver){
+    var cheatHeightObserver = new ResizeObserver(syncCheatHeight);
+    cheatHeightObserver.observe(col1Card);
+    cheatHeightObserver.observe(col2Card);
+  }
+  window.addEventListener('resize', syncCheatHeight);
+  wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
+    if (expanded){ cheatCard.style.maxHeight = ''; } // CSS .expanded{max-height:none} takes over
+    else { syncCheatHeight(); }
+  });
   var hashcatOutput = document.getElementById('hashcatOutput');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
@@ -2053,6 +2083,10 @@ d $1$2$3"></textarea>
     validatorIntro.hidden = mode !== 'validator';
     builderView.hidden = mode !== 'builder';
     validatorView.hidden = mode !== 'validator';
+    // columns 1/2 render at height 0 while builderView is hidden, so the
+    // cheat card's height needs re-measuring once it's visible again —
+    // a ResizeObserver doesn't fire for a display:none subtree.
+    if (mode === 'builder') syncCheatHeight();
   }
   modeToggle.addEventListener('click', function(e){
     var btn = e.target.closest('.mbtn');
@@ -2462,5 +2496,6 @@ d $1$2$3"></textarea>
   ruleTextInput.value = buildRuleString();
   renderCheatsheet();
   renderValidator();
+  syncCheatHeight();
 })();
 </script>
