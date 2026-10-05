@@ -7,7 +7,9 @@ and John the Ripper's rule syntax — hashcat is the recommended default
 (unambiguous, what most public rule lists use, and John runs it identically
 in its own hashcat-compat mode), with John's native syntax available for the
 handful of things hashcat genuinely can't express. Export the chain as a
-real `.rule` line, and batch-test it against a list of words.
+real `.rule` line, batch-test it against a list of words, or switch to the
+separate rulefile validator view to check, fix, and clean up an entire
+existing `.rule` file line by line.
 
 ## What it does
 
@@ -87,6 +89,26 @@ real `.rule` line, and batch-test it against a list of words.
   incompatible token in the copyable rule string itself is colored, so
   compatibility is visible on the literal thing you copy, not just in the
   reference list above it.
+- **Rulefile validator**: a separate top-level view (toggle at the very top
+  of the page, next to the title) for checking an entire existing `.rule`
+  file instead of building one chain — paste it in, pick which dialect it's
+  written in (hashcat or John native; there's no reliable way to
+  auto-detect this, since `p`/`R`/`L`/`v`/`+`/`-` are valid tokens in both
+  dialects with different meanings, so you have to say which engine the
+  file targets, same as a real `!! hashcat logic ON/OFF` boundary would
+  require), and get a real per-line parse — not a guess — using the same
+  parser the single-line input in section 02 uses. Blank lines and `#`
+  comments pass through untouched. Each rule line gets a live status (valid,
+  or the parser's own error with position), an output preview against the
+  same sample word as section 01, an inline-editable text box for quick
+  fixes (re-parses on every keystroke without losing focus), a delete/
+  restore toggle, and a "Fix in builder" button that sends the line to the
+  full chain builder — forcing it onto the matching dialect — for the full
+  trace/cheat-sheet/batch-test treatment, with a "Save fix & return" button
+  back in the builder's export section to write the result back into the
+  right row. An export panel joins every non-deleted line (comments and
+  blanks included, original order preserved) into a copyable, cleaned
+  rulefile.
 
 Hashcat operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
