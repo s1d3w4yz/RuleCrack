@@ -1,10 +1,13 @@
 # Rule Chain Lab
 
-A single-page tool for learning how hashcat-style mask rules work: build an
-ordered chain of transformation steps from hashcat's full rule-based-attack
-operator set, watch each step apply one at a time, and see how reordering the
-chain changes the result. Export the chain as a real Hashcat `.rule` line,
-and batch-test it against a list of words.
+A single-page tool for learning how password-cracking rules work: build an
+ordered chain of transformation steps, watch each step apply one at a time,
+and see how reordering the chain changes the result. Covers both hashcat's
+and John the Ripper's rule syntax — hashcat is the recommended default
+(unambiguous, what most public rule lists use, and John runs it identically
+in its own hashcat-compat mode), with John's native syntax available for the
+handful of things hashcat genuinely can't express. Export the chain as a
+real `.rule` line, and batch-test it against a list of words.
 
 ## What it does
 

@@ -275,12 +275,16 @@ table.batch td.out.rejected{color:var(--danger)}
   <header class="page">
     <h1>Rule Chain Lab</h1>
     <p>
-      A hashcat mask rule is a chain of small transformation steps — capitalize,
+      A password-cracking rule is a chain of small transformation steps — capitalize,
       substitute, append, swap, reject — applied to a word in order. Build a chain
-      below from the full hashcat rule set, watch each step fire one at a time, and
-      see what happens when you reorder, add, or remove a step. The chain exports as
-      a real <span class="mono">.rule</span> line, matching the syntax documented in
-      <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule-based attack reference</a>.
+      below, watch each step fire one at a time, and see what happens when you
+      reorder, add, or remove a step. Start with
+      <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule syntax</a>
+      (the default tab): it's unambiguous, it's what most published rule lists use,
+      and John the Ripper runs it byte-for-byte identically in its own hashcat-compat
+      mode — so it's portable without any extra thought. Reach for John's own native
+      syntax only when you need something hashcat genuinely can't express, like
+      pluralization or John's own character classes.
     </p>
     <div class="targetrow">
       <span class="targetlabel">Target:</span>
@@ -1482,10 +1486,10 @@ princess</textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john' | 'john_native'
   var TARGET_NOTES = {
-    hashcat:     'The full operator set. Rows marked ⚠ only run in hashcat — John has no equivalent at all.',
+    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Rows marked ⚠ only run in hashcat — John has no equivalent at all.',
     both:        'John’s rule engine is a subset of hashcat’s, so this hides the ⚠ hashcat-only operators — what’s left behaves identically in both.',
     john:        'John running hashcat-syntax rules (via "!! hashcat logic ON"). Same portable subset as Both, plus a reference list of what John can do that hashcat can’t.',
-    john_native: 'Builds rules in John’s OWN syntax instead — including the commands below that have no hashcat equivalent at all, now real buildable steps.'
+    john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; the commands below with no hashcat equivalent are now real buildable steps.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
   // are excluded from both/john/john_native; johnOnly ops are excluded from
