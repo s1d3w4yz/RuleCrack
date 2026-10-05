@@ -1545,17 +1545,17 @@ princess</textarea>
     return OPS[key].label;
   }
   // filterTarget: a target name restricts the list to what's buildable
-  // there (used for the "+ add step" menu — John's hashcat-compat engine
-  // is a strict subset of hashcat's, and John-native ops only make sense
-  // once you're building John's own syntax). Pass null/undefined to list
-  // everything regardless of target (used for an existing step's own
-  // dropdown, so changing or just inspecting a step you already built
-  // never loses the option that's currently selected).
+  // there — both the "+ add step" menu and an existing step's own type
+  // dropdown use this, so you never see John-only ops offered while on
+  // the Hashcat target, or hashcat-only ops offered while on John/Both.
+  // selectedKey is always kept in the list even if it fails the filter,
+  // so a step built under a different target still shows its real type
+  // instead of silently losing the selection when you switch tabs.
   function typeOptionsHtml(selectedKey, filterTarget){
     var html = '';
     GROUPS.forEach(function(g){
       var keys = Object.keys(OPS).filter(function(k){
-        return OPS[k].group===g && (!filterTarget || buildableInTarget(k, filterTarget));
+        return OPS[k].group===g && (!filterTarget || k===selectedKey || buildableInTarget(k, filterTarget));
       });
       if (!keys.length) return;
       var opts = keys.map(function(k){
@@ -1607,7 +1607,7 @@ princess</textarea>
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
-            '<select class="s-type">'+typeOptionsHtml(step.type, false)+'</select>'+
+            '<select class="s-type">'+typeOptionsHtml(step.type, TARGET)+'</select>'+
             (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
             (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
             (JOHN_UNSUPPORTED[step.type] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
