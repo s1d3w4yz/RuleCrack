@@ -1,0 +1,3 @@
+# Reference checkout used to verify hashcat rule semantics against the
+# real implementation and test suite — not part of this project.
+/hashcat/

@@ -41,14 +41,15 @@ body{
 h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0}
 .mono{font-family:'IBM Plex Mono','SF Mono',monospace}
 
-.wrap{max-width:1040px;margin:0 auto}
+.wrap{max-width:1080px;margin:0 auto}
 
 header.page{margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
 header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
-header.page p{margin:0;color:var(--dim);max-width:68ch;line-height:1.55}
+header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
+header.page p a{color:var(--accent)}
 
-.grid{display:grid;grid-template-columns:1.05fr 1fr;gap:20px;align-items:start}
-@media (max-width:780px){ .grid{grid-template-columns:1fr} }
+.grid{display:grid;grid-template-columns:1.08fr 1fr;gap:20px;align-items:start}
+@media (max-width:800px){ .grid{grid-template-columns:1fr} }
 
 .card{
   background:var(--surface);
@@ -76,30 +77,42 @@ label.field textarea{
 }
 
 /* step chain */
-.chain{display:flex;flex-direction:column;gap:8px}
+.chain{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;padding-right:2px}
 .step{
   display:flex;align-items:flex-start;gap:8px;
   background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
   padding:10px;
 }
 .step.disabled{opacity:.5}
+.step.rejecty{border-color:var(--danger)}
 .step .idx{
   font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
   width:20px;flex:none;text-align:center;padding-top:8px;
 }
-.step .body{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.step select{
+.step .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.step .body .toprow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.step .taglabel{
+  font-size:.68rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);
+  background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:2px 5px;
+}
+.step select.s-type{
   font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
   background:var(--surface);border:1px solid var(--rule);border-radius:5px;
-  padding:6px 7px;
+  padding:6px 7px;max-width:100%;
 }
-.step input[type=text]{
+.step .argrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.step .argrow .argwrap{display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--dim)}
+.step input.p-arg{
   font-family:'IBM Plex Mono',monospace;font-size:.9rem;color:var(--ink);
   background:var(--surface);border:1px solid var(--rule);border-radius:5px;
-  padding:6px 8px;width:64px;text-align:center;min-width:0;
+  padding:5px 7px;width:52px;text-align:center;min-width:0;
 }
-.step input[type=text].wide{width:84px;text-align:left}
-.step .arrow{color:var(--dim);font-size:.85rem}
+.step input.p-arg.wide{width:72px;text-align:left}
+.step select.p-arg{
+  font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:5px 6px;
+}
 .step .btns{display:flex;flex-direction:column;gap:3px;flex:none}
 .step .btns .row{display:flex;gap:3px}
 .step button.iconbtn{
@@ -116,7 +129,7 @@ label.field textarea{
 select#addType{
   font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
   background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
-  padding:8px 10px;flex:1;min-width:140px;
+  padding:8px 10px;flex:1;min-width:160px;
 }
 button.add{
   background:none;border:1px dashed var(--rule);color:var(--dim);
@@ -126,7 +139,7 @@ button.add{
 button.add:hover{border-color:var(--accent);color:var(--accent)}
 
 /* trace */
-.trace{display:flex;flex-direction:column;gap:0}
+.trace{display:flex;flex-direction:column;gap:0;max-height:420px;overflow-y:auto}
 .trace-row{
   display:grid;grid-template-columns:28px 1fr;gap:10px;
   padding-block:8px;position:relative;
@@ -137,12 +150,14 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
   margin-top:6px;justify-self:center;
 }
 .trace-row .content{min-width:0;display:flex;flex-direction:column;gap:3px}
-.trace-row .word{font-family:'IBM Plex Mono',monospace;font-size:1.15rem;word-break:break-all}
+.trace-row .word{font-family:'IBM Plex Mono',monospace;font-size:1.1rem;word-break:break-all}
 .trace-row .word .hl{color:var(--accent);font-weight:600}
 .trace-row .caption{font-size:.78rem;color:var(--dim)}
 .trace-row.start .word{color:var(--dim)}
 .trace-row.final .dot{background:var(--good)}
-.trace-row.final .word{color:var(--good);font-weight:600;font-size:1.3rem}
+.trace-row.final .word{color:var(--good);font-weight:600;font-size:1.25rem}
+.trace-row.rejected .dot{background:var(--danger)}
+.trace-row.rejected .word{color:var(--danger);font-weight:600}
 
 .copyrow{display:flex;gap:8px;flex-wrap:wrap}
 button.copy{
@@ -168,22 +183,26 @@ table.batch td{padding:6px;font-family:'IBM Plex Mono',monospace;vertical-align:
 table.batch tr+tr td{border-top:1px solid var(--rule)}
 table.batch td.arrow{color:var(--dim);font-family:inherit;text-align:center;padding-top:7px}
 table.batch td.out{color:var(--good)}
+table.batch td.out.rejected{color:var(--danger)}
 
 .callout{
   background:var(--surface-2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
   padding:10px 14px;font-size:.85rem;color:var(--ink);line-height:1.55;
 }
 .callout b{color:var(--accent)}
+.callout.small{font-size:.78rem}
 </style>
 
 <div class="wrap">
   <header class="page">
     <h1>Rule Chain Lab</h1>
     <p>
-      A mask is just a chain of small transformation steps — capitalize, substitute,
-      append — applied to a word in order. Build a chain below, watch each step fire
-      one at a time, and see what happens when you reorder, add, or remove a step.
-      The same chain exports as a Hashcat rule.
+      A hashcat mask rule is a chain of small transformation steps — capitalize,
+      substitute, append, swap, reject — applied to a word in order. Build a chain
+      below from the full hashcat rule set, watch each step fire one at a time, and
+      see what happens when you reorder, add, or remove a step. The chain exports as
+      a real <span class="mono">.rule</span> line, matching the syntax documented in
+      <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule-based attack reference</a>.
     </p>
   </header>
 
@@ -196,26 +215,19 @@ table.batch td.out{color:var(--good)}
       </label>
 
       <h2 style="margin-top:4px"><span class="n">02</span>Step chain</h2>
-      <p class="sub">Steps run top to bottom. Drag isn't needed — use the arrows to move a step and watch the trace change.</p>
+      <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output.</p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
-        <select id="addType">
-          <option value="cap_first">Capitalize first letter</option>
-          <option value="upper_all">Uppercase everything</option>
-          <option value="lower_all">Lowercase everything</option>
-          <option value="sub">Substitute a letter</option>
-          <option value="append">Append text</option>
-          <option value="prepend">Prepend text</option>
-        </select>
+        <select id="addType"></select>
         <button class="add" id="addBtn">+ add step</button>
       </div>
 
-      <div class="callout">
-        <b>Order changes the result.</b> Substituting before capitalizing can skip a
-        letter that capitalizing would otherwise touch, and prepending before
-        appending builds a different string than the reverse. Move a step with the
-        arrows and compare the trace on the right — no two orderings are guaranteed
-        to produce the same output.
+      <div class="callout small">
+        <b>Reject steps</b> don't transform the word — they decide whether the
+        candidate survives at all (e.g. "reject unless length ≥ 8"). Once one
+        rejects, the chain stops and the candidate is discarded. <b>Memory steps</b>
+        (<span class="mono">M 4 6 X Q</span>) only matter in attack modes that keep
+        a memory slot between rules; here they demonstrate the mechanic.
       </div>
     </div>
 
@@ -250,6 +262,400 @@ princess</textarea>
 
 <script>
 (function(){
+  // ---------- helpers ----------
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function posChar(n){ n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
+  function toggleCaseChar(ch){
+    if (/[a-z]/.test(ch)) return ch.toUpperCase();
+    if (/[A-Z]/.test(ch)) return ch.toLowerCase();
+    return ch;
+  }
+  function toggleAll(w){ return w.split('').map(toggleCaseChar).join(''); }
+
+  var SHIFT_PAIRS = [['`','~'],['1','!'],['2','@'],['3','#'],['4','$'],['5','%'],['6','^'],['7','&'],
+    ['8','*'],['9','('],['0',')'],['-','_'],['=','+'],['[','{'],[']','}'],['\\','|'],[';',':'],
+    ["'",'"'],[',','<'],['.','>'],['/','?']];
+  var SHIFT_MAP = {};
+  SHIFT_PAIRS.forEach(function(p){ SHIFT_MAP[p[0]] = p[1]; SHIFT_MAP[p[1]] = p[0]; });
+  function shiftCaseChar(ch){
+    if (/[a-z]/.test(ch)) return ch.toUpperCase();
+    if (/[A-Z]/.test(ch)) return ch.toLowerCase();
+    if (SHIFT_MAP.hasOwnProperty(ch)) return SHIFT_MAP[ch];
+    return ch;
+  }
+  function shiftCaseAll(w){ return w.split('').map(shiftCaseChar).join(''); }
+
+  function toggleAtSep(word, X, N){
+    var arr = word.split(''), toggleNext = false, occurrence = 0;
+    for (var pos = 0; pos < arr.length; pos++){
+      if (arr[pos] === X){
+        if (occurrence === N) toggleNext = true; else occurrence++;
+        continue;
+      }
+      if (toggleNext){ arr[pos] = toggleCaseChar(arr[pos]); break; }
+    }
+    return arr.join('');
+  }
+
+  function titleSep(word, matchFn){
+    var baseline = word.toLowerCase();
+    var result = baseline.split('');
+    if (result.length) result[0] = result[0].toUpperCase();
+    for (var i = 0; i < word.length - 1; i++){
+      if (matchFn(word[i])) result[i+1] = baseline[i+1].toUpperCase();
+    }
+    return result.join('');
+  }
+
+  function insertEvery(word, N, X){
+    var arr = word.split(''), L = arr.length;
+    if (N === 0 || N >= L + 1) return word;
+    var outLen = L + Math.floor((L - (L % N)) / N);
+    var out = new Array(outLen);
+    var src = L, dest = outLen;
+    while (src > 0){
+      if (src % N === 0){ out[dest-1] = X; dest--; }
+      out[dest-1] = arr[src-1];
+      src--; dest--;
+    }
+    return out.join('');
+  }
+
+  function toHex(word, upper){
+    var bytes = new TextEncoder().encode(word);
+    var hex = Array.from(bytes).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    return upper ? hex.toUpperCase() : hex;
+  }
+
+  function countChar(word, X){
+    var c = 0;
+    for (var i=0;i<word.length;i++) if (word[i]===X) c++;
+    return c;
+  }
+
+  function classMatch(ch, cls){
+    switch(cls){
+      case 'l': return /[a-z]/.test(ch);
+      case 'u': return /[A-Z]/.test(ch);
+      case 'd': return /[0-9]/.test(ch);
+      case 's': return ch.length>0 && !/[a-zA-Z0-9]/.test(ch);
+      case 'h': return /[0-9a-f]/.test(ch);
+      case 'H': return /[0-9A-F]/.test(ch);
+      case 'a': case 'b': default: return true;
+    }
+  }
+  function countClass(word, cls){
+    var c=0;
+    for (var i=0;i<word.length;i++) if (classMatch(word[i],cls)) c++;
+    return c;
+  }
+  var CLASS_LABEL = {l:'lowercase letter',u:'uppercase letter',d:'digit',s:'special',a:'any char',h:'hex digit (lower)',H:'hex digit (upper)',b:'any byte'};
+
+  // ---------- op registry ----------
+  // Semantics verified against hashcat's docs/rules.txt, src/rp_cpu.c and
+  // tools/rules-test-cases.yaml (positions are 0-indexed; most positional ops
+  // silently no-op when a position is out of range rather than erroring).
+  var GROUPS = ['Case','Structure & duplication','Insert / delete / replace','Byte math','Encoding','Memory (combo rules)','Reject filters','Class-based (advanced)'];
+
+  var OPS = {};
+  function def(key, o){ OPS[key] = o; }
+
+  // --- Case ---
+  def('lrest',        {label:'Lowercase everything', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'l'; }, run:function(w){ return {word:w.toLowerCase()}; },
+    caption:function(){ return 'Lowercase everything'; }});
+  def('urest',        {label:'Uppercase everything', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'u'; }, run:function(w){ return {word:w.toUpperCase()}; },
+    caption:function(){ return 'Uppercase everything'; }});
+  def('lrest_ufirst',    {label:'Lowercase all, capitalize first', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'c'; }, run:function(w){ return {word: w.length ? w[0].toUpperCase()+w.slice(1).toLowerCase() : w}; },
+    caption:function(){ return 'Lowercase all, capitalize first letter'; }});
+  def('urest_lfirst',    {label:'Uppercase all, lowercase first', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'C'; }, run:function(w){ return {word: w.length ? w[0].toLowerCase()+w.slice(1).toUpperCase() : w}; },
+    caption:function(){ return 'Uppercase all, lowercase first letter'; }});
+  def('trest',        {label:'Toggle case of every char', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 't'; }, run:function(w){ return {word: toggleAll(w)}; },
+    caption:function(){ return 'Toggle the case of every character'; }});
+  def('shift_case',      {label:'Shift case (keyboard-shift)', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'S'; }, run:function(w){ return {word: shiftCaseAll(w)}; },
+    caption:function(){ return 'Shift every key as if Shift were held (letters toggle case, 1→!, 2→@, …)'; }});
+  def('toggle_at',      {label:'Toggle case at position N', group:'Case', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'T'+posChar(a.N); },
+    run:function(w,a){ if (a.N<w.length){ var arr=w.split(''); arr[a.N]=toggleCaseChar(arr[a.N]); return {word:arr.join('')}; } return {word:w}; },
+    caption:function(a){ return 'Toggle case at position '+a.N+' (no-op if out of range)'; }});
+  def('toggle_at_sep',    {label:'Toggle case after Nth occurrence of X', group:'Case', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return '3'+posChar(a.N)+a.X; },
+    run:function(w,a){ return {word: toggleAtSep(w,a.X,a.N)}; },
+    caption:function(a){ return "Toggle the letter right after occurrence "+a.N+" of '"+a.X+"'"; }});
+  def('title',        {label:'Title case (space-separated)', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return 'E'; }, run:function(w){ return {word: titleSep(w, function(ch){ return ch===' '; })}; },
+    caption:function(){ return 'Lowercase, then capitalize the first letter and every letter after a space'; }});
+  def('title_sep',      {label:'Title case (custom separator)', group:'Case', args:[{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 'e'+a.X; },
+    run:function(w,a){ return {word: titleSep(w, function(ch){ return ch===a.X; })}; },
+    caption:function(a){ return "Lowercase, then capitalize the first letter and every letter after '"+a.X+"'"; }});
+
+  // --- Structure & duplication ---
+  def('reverse',       {label:'Reverse the word', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'r'; }, run:function(w){ return {word: w.split('').reverse().join('')}; },
+    caption:function(){ return 'Reverse the word'; }});
+  def('dupeword',       {label:'Duplicate word (append to itself)', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'd'; }, run:function(w){ return {word: w+w}; },
+    caption:function(){ return 'Append the word to itself'; }});
+  def('dupeword_times',   {label:'Duplicate word N times', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'p'+posChar(a.N); },
+    run:function(w,a){ return {word: w + w.repeat(a.N)}; },
+    caption:function(a){ return 'Append '+a.N+' more copies of the word'; }});
+  def('reflect',       {label:'Reflect (append reversed word)', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'f'; }, run:function(w){ return {word: w + w.split('').reverse().join('')}; },
+    caption:function(){ return 'Append the reversed word'; }});
+  def('rotate_left',     {label:'Rotate left', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return '{'; }, run:function(w){ return {word: w.length>1 ? w.slice(1)+w[0] : w}; },
+    caption:function(){ return 'Rotate the word left by one character'; }});
+  def('rotate_right',     {label:'Rotate right', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return '}'; }, run:function(w){ return {word: w.length>1 ? w.slice(-1)+w.slice(0,-1) : w}; },
+    caption:function(){ return 'Rotate the word right by one character'; }});
+  def('dupechar_first',   {label:'Duplicate first char N times', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'z'+posChar(a.N); },
+    run:function(w,a){ return {word: (w[0]||'').repeat(a.N) + w}; },
+    caption:function(a){ return 'Prepend the first character, repeated '+a.N+' times'; }});
+  def('dupechar_last',    {label:'Duplicate last char N times', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'Z'+posChar(a.N); },
+    run:function(w,a){ return {word: w + (w.slice(-1)).repeat(a.N)}; },
+    caption:function(a){ return 'Append the last character, repeated '+a.N+' times'; }});
+  def('dupechar_all',     {label:'Duplicate every char', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'q'; }, run:function(w){ return {word: w.split('').map(function(c){return c+c;}).join('')}; },
+    caption:function(){ return 'Duplicate every character in place'; }});
+  def('dupeblock_first',   {label:'Duplicate first N chars as a block', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'y'+posChar(a.N); },
+    run:function(w,a){ if (a.N>w.length) return {word:w}; var block=w.slice(0,a.N); return {word: block+w}; },
+    caption:function(a){ return 'Duplicate the first '+a.N+' chars, prepended as a block (no-op if word is shorter)'; }});
+  def('dupeblock_last',   {label:'Duplicate last N chars as a block', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'Y'+posChar(a.N); },
+    run:function(w,a){ if (a.N>w.length) return {word:w}; var block=w.slice(-a.N); return {word: w+block}; },
+    caption:function(a){ return 'Duplicate the last '+a.N+' chars, appended as a block (no-op if word is shorter)'; }});
+  def('switch_first',     {label:'Swap first two chars', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'k'; },
+    run:function(w){ if (w.length<2) return {word:w}; var a=w.split(''); var t=a[0]; a[0]=a[1]; a[1]=t; return {word:a.join('')}; },
+    caption:function(){ return 'Swap the first two characters'; }});
+  def('switch_last',     {label:'Swap last two chars', group:'Structure & duplication', args:[], kind:'normal',
+    hashcat:function(){ return 'K'; },
+    run:function(w){ if (w.length<2) return {word:w}; var a=w.split(''); var n=a.length; var t=a[n-1]; a[n-1]=a[n-2]; a[n-2]=t; return {word:a.join('')}; },
+    caption:function(){ return 'Swap the last two characters'; }});
+  def('switch_at',      {label:'Swap chars at N and M', group:'Structure & duplication', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return '*'+posChar(a.N)+posChar(a.M); },
+    run:function(w,a){ if (a.N>=w.length || a.M>=w.length) return {word:w}; var arr=w.split(''); var t=arr[a.N]; arr[a.N]=arr[a.M]; arr[a.M]=t; return {word:arr.join('')}; },
+    caption:function(a){ return 'Swap the characters at positions '+a.N+' and '+a.M+' (no-op if either is out of range)'; }});
+
+  // --- Insert / delete / replace ---
+  def('append',        {label:'Append char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'append',
+    hashcat:function(a){ return '$'+a.X; }, run:function(w,a){ return {word: w+a.X}; },
+    caption:function(a){ return "Append '"+a.X+"'"; }});
+  def('prepend',       {label:'Prepend char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'prepend',
+    hashcat:function(a){ return '^'+a.X; }, run:function(w,a){ return {word: a.X+w}; },
+    caption:function(a){ return "Prepend '"+a.X+"'"; }});
+  def('delete_first',     {label:'Delete first char', group:'Insert / delete / replace', args:[], kind:'normal',
+    hashcat:function(){ return '['; }, run:function(w){ return {word: w.slice(1)}; },
+    caption:function(){ return 'Delete the first character'; }});
+  def('delete_last',     {label:'Delete last char', group:'Insert / delete / replace', args:[], kind:'normal',
+    hashcat:function(){ return ']'; }, run:function(w){ return {word: w.slice(0,-1)}; },
+    caption:function(){ return 'Delete the last character'; }});
+  def('delete_at',      {label:'Delete char at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'D'+posChar(a.N); },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; return {word: w.slice(0,a.N)+w.slice(a.N+1)}; },
+    caption:function(a){ return 'Delete the character at position '+a.N+' (no-op if out of range)'; }});
+  def('extract',       {label:'Extract M chars at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'x'+posChar(a.N)+posChar(a.M); },
+    run:function(w,a){ if (a.N>=w.length || a.N+a.M>w.length) return {word:w}; return {word: w.slice(a.N,a.N+a.M)}; },
+    caption:function(a){ return 'Keep only '+a.M+' chars starting at position '+a.N+' (no-op if that range doesn’t fit)'; }});
+  def('omit',         {label:'Omit M chars at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'O'+posChar(a.N)+posChar(a.M); },
+    run:function(w,a){ if (a.N>=w.length || a.N+a.M>w.length) return {word:w}; return {word: w.slice(0,a.N)+w.slice(a.N+a.M)}; },
+    caption:function(a){ return 'Remove '+a.M+' chars starting at position '+a.N+' (no-op if that range doesn’t fit)'; }});
+  def('insert',        {label:'Insert char at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 'i'+posChar(a.N)+a.X; },
+    run:function(w,a){ if (a.N>w.length) return {word:w}; return {word: w.slice(0,a.N)+a.X+w.slice(a.N)}; },
+    caption:function(a){ return "Insert '"+a.X+"' at position "+a.N+' (no-op if beyond the end)'; }});
+  def('insert_every',     {label:'Insert char every N chars', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 'v'+posChar(a.N)+a.X; },
+    run:function(w,a){ return {word: insertEvery(w,a.N,a.X)}; },
+    caption:function(a){ return "Insert '"+a.X+"' after every "+a.N+' characters'; }});
+  def('overstrike',      {label:'Overwrite char at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 'o'+posChar(a.N)+a.X; },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; return {word: w.slice(0,a.N)+a.X+w.slice(a.N+1)}; },
+    caption:function(a){ return "Overwrite position "+a.N+" with '"+a.X+"' (no-op if out of range)"; }});
+  def('truncate_at',     {label:'Truncate at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return "'"+posChar(a.N); },
+    run:function(w,a){ return {word: w.slice(0,a.N)}; },
+    caption:function(a){ return 'Cut the word down to its first '+a.N+' characters'; }});
+  def('replace',       {label:'Replace all X with Y', group:'Insert / delete / replace', args:[{n:'X',t:'char'},{n:'Y',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 's'+a.X+a.Y; },
+    run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += (w[i]===a.X ? a.Y : w[i]); return {word:out}; },
+    caption:function(a){ return "Replace every '"+a.X+"' with '"+a.Y+"' (case-sensitive)"; }});
+  def('purgechar',      {label:'Purge all of char X', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return '@'+a.X; },
+    run:function(w,a){ return {word: w.split('').filter(function(c){return c!==a.X;}).join('')}; },
+    caption:function(a){ return "Remove every '"+a.X+"'"; }});
+
+  // --- Byte math ---
+  def('chr_shiftl',      {label:'Bitwise shift left at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'L'+posChar(a.N); },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)<<1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
+    caption:function(a){ return 'Bitwise shift-left the byte at position '+a.N; }});
+  def('chr_shiftr',      {label:'Bitwise shift right at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'R'+posChar(a.N); },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)>>1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
+    caption:function(a){ return 'Bitwise shift-right the byte at position '+a.N; }});
+  def('chr_incr',       {label:'Increment byte at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return '+'+posChar(a.N); },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
+    caption:function(a){ return 'Increase the byte value at position '+a.N+' by 1'; }});
+  def('chr_decr',       {label:'Decrement byte at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return '-'+posChar(a.N); },
+    run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)-1+256)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
+    caption:function(a){ return 'Decrease the byte value at position '+a.N+' by 1'; }});
+  def('chr_add',        {label:'Add byte value of X at N', group:'Byte math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+    hashcat:function(a){ return 'B'+posChar(a.N)+a.X; },
+    run:function(w,a){ if (a.N>=w.length || !a.X) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+a.X.charCodeAt(0))&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
+    caption:function(a){ return "Add the byte value of '"+a.X+"' to position "+a.N+' (bytewise, mod 256)'; }});
+  def('replace_np1',     {label:'Copy char@N+1 into N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return '.'+posChar(a.N); },
+    run:function(w,a){ if (a.N<0 || a.N+1>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N+1]; return {word:arr.join('')}; },
+    caption:function(a){ return 'Copy the character at '+(a.N+1)+' into position '+a.N; }});
+  def('replace_nm1',     {label:'Copy char@N-1 into N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return ','+posChar(a.N); },
+    run:function(w,a){ if (a.N<1 || a.N>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N-1]; return {word:arr.join('')}; },
+    caption:function(a){ return 'Copy the character at '+(a.N-1)+' into position '+a.N; }});
+
+  // --- Encoding ---
+  def('to_hex_lower',     {label:'To lowercase hex', group:'Encoding', args:[], kind:'normal',
+    hashcat:function(){ return 'h'; }, run:function(w){ return {word: toHex(w,false)}; },
+    caption:function(){ return 'Convert the whole word to lowercase hex bytes'; }});
+  def('to_hex_upper',     {label:'To uppercase hex', group:'Encoding', args:[], kind:'normal',
+    hashcat:function(){ return 'H'; }, run:function(w){ return {word: toHex(w,true)}; },
+    caption:function(){ return 'Convert the whole word to uppercase hex bytes'; }});
+
+  // --- Memory ---
+  def('memorize',       {label:'Memorize current word', group:'Memory (combo rules)', args:[], kind:'memorize',
+    hashcat:function(){ return 'M'; }, run:function(w,a,ctx){ ctx.memory=w; return {word:w}; },
+    caption:function(a,before,after,ctx){ return 'Memory now holds ‘'+ctx.memory+'’'; }});
+  def('append_memory',    {label:'Append memorized word', group:'Memory (combo rules)', args:[], kind:'append',
+    hashcat:function(){ return '4'; },
+    run:function(w,a,ctx){ if (ctx.memory===null) return {reject:true}; return {word: w+ctx.memory}; },
+    caption:function(){ return 'Append the memorized word'; }});
+  def('prepend_memory',   {label:'Prepend memorized word', group:'Memory (combo rules)', args:[], kind:'prepend',
+    hashcat:function(){ return '6'; },
+    run:function(w,a,ctx){ if (ctx.memory===null) return {reject:true}; return {word: ctx.memory+w}; },
+    caption:function(){ return 'Prepend the memorized word'; }});
+  def('extract_memory',   {label:'Insert memory substring at I', group:'Memory (combo rules)', args:[{n:'N',t:'pos'},{n:'M',t:'pos'},{n:'I',t:'pos'}], kind:'normal',
+    hashcat:function(a){ return 'X'+posChar(a.N)+posChar(a.M)+posChar(a.I); },
+    run:function(w,a,ctx){
+      if (ctx.memory===null) return {reject:true};
+      var mem = ctx.memory;
+      if (a.N>mem.length || a.N+a.M>mem.length || a.I>w.length) return {reject:true};
+      var sub = mem.slice(a.N, a.N+a.M);
+      return {word: w.slice(0,a.I)+sub+w.slice(a.I)};
+    },
+    caption:function(a){ return 'Take '+a.M+' chars from memory at '+a.N+' and insert into the word at '+a.I; }});
+  def('reject_memory',    {label:'Reject if unchanged (= memory)', group:'Memory (combo rules)', args:[], kind:'reject',
+    hashcat:function(){ return 'Q'; },
+    run:function(w,a,ctx){ return {reject: w===ctx.memory}; },
+    caption:function(){ return 'Reject this candidate if it equals the memorized word'; }});
+
+  // --- Reject filters ---
+  def('reject_less',     {label:'Reject if length > N', group:'Reject filters', args:[{n:'N',t:'pos'}], kind:'reject',
+    hashcat:function(a){ return '<'+posChar(a.N); },
+    run:function(w,a){ return {reject: w.length>a.N}; },
+    caption:function(a){ return 'Reject unless length ≤ '+a.N; }});
+  def('reject_greater',   {label:'Reject if length < N', group:'Reject filters', args:[{n:'N',t:'pos'}], kind:'reject',
+    hashcat:function(a){ return '>'+posChar(a.N); },
+    run:function(w,a){ return {reject: w.length<a.N}; },
+    caption:function(a){ return 'Reject unless length ≥ '+a.N; }});
+  def('reject_equal',     {label:'Reject if length ≠ N', group:'Reject filters', args:[{n:'N',t:'pos'}], kind:'reject',
+    hashcat:function(a){ return '_'+posChar(a.N); },
+    run:function(w,a){ return {reject: w.length!==a.N}; },
+    caption:function(a){ return 'Reject unless length is exactly '+a.N; }});
+  def('reject_contain',    {label:'Reject if contains X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return '!'+a.X; },
+    run:function(w,a){ return {reject: w.indexOf(a.X)!==-1}; },
+    caption:function(a){ return "Reject if it contains '"+a.X+"'"; }});
+  def('reject_not_contain',  {label:'Reject unless contains X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return '/'+a.X; },
+    run:function(w,a){ return {reject: w.indexOf(a.X)===-1}; },
+    caption:function(a){ return "Reject unless it contains '"+a.X+"'"; }});
+  def('reject_equal_first',  {label:'Reject unless first char = X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return '('+a.X; },
+    run:function(w,a){ return {reject: w[0]!==a.X}; },
+    caption:function(a){ return "Reject unless the first character is '"+a.X+"'"; }});
+  def('reject_equal_last',  {label:'Reject unless last char = X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return ')'+a.X; },
+    run:function(w,a){ return {reject: w.slice(-1)!==a.X}; },
+    caption:function(a){ return "Reject unless the last character is '"+a.X+"'"; }});
+  def('reject_equal_at',   {label:'Reject unless char@N = X', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return '='+posChar(a.N)+a.X; },
+    run:function(w,a){ return {reject: w[a.N]!==a.X}; },
+    caption:function(a){ return "Reject unless position "+a.N+" is '"+a.X+"'"; }});
+  def('reject_contains',   {label:'Reject if count(X) ≤ N', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
+    hashcat:function(a){ return '%'+posChar(a.N)+a.X; },
+    run:function(w,a){ return {reject: countChar(w,a.X)<=a.N}; },
+    caption:function(a){ return "Reject unless '"+a.X+"' appears more than "+a.N+' time(s)'; }});
+
+  // --- Class-based (advanced) ---
+  def('cls_replace',     {label:'Replace class C with Y', group:'Class-based (advanced)', args:[{n:'C',t:'class'},{n:'Y',t:'char'}], kind:'normal',
+    hashcat:function(a){ return '~s?'+a.C+a.Y; },
+    run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += classMatch(w[i],a.C) ? a.Y : w[i]; return {word:out}; },
+    caption:function(a){ return 'Replace every '+CLASS_LABEL[a.C]+" with '"+a.Y+"'"; }});
+  def('cls_purge',      {label:'Purge chars in class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'normal',
+    hashcat:function(a){ return '~@?'+a.C; },
+    run:function(w,a){ return {word: w.split('').filter(function(c){return !classMatch(c,a.C);}).join('')}; },
+    caption:function(a){ return 'Remove every '+CLASS_LABEL[a.C]; }});
+  def('cls_title_sep',    {label:'Title case, separator = class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'normal',
+    hashcat:function(a){ return '~e?'+a.C; },
+    run:function(w,a){ return {word: titleSep(w, function(ch){ return classMatch(ch,a.C); })}; },
+    caption:function(a){ return 'Capitalize the first letter and every letter after a '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_contain',  {label:'Reject if contains class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~!?'+a.C; },
+    run:function(w,a){ return {reject: countClass(w,a.C)>0}; },
+    caption:function(a){ return 'Reject if it contains any '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_not_contain', {label:'Reject unless contains class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~/?'+a.C; },
+    run:function(w,a){ return {reject: countClass(w,a.C)===0}; },
+    caption:function(a){ return 'Reject unless it contains at least one '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_first',  {label:'Reject unless first char in class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~(?'+a.C; },
+    run:function(w,a){ return {reject: !w.length || !classMatch(w[0],a.C)}; },
+    caption:function(a){ return 'Reject unless the first character is a '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_last',   {label:'Reject unless last char in class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~)?'+a.C; },
+    run:function(w,a){ return {reject: !w.length || !classMatch(w.slice(-1),a.C)}; },
+    caption:function(a){ return 'Reject unless the last character is a '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_at',    {label:'Reject unless char@N in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~='+posChar(a.N)+'?'+a.C; },
+    run:function(w,a){ return {reject: a.N>=w.length || !classMatch(w[a.N],a.C)}; },
+    caption:function(a){ return 'Reject unless position '+a.N+' is a '+CLASS_LABEL[a.C]; }});
+  def('cls_reject_contains', {label:'Reject if count(class C) ≤ N', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
+    hashcat:function(a){ return '~%'+posChar(a.N)+'?'+a.C; },
+    run:function(w,a){ return {reject: countClass(w,a.C)<=a.N}; },
+    caption:function(a){ return 'Reject unless more than '+a.N+' chars are a '+CLASS_LABEL[a.C]; }});
+
+  var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','special'],['a','any'],['h','hex (lower)'],['H','hex (upper)'],['b','any byte']];
+
+  // ---------- default args per op ----------
+  function defaultArgs(opKey){
+    var op = OPS[opKey], out = {};
+    op.args.forEach(function(spec){
+      if (spec.t==='pos') out[spec.n] = (spec.n==='N') ? 1 : (spec.n==='M' ? 1 : 0);
+      else if (spec.t==='char') out[spec.n] = (spec.n==='Y') ? '1' : '!';
+      else if (spec.t==='class') out[spec.n] = 'l';
+    });
+    return out;
+  }
+
+  // ---------- state ----------
   var wordInput = document.getElementById('wordInput');
   var chainEl = document.getElementById('chain');
   var addType = document.getElementById('addType');
@@ -262,47 +668,46 @@ princess</textarea>
   var batchBody = document.getElementById('batchBody');
 
   var uid = 0;
+  function newStep(type){
+    return {id: uid++, type:type, enabled:true, args: defaultArgs(type)};
+  }
+
   var steps = [
-    {id: uid++, type:'cap_first', enabled:true, from:'', to:'', text:''},
-    {id: uid++, type:'sub', enabled:true, from:'a', to:'4', text:''},
-    {id: uid++, type:'sub', enabled:true, from:'e', to:'3', text:''},
-    {id: uid++, type:'sub', enabled:true, from:'i', to:'1', text:''},
-    {id: uid++, type:'sub', enabled:true, from:'o', to:'0', text:''},
-    {id: uid++, type:'sub', enabled:true, from:'s', to:'5', text:''},
-    {id: uid++, type:'append', enabled:true, from:'', to:'', text:'!1'}
+    Object.assign(newStep('lrest_ufirst'), {}),
+    Object.assign(newStep('replace'), {args:{X:'a',Y:'4'}}),
+    Object.assign(newStep('replace'), {args:{X:'e',Y:'3'}}),
+    Object.assign(newStep('replace'), {args:{X:'i',Y:'1'}}),
+    Object.assign(newStep('replace'), {args:{X:'o',Y:'0'}}),
+    Object.assign(newStep('replace'), {args:{X:'s',Y:'5'}}),
+    Object.assign(newStep('append'), {args:{X:'!'}}),
+    Object.assign(newStep('append'), {args:{X:'1'}})
   ];
 
-  var TYPE_LABEL = {
-    cap_first:'Capitalize first letter',
-    upper_all:'Uppercase everything',
-    lower_all:'Lowercase everything',
-    sub:'Substitute',
-    append:'Append',
-    prepend:'Prepend'
-  };
-
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  // populate add-type dropdown, grouped
+  GROUPS.forEach(function(g){
+    var og = document.createElement('optgroup');
+    og.label = g;
+    Object.keys(OPS).forEach(function(key){
+      if (OPS[key].group===g){
+        var opt = document.createElement('option');
+        opt.value = key; opt.textContent = OPS[key].label;
+        og.appendChild(opt);
+      }
     });
-  }
+    addType.appendChild(og);
+  });
 
-  function newStep(type){
-    var s = {id: uid++, type:type, enabled:true, from:'', to:'', text:''};
-    if (type==='sub'){ s.from='t'; s.to='7'; }
-    if (type==='append'){ s.text='1'; }
-    if (type==='prepend'){ s.text='_'; }
-    return s;
-  }
-
-  function renderParams(step){
-    if (step.type==='sub'){
-      return '<input type="text" class="p-from mono" maxlength="1" value="'+escapeHtml(step.from)+'" placeholder="a">'+
-             '<span class="arrow">&rarr;</span>'+
-             '<input type="text" class="p-to mono" maxlength="2" value="'+escapeHtml(step.to)+'" placeholder="4">';
+  function renderArgInput(step, spec){
+    var val = step.args[spec.n];
+    if (spec.t==='pos'){
+      return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg" data-arg="'+spec.n+'" inputmode="numeric" value="'+escapeHtml(val)+'"></span>';
     }
-    if (step.type==='append' || step.type==='prepend'){
-      return '<input type="text" class="p-text mono wide" value="'+escapeHtml(step.text)+'" placeholder="text">';
+    if (spec.t==='char'){
+      return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg wide" data-arg="'+spec.n+'" maxlength="2" value="'+escapeHtml(val)+'"></span>';
+    }
+    if (spec.t==='class'){
+      var options = CLASS_OPTIONS.map(function(c){ return '<option value="'+c[0]+'"'+(c[0]===val?' selected':'')+'>'+c[1]+'</option>'; }).join('');
+      return '<span class="argwrap">'+spec.n+'=<select class="p-arg" data-arg="'+spec.n+'">'+options+'</select></span>';
     }
     return '';
   }
@@ -310,20 +715,30 @@ princess</textarea>
   function renderChain(){
     chainEl.innerHTML = '';
     steps.forEach(function(step, i){
+      var op = OPS[step.type];
       var row = document.createElement('div');
-      row.className = 'step' + (step.enabled ? '' : ' disabled');
+      row.className = 'step' + (step.enabled ? '' : ' disabled') + (op.kind==='reject' ? ' rejecty' : '');
       row.dataset.id = step.id;
 
-      var typeOptions = Object.keys(TYPE_LABEL).map(function(t){
-        return '<option value="'+t+'"'+(t===step.type?' selected':'')+'>'+TYPE_LABEL[t]+'</option>';
-      }).join('');
+      var typeOptions = [];
+      GROUPS.forEach(function(g){
+        var opts = Object.keys(OPS).filter(function(k){ return OPS[k].group===g; })
+          .map(function(k){ return '<option value="'+k+'"'+(k===step.type?' selected':'')+'>'+OPS[k].label+'</option>'; }).join('');
+        typeOptions.push('<optgroup label="'+g+'">'+opts+'</optgroup>');
+      });
+
+      var argsHtml = op.args.map(function(spec){ return renderArgInput(step, spec); }).join('');
 
       row.innerHTML =
         '<span class="idx mono">'+(i+1)+'</span>'+
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
-          '<select class="s-type">'+typeOptions+'</select>'+
-          '<span class="params">'+renderParams(step)+'</span>'+
+          '<div class="toprow">'+
+            '<select class="s-type">'+typeOptions.join('')+'</select>'+
+            (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
+            (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
+          '</div>'+
+          (argsHtml ? '<div class="argrow">'+argsHtml+'</div>' : '')+
         '</div>'+
         '<div class="btns">'+
           '<div class="row">'+
@@ -333,111 +748,83 @@ princess</textarea>
           '<button class="iconbtn del" title="remove step">&times;</button>'+
         '</div>';
 
-      row.querySelector('.s-enabled').addEventListener('change', function(e){
-        step.enabled = e.target.checked; renderAll();
-      });
+      row.querySelector('.s-enabled').addEventListener('change', function(e){ step.enabled = e.target.checked; renderAll(); });
       row.querySelector('.s-type').addEventListener('change', function(e){
-        var fresh = newStep(e.target.value);
-        step.type = fresh.type; step.from = fresh.from; step.to = fresh.to; step.text = fresh.text;
-        renderAll();
+        step.type = e.target.value; step.args = defaultArgs(step.type); renderAll();
       });
-      var pf = row.querySelector('.p-from'); if (pf) pf.addEventListener('input', function(e){ step.from = e.target.value.toLowerCase(); renderTraceAndRule(); renderBatch(); });
-      var pt = row.querySelector('.p-to'); if (pt) pt.addEventListener('input', function(e){ step.to = e.target.value; renderTraceAndRule(); renderBatch(); });
-      var ptx = row.querySelector('.p-text'); if (ptx) ptx.addEventListener('input', function(e){ step.text = e.target.value; renderTraceAndRule(); renderBatch(); });
+      row.querySelectorAll('.p-arg').forEach(function(input){
+        input.addEventListener('input', function(e){
+          var argName = e.target.dataset.arg;
+          var spec = op.args.filter(function(s){return s.n===argName;})[0];
+          var v = e.target.value;
+          if (spec.t==='pos'){ v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
+          else if (spec.t==='char'){ v = v.slice(0,1); }
+          step.args[argName] = v;
+          renderTraceAndRule(); renderBatch();
+        });
+      });
 
-      row.querySelector('.up').addEventListener('click', function(){
-        if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAll(); }
-      });
-      row.querySelector('.down').addEventListener('click', function(){
-        if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAll(); }
-      });
-      row.querySelector('.del').addEventListener('click', function(){
-        steps.splice(i,1); renderAll();
-      });
+      row.querySelector('.up').addEventListener('click', function(){ if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAll(); } });
+      row.querySelector('.down').addEventListener('click', function(){ if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAll(); } });
+      row.querySelector('.del').addEventListener('click', function(){ steps.splice(i,1); renderAll(); });
 
       chainEl.appendChild(row);
     });
   }
 
-  function applyStep(word, step){
-    switch(step.type){
-      case 'cap_first':
-        return word.length ? word[0].toUpperCase() + word.slice(1) : word;
-      case 'upper_all':
-        return word.toUpperCase();
-      case 'lower_all':
-        return word.toLowerCase();
-      case 'sub': {
-        if (!step.from) return word;
-        var out = '';
-        for (var i=0;i<word.length;i++){
-          out += (word[i].toLowerCase() === step.from) ? step.to : word[i];
-        }
-        return out;
+  // ---------- engine ----------
+  function runChain(word){
+    var ctx = {memory: null};
+    var current = word;
+    var trace = [{word: current, caption:'Starting word', changedHtml: escapeHtml(current), rejected:false}];
+    var rejected = false, rejectCaption = '';
+
+    for (var s=0; s<steps.length; s++){
+      var step = steps[s];
+      if (!step.enabled) continue;
+      var op = OPS[step.type];
+      var before = current;
+      var res = op.run(before, step.args, ctx);
+
+      if (res.reject){
+        rejected = true;
+        rejectCaption = op.caption(step.args, before, before, ctx) || 'Rejected';
+        trace.push({word: before, caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(before), rejected:true});
+        break;
       }
-      case 'append':
-        return word + (step.text||'');
-      case 'prepend':
-        return (step.text||'') + word;
-      default:
-        return word;
+
+      var after = (res.word!==undefined) ? res.word : before;
+      var caption = op.caption(step.args, before, after, ctx);
+      var changedHtml = highlightAfter(op, before, after);
+      trace.push({word: after, caption: caption, changedHtml: changedHtml, rejected:false});
+      current = after;
     }
+
+    return {final: rejected ? null : current, trace: trace, rejected: rejected};
   }
 
-  function stepCaption(step, before, after){
-    switch(step.type){
-      case 'cap_first': return 'Capitalize first letter';
-      case 'upper_all': return 'Uppercase everything';
-      case 'lower_all': return 'Lowercase everything';
-      case 'sub': return step.from ? ("Substitute '"+step.from+"' → '"+(step.to||'')+"'") : 'Substitute (no letter set)';
-      case 'append': return "Append '"+(step.text||'')+"'";
-      case 'prepend': return "Prepend '"+(step.text||'')+"'";
+  function highlightAfter(op, before, after){
+    if (op.kind==='append'){
+      var addLen = after.length - before.length;
+      if (addLen <= 0) return escapeHtml(after);
+      var head = after.slice(0, after.length-addLen), tail = after.slice(after.length-addLen);
+      return escapeHtml(head) + '<span class="hl">'+escapeHtml(tail)+'</span>';
     }
-    return '';
-  }
-
-  // Highlight what changed between `before` and `after` for a given step,
-  // rendering `after` with the changed region wrapped for emphasis.
-  function highlightAfter(step, before, after){
-    if (step.type==='append'){
-      var addLen = (step.text||'').length;
-      var head = after.slice(0, after.length-addLen);
-      var tail = after.slice(after.length-addLen);
-      return escapeHtml(head) + (tail ? '<span class="hl">'+escapeHtml(tail)+'</span>' : '');
+    if (op.kind==='prepend'){
+      var pLen = after.length - before.length;
+      if (pLen <= 0) return escapeHtml(after);
+      var pHead = after.slice(0,pLen), pTail = after.slice(pLen);
+      return '<span class="hl">'+escapeHtml(pHead)+'</span>' + escapeHtml(pTail);
     }
-    if (step.type==='prepend'){
-      var pLen = (step.text||'').length;
-      var pHead = after.slice(0,pLen);
-      var pTail = after.slice(pLen);
-      return (pHead ? '<span class="hl">'+escapeHtml(pHead)+'</span>' : '') + escapeHtml(pTail);
-    }
-    // same-length transforms: diff char by char against `before`
+    if (op.kind==='memorize') return escapeHtml(after);
     if (before.length === after.length){
       var html = '';
       for (var i=0;i<after.length;i++){
-        if (before[i] !== after[i]) html += '<span class="hl">'+escapeHtml(after[i])+'</span>';
-        else html += escapeHtml(after[i]);
+        html += (before[i]!==after[i]) ? '<span class="hl">'+escapeHtml(after[i])+'</span>' : escapeHtml(after[i]);
       }
       return html;
     }
-    return escapeHtml(after);
-  }
-
-  function runChain(word){
-    var current = word;
-    var trace = [{word: current, caption:'Starting word', changedHtml: escapeHtml(current)}];
-    steps.forEach(function(step){
-      if (!step.enabled) return;
-      var before = current;
-      var after = applyStep(before, step);
-      trace.push({
-        word: after,
-        caption: stepCaption(step, before, after),
-        changedHtml: highlightAfter(step, before, after)
-      });
-      current = after;
-    });
-    return {final: current, trace: trace};
+    return '<span class="hl">'+escapeHtml(after)+'</span>';
   }
 
   function renderTraceAndRule(){
@@ -445,8 +832,9 @@ princess</textarea>
     var result = runChain(word);
 
     traceEl.innerHTML = result.trace.map(function(row, i){
-      var isFirst = i===0, isLast = i===result.trace.length-1 && result.trace.length>1;
-      var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'');
+      var isFirst = i===0;
+      var isLast = i===result.trace.length-1 && result.trace.length>1 && !row.rejected;
+      var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'');
       return '<div class="'+cls+'"><span class="dot"></span>'+
         '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
@@ -459,14 +847,7 @@ princess</textarea>
     var parts = [];
     steps.forEach(function(step){
       if (!step.enabled) return;
-      switch(step.type){
-        case 'cap_first': parts.push('c'); break;
-        case 'upper_all': parts.push('u'); break;
-        case 'lower_all': parts.push('l'); break;
-        case 'sub': if (step.from) parts.push('s'+step.from+(step.to||'')); break;
-        case 'append': (step.text||'').split('').forEach(function(ch){ parts.push('$'+ch); }); break;
-        case 'prepend': (step.text||'').split('').reverse().forEach(function(ch){ parts.push('^'+ch); }); break;
-      }
+      parts.push(OPS[step.type].hashcat(step.args));
     });
     return parts.length ? parts.join(' ') : '(no rule — chain is empty)';
   }
@@ -474,8 +855,10 @@ princess</textarea>
   function renderBatch(){
     var lines = (batchInput.value||'').split('\n').map(function(l){return l.trim();}).filter(Boolean);
     batchBody.innerHTML = lines.map(function(w){
-      var out = runChain(w).final;
-      return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out">'+escapeHtml(out)+'</td></tr>';
+      var result = runChain(w);
+      var out = result.rejected ? 'rejected' : result.final;
+      var cls = result.rejected ? ' rejected' : '';
+      return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out'+cls+'">'+escapeHtml(out)+'</td></tr>';
     }).join('') || '<tr><td colspan="3" style="color:var(--dim);font-family:inherit">Add words above, one per line.</td></tr>';
   }
 
@@ -488,7 +871,7 @@ princess</textarea>
   wordInput.addEventListener('input', renderTraceAndRule);
   batchInput.addEventListener('input', renderBatch);
   addBtn.addEventListener('click', function(){
-    steps.push(newStep(addType.value));
+    steps.push(newStep(addType.value || Object.keys(OPS)[0]));
     renderAll();
   });
 
@@ -513,7 +896,8 @@ princess</textarea>
     } else { fallback(); }
   }
   copyResultBtn.addEventListener('click', function(){
-    copyText(runChain(wordInput.value||'').final, copyResultBtn);
+    var result = runChain(wordInput.value||'');
+    copyText(result.rejected ? '(rejected)' : result.final, copyResultBtn);
   });
   copyRuleBtn.addEventListener('click', function(){
     copyText(hashcatOutput.textContent, copyRuleBtn);
