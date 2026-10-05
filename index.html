@@ -65,6 +65,14 @@ header.page p strong{color:var(--ink);font-weight:600}
 }
 .targetnote{font-size:.78rem;color:var(--dim)}
 
+.modetoggle{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px;width:fit-content;margin:10px 0 16px}
+.mbtn{
+  font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--dim);
+  background:none;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;
+}
+.mbtn:hover{color:var(--ink)}
+.mbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
+
 .badge{
   display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.66rem;
   letter-spacing:.02em;padding:1px 6px;border-radius:4px;border:1px solid var(--rule);
@@ -112,6 +120,7 @@ header.page p strong{color:var(--ink);font-weight:600}
 #portabilityNote.warn{color:var(--danger)}
 
 .grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
+.grid[hidden]{display:none}
 @media (max-width:1150px){ .grid{grid-template-columns:1fr 1fr} .grid .card.cheat{grid-column:1 / -1} }
 @media (max-width:800px){ .grid{grid-template-columns:1fr} .grid .card.cheat{grid-column:auto} }
 
@@ -272,6 +281,39 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 }
 .jump-highlight{animation:jumpFlash 1s ease}
 
+/* rulefile validator */
+.vtable-wrap{max-height:480px;overflow-y:auto;border:1px solid var(--rule);border-radius:8px;margin-top:8px}
+.vtable{width:100%;border-collapse:collapse;font-size:.82rem}
+.vtable th{
+  position:sticky;top:0;background:var(--surface-2);text-align:left;z-index:1;
+  font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);
+  padding:7px 8px;font-weight:600;border-bottom:1px solid var(--rule);
+}
+.vtable td{padding:7px 8px;vertical-align:top;border-bottom:1px solid var(--rule)}
+.vtable tr:last-child td{border-bottom:none}
+.vtable tr.v-deleted{opacity:.45}
+.vtable .v-idx{font-family:'IBM Plex Mono',monospace;color:var(--dim);padding-top:10px;white-space:nowrap}
+.vtable .v-comment{color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:.82rem;padding-top:8px}
+.vtable input.v-rule{
+  width:100%;min-width:130px;font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;padding:5px 7px;
+}
+.vtable tr.v-deleted input.v-rule{text-decoration:line-through}
+.vtable input.v-rule:focus{border-color:var(--accent);outline:none}
+.v-status{font-size:.72rem;font-weight:700;white-space:nowrap;display:block}
+.v-status.ok{color:var(--good)}
+.v-status.err{color:var(--danger)}
+.v-err-detail{font-size:.7rem;color:var(--danger);opacity:.85;margin-top:2px}
+.v-preview{font-family:'IBM Plex Mono',monospace;font-size:.82rem}
+.v-preview.rejected{color:var(--danger)}
+.v-actions{display:flex;gap:5px;flex-wrap:wrap;padding-top:7px}
+.v-actions button{
+  font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--dim);
+  background:none;border:1px solid var(--rule);border-radius:5px;padding:4px 8px;cursor:pointer;white-space:nowrap;
+}
+.v-actions button:hover{border-color:var(--accent);color:var(--accent)}
+.v-actions button.v-del:hover{border-color:var(--danger);color:var(--danger)}
+
 .callout{
   background:var(--surface-2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
   padding:10px 14px;font-size:.85rem;color:var(--ink);line-height:1.55;
@@ -304,32 +346,61 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 <div class="wrap">
   <header class="page">
     <h1>Rule Chain Lab</h1>
-    <p>
-      A password-cracking rule is a chain of small transformation steps — capitalize,
-      substitute, append, swap, reject — applied to a word in order. Build a chain
-      below, watch each step fire one at a time, and see what happens when you
-      reorder, add, or remove a step. Start with
-      <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule syntax</a>
-      (the default tab): <strong>it's unambiguous, and it's the de facto standard</strong> —
-      most published rule lists use it, and John the Ripper runs it byte-for-byte
-      identically in its own hashcat-compat mode, so it's portable without any extra
-      thought. Reach for
-      <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's own native syntax</a>
-      only when you need something hashcat genuinely can't express, like
-      pluralization or John's own character classes.
-    </p>
-    <div class="targetrow">
-      <span class="targetlabel">Target:</span>
-      <div class="targetbtns" id="targetBtns" role="tablist">
-        <button class="tbtn active" data-target="hashcat" type="button">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
-        <button class="tbtn" data-target="both" type="button">Both (hashcat-compatible)</button>
-        <button class="tbtn" data-target="john_native" type="button">John (native rules)</button>
+    <div class="modetoggle" id="modeToggle" role="tablist">
+      <button class="mbtn active" data-mode="builder" type="button">Chain builder</button>
+      <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
+    </div>
+    <div id="builderIntro">
+      <p>
+        A password-cracking rule is a chain of small transformation steps — capitalize,
+        substitute, append, swap, reject — applied to a word in order. Build a chain
+        below, watch each step fire one at a time, and see what happens when you
+        reorder, add, or remove a step. Start with
+        <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule syntax</a>
+        (the default tab): <strong>it's unambiguous, and it's the de facto standard</strong> —
+        most published rule lists use it, and John the Ripper runs it byte-for-byte
+        identically in its own hashcat-compat mode, so it's portable without any extra
+        thought. Reach for
+        <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's own native syntax</a>
+        only when you need something hashcat genuinely can't express, like
+        pluralization or John's own character classes.
+      </p>
+      <div class="targetrow">
+        <span class="targetlabel">Target:</span>
+        <div class="targetbtns" id="targetBtns" role="tablist">
+          <button class="tbtn active" data-target="hashcat" type="button">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
+          <button class="tbtn" data-target="both" type="button">Both (hashcat-compatible)</button>
+          <button class="tbtn" data-target="john_native" type="button">John (native rules)</button>
+        </div>
+        <span class="targetnote" id="targetNote"></span>
       </div>
-      <span class="targetnote" id="targetNote"></span>
+    </div>
+    <div id="validatorIntro" hidden>
+      <p>
+        Paste an existing <span class="mono">.rule</span> file (or a John
+        <span class="mono">List.Rules</span> section) below and check every line against
+        a real parser — not a guess. Pick the syntax it's written in first:
+        the same letter can mean two different things in hashcat syntax versus
+        John's own native grammar (<span class="mono">p</span>, <span class="mono">R</span>,
+        <span class="mono">L</span>, <span class="mono">v</span>, <span class="mono">+</span>/<span class="mono">-</span>),
+        so there's no reliable way to auto-detect which dialect a file is in —
+        you already know which engine it's meant to run on, so say so here.
+        Blank lines and <span class="mono">#</span> comments pass through untouched.
+        Fix a broken line inline, or send it to the chain builder above for the
+        full trace/cheat-sheet treatment; delete lines you don't want; then
+        export the cleaned file.
+      </p>
+      <div class="targetrow">
+        <span class="targetlabel">Syntax:</span>
+        <div class="targetbtns" id="validatorDialectBtns" role="tablist">
+          <button class="tbtn active" data-dialect="hashcat" type="button">Hashcat syntax</button>
+          <button class="tbtn" data-dialect="john_native" type="button">John native syntax</button>
+        </div>
+      </div>
     </div>
   </header>
 
-  <div class="grid">
+  <div class="grid" id="builderView">
     <!-- LEFT: chain builder -->
     <div class="card">
       <h2><span class="n">01</span>Word to transform</h2>
@@ -381,6 +452,13 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
       </div>
       <div class="rule-out mono" id="hashcatOutput"></div>
       <div class="sub" id="portabilityNote" style="margin-top:-6px"></div>
+      <div class="callout small" id="validatorReturnBox" hidden style="margin-top:8px">
+        Fixing row <span id="validatorReturnRow" class="mono"></span> from the rulefile validator.
+        <div class="copyrow" style="margin-top:6px">
+          <button class="copy" id="validatorReturnSave">✓ Save fix &amp; return to validator</button>
+          <button class="copy" id="validatorReturnCancel">Cancel</button>
+        </div>
+      </div>
 
       <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
@@ -402,6 +480,34 @@ princess</textarea>
       <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
       <div class="cheat-legend" id="cheatLegend"></div>
       <div id="cheatBody"></div>
+    </div>
+  </div>
+
+  <div class="grid" id="validatorView" hidden>
+    <div class="card" style="grid-column:1/-1">
+      <h2><span class="n">V1</span>Rulefile input</h2>
+      <label class="field">
+        <textarea id="validatorInput" spellcheck="false" placeholder="# example rules
+c sa4 se3 si1 so0 ss5 $! $1
+uq
+d $1$2$3"></textarea>
+      </label>
+      <p class="sub" id="validatorSummary"></p>
+
+      <h2 style="margin-top:4px"><span class="n">V2</span>Diagnostics</h2>
+      <div class="vtable-wrap">
+        <table class="vtable">
+          <thead><tr><th>#</th><th>Rule</th><th>Status</th><th>Preview<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(word: <span id="validatorSampleWordLabel" class="mono"></span>)</span></th><th></th></tr></thead>
+          <tbody id="validatorBody"></tbody>
+        </table>
+      </div>
+
+      <h2 style="margin-top:14px"><span class="n">V3</span>Export cleaned rulefile</h2>
+      <p class="sub">Deleted lines are dropped. Everything else — fixed or untouched — keeps its original order and any comments/blank lines.</p>
+      <div class="copyrow">
+        <button class="copy" id="copyValidatorBtn">Copy cleaned rulefile</button>
+      </div>
+      <textarea class="rule-out mono" id="validatorOutput" readonly rows="6" style="width:100%;resize:vertical"></textarea>
     </div>
   </div>
 </div>
@@ -1514,6 +1620,22 @@ princess</textarea>
   var lenFieldsRow = document.getElementById('lenFieldsRow');
   var minLenInput = document.getElementById('minLenInput');
   var maxLenInput = document.getElementById('maxLenInput');
+  var modeToggle = document.getElementById('modeToggle');
+  var builderIntro = document.getElementById('builderIntro');
+  var validatorIntro = document.getElementById('validatorIntro');
+  var builderView = document.getElementById('builderView');
+  var validatorView = document.getElementById('validatorView');
+  var validatorDialectBtns = document.getElementById('validatorDialectBtns');
+  var validatorInput = document.getElementById('validatorInput');
+  var validatorSummary = document.getElementById('validatorSummary');
+  var validatorBody = document.getElementById('validatorBody');
+  var validatorOutput = document.getElementById('validatorOutput');
+  var validatorSampleWordLabel = document.getElementById('validatorSampleWordLabel');
+  var copyValidatorBtn = document.getElementById('copyValidatorBtn');
+  var validatorReturnBox = document.getElementById('validatorReturnBox');
+  var validatorReturnRow = document.getElementById('validatorReturnRow');
+  var validatorReturnSave = document.getElementById('validatorReturnSave');
+  var validatorReturnCancel = document.getElementById('validatorReturnCancel');
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
@@ -1669,14 +1791,19 @@ princess</textarea>
   }
 
   // ---------- engine ----------
-  function runChain(word){
+  // stepList defaults to the chain builder's own `steps` array; pass an
+  // independent list (e.g. a parsed rulefile line's steps) to run it
+  // without touching whatever the chain builder currently has loaded —
+  // used by the rulefile validator to preview each line's own output.
+  function runChain(word, stepList){
+    stepList = stepList || steps;
     var ctx = {memory: null};
     var current = word;
     var trace = [{word: current, caption:'Starting word', changedHtml: escapeHtml(current), rejected:false}];
     var rejected = false, rejectCaption = '';
 
-    for (var s=0; s<steps.length; s++){
-      var step = steps[s];
+    for (var s=0; s<stepList.length; s++){
+      var step = stepList[s];
       if (!step.enabled) continue;
       var op = OPS[step.type];
       var before = current;
@@ -1826,6 +1953,212 @@ princess</textarea>
     traceEl.scrollIntoView({behavior:'smooth', block:'center'});
   });
 
+  // ---------------------------------------------------------------------
+  // Rulefile validator (mode: 'validator'). Paste a whole .rule file or a
+  // John List.Rules section, pick which dialect it's written in (there's
+  // no reliable way to auto-detect this — a handful of letters, p/R/L/v/
+  // +/-, mean different things in hashcat syntax vs John's own grammar,
+  // so the user has to say which one a file targets, same as a real
+  // hashcat-logic-ON/OFF boundary in john.conf would), and get a real
+  // per-line parse using the same two parsers section 02 already uses —
+  // not a guess. Each line's own mini step list is run independently via
+  // runChain(word, stepList) so a line can be previewed without touching
+  // whatever's loaded in the main chain builder.
+  var MODE = 'builder'; // 'builder' | 'validator'
+  var VALIDATOR_DIALECT = 'hashcat'; // 'hashcat' | 'john_native'
+  var VALIDATOR_LINES = []; // [{raw, kind:'rule'|'comment'|'blank', steps, errors, deleted}]
+  var VALIDATOR_FIX_ROW = null; // index into VALIDATOR_LINES currently open in the chain builder
+
+  function setMode(mode){
+    MODE = mode;
+    modeToggle.querySelectorAll('.mbtn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
+    builderIntro.hidden = mode !== 'builder';
+    validatorIntro.hidden = mode !== 'validator';
+    builderView.hidden = mode !== 'builder';
+    validatorView.hidden = mode !== 'validator';
+  }
+  modeToggle.addEventListener('click', function(e){
+    var btn = e.target.closest('.mbtn');
+    if (!btn) return;
+    setMode(btn.dataset.mode);
+  });
+
+  function classifyLine(raw){
+    var trimmed = raw.trim();
+    if (trimmed==='') return 'blank';
+    if (trimmed[0]==='#') return 'comment';
+    return 'rule';
+  }
+  function validatorParseFn(){
+    return VALIDATOR_DIALECT==='john_native' ? parseRuleLineJohn : parseRuleLine;
+  }
+  function reparseValidatorLine(row){
+    row.kind = classifyLine(row.raw);
+    if (row.kind !== 'rule'){ row.steps = []; row.errors = []; return; }
+    var parsed = validatorParseFn()(row.raw, mkStep);
+    row.steps = parsed.steps;
+    row.errors = parsed.errors;
+  }
+  function reparseValidatorAll(){
+    var lines = validatorInput.value.split('\n');
+    VALIDATOR_LINES = lines.map(function(raw){
+      var row = {raw: raw, kind:'blank', steps:[], errors:[], deleted:false};
+      reparseValidatorLine(row);
+      return row;
+    });
+    renderValidator();
+  }
+  var validatorParseTimer = null;
+  validatorInput.addEventListener('input', function(){
+    clearTimeout(validatorParseTimer);
+    validatorParseTimer = setTimeout(reparseValidatorAll, 300);
+  });
+  validatorDialectBtns.addEventListener('click', function(e){
+    var btn = e.target.closest('.tbtn');
+    if (!btn) return;
+    VALIDATOR_DIALECT = btn.dataset.dialect;
+    validatorDialectBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    // Re-parsing from scratch (rather than just re-parsing each existing
+    // row) is deliberate: switching dialect changes what several letters
+    // even mean, so a diagnosis made under the old dialect isn't safe to
+    // keep — but deletions are kept, since "I don't want this line" isn't
+    // dialect-dependent.
+    var deletedRaw = {};
+    VALIDATOR_LINES.forEach(function(r){ if (r.deleted) deletedRaw[r.raw] = true; });
+    VALIDATOR_LINES.forEach(function(r){ reparseValidatorLine(r); });
+    renderValidator();
+  });
+
+  function validatorSummaryText(){
+    var ruleRows = VALIDATOR_LINES.filter(function(r){ return r.kind==='rule'; });
+    if (!ruleRows.length) return 'Paste a rulefile above to validate it against ' + (VALIDATOR_DIALECT==='john_native' ? 'John’s native syntax' : 'hashcat syntax') + '.';
+    var active = ruleRows.filter(function(r){ return !r.deleted; });
+    var invalid = active.filter(function(r){ return r.errors.length; }).length;
+    var valid = active.length - invalid;
+    var deleted = ruleRows.length - active.length;
+    return valid + ' valid, ' + invalid + ' invalid' + (deleted ? ', ' + deleted + ' deleted' : '') +
+      ' — ' + ruleRows.length + ' rule line' + (ruleRows.length===1?'':'s') + ' total.';
+  }
+
+  function validatorRowHtml(row, i){
+    var delLabel = row.deleted ? 'Restore' : 'Delete';
+    if (row.kind !== 'rule'){
+      var body = row.kind==='blank' ? '<i>(blank line)</i>' : escapeHtml(row.raw);
+      return '<tr class="'+(row.deleted?'v-deleted':'')+'" data-idx="'+i+'">'+
+        '<td class="v-idx">'+(i+1)+'</td>'+
+        '<td colspan="3" class="v-comment">'+body+'</td>'+
+        '<td class="v-actions"><button class="v-del" data-idx="'+i+'">'+delLabel+'</button></td></tr>';
+    }
+    var statusHtml, previewHtml;
+    if (row.errors.length){
+      statusHtml = '<span class="v-status err">&#10007; '+row.errors.length+' error'+(row.errors.length>1?'s':'')+'</span>'+
+        '<span class="v-err-detail">'+escapeHtml(row.errors.join('; '))+'</span>';
+      previewHtml = '<span class="v-preview" style="color:var(--dim)">&mdash;</span>';
+    } else {
+      statusHtml = '<span class="v-status ok">&#10003; valid</span>';
+      var sampleWord = wordInput.value || 'password';
+      var result = runChain(sampleWord, row.steps);
+      var out = result.rejected ? 'rejected' : result.final;
+      previewHtml = '<span class="v-preview'+(result.rejected?' rejected':'')+'">'+escapeHtml(out)+'</span>';
+    }
+    return '<tr class="'+(row.deleted?'v-deleted':'')+'" data-idx="'+i+'">'+
+      '<td class="v-idx">'+(i+1)+'</td>'+
+      '<td><input class="v-rule" data-idx="'+i+'" value="'+escapeHtml(row.raw)+'" spellcheck="false"></td>'+
+      '<td class="v-status-cell">'+statusHtml+'</td>'+
+      '<td class="v-preview-cell">'+previewHtml+'</td>'+
+      '<td class="v-actions">'+
+        '<button class="v-fix" data-idx="'+i+'">Fix in builder</button>'+
+        '<button class="v-del" data-idx="'+i+'">'+delLabel+'</button>'+
+      '</td></tr>';
+  }
+  function updateValidatorExport(){
+    var lines = VALIDATOR_LINES.filter(function(r){ return !r.deleted; }).map(function(r){ return r.raw; });
+    validatorOutput.value = lines.join('\n');
+  }
+  function renderValidator(){
+    validatorSampleWordLabel.textContent = wordInput.value || 'password';
+    validatorSummary.textContent = validatorSummaryText();
+    validatorBody.innerHTML = VALIDATOR_LINES.length
+      ? VALIDATOR_LINES.map(validatorRowHtml).join('')
+      : '<tr><td colspan="5" style="color:var(--dim);font-family:inherit">Paste rules above, one per line.</td></tr>';
+    updateValidatorExport();
+  }
+  // A single row's text changed via its own inline input — re-parse just
+  // that row and patch its status/preview cells in place rather than
+  // re-rendering the whole table, which would steal focus out of the
+  // input on every keystroke.
+  function patchValidatorRow(idx){
+    var row = VALIDATOR_LINES[idx];
+    var prevKind = row.kind;
+    reparseValidatorLine(row);
+    var tr = validatorBody.querySelector('tr[data-idx="'+idx+'"]');
+    if (!tr || row.kind !== prevKind){
+      // structure changed (e.g. edited into/out of being a comment) —
+      // the row's cell layout itself differs, so a full render is simplest.
+      renderValidator();
+      return;
+    }
+    if (row.kind === 'rule'){
+      var tmp = document.createElement('tbody');
+      tmp.innerHTML = validatorRowHtml(row, idx);
+      tr.querySelector('.v-status-cell').innerHTML = tmp.querySelector('.v-status-cell').innerHTML;
+      tr.querySelector('.v-preview-cell').innerHTML = tmp.querySelector('.v-preview-cell').innerHTML;
+    }
+    validatorSummary.textContent = validatorSummaryText();
+    updateValidatorExport();
+  }
+  validatorBody.addEventListener('input', function(e){
+    var inp = e.target.closest('.v-rule');
+    if (!inp) return;
+    var idx = +inp.dataset.idx;
+    VALIDATOR_LINES[idx].raw = inp.value;
+    patchValidatorRow(idx);
+  });
+  validatorBody.addEventListener('click', function(e){
+    var delBtn = e.target.closest('.v-del');
+    if (delBtn){
+      var di = +delBtn.dataset.idx;
+      VALIDATOR_LINES[di].deleted = !VALIDATOR_LINES[di].deleted;
+      renderValidator();
+      return;
+    }
+    var fixBtn = e.target.closest('.v-fix');
+    if (fixBtn) startFixInBuilder(+fixBtn.dataset.idx);
+  });
+  copyValidatorBtn.addEventListener('click', function(){
+    copyText(validatorOutput.value, copyValidatorBtn);
+  });
+
+  // Sends one validator row's raw text into the full chain builder (same
+  // dialect it was written in) for the full trace/cheat-sheet diagnostic
+  // treatment, and leaves a "Save fix & return" box in section 05 so the
+  // fixed rule line goes back into the right validator row afterward
+  // instead of just getting lost in the builder.
+  function startFixInBuilder(idx){
+    VALIDATOR_FIX_ROW = idx;
+    setTarget(VALIDATOR_DIALECT==='john_native' ? 'john_native' : 'hashcat');
+    ruleTextInput.value = VALIDATOR_LINES[idx].raw;
+    loadRuleText();
+    setMode('builder');
+    validatorReturnRow.textContent = idx + 1;
+    validatorReturnBox.hidden = false;
+    ruleTextInput.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+  validatorReturnSave.addEventListener('click', function(){
+    if (VALIDATOR_FIX_ROW===null) return;
+    var row = VALIDATOR_LINES[VALIDATOR_FIX_ROW];
+    row.raw = buildRuleString();
+    reparseValidatorLine(row);
+    VALIDATOR_FIX_ROW = null;
+    validatorReturnBox.hidden = true;
+    setMode('validator');
+    renderValidator();
+  });
+  validatorReturnCancel.addEventListener('click', function(){
+    VALIDATOR_FIX_ROW = null;
+    validatorReturnBox.hidden = true;
+  });
+
   function renderAll(){
     renderChain();
     renderTraceAndRule();
@@ -1930,7 +2263,12 @@ princess</textarea>
     ruleTextInput.focus();
   });
 
-  wordInput.addEventListener('input', renderTraceAndRule);
+  wordInput.addEventListener('input', function(){
+    renderTraceAndRule();
+    // the validator's preview column uses this same word as its sample —
+    // keep it in sync so switching views never shows a stale preview.
+    if (VALIDATOR_LINES.length) renderValidator();
+  });
   batchInput.addEventListener('input', renderBatch);
   addBtn.addEventListener('click', function(){
     steps.push(newStep(addType.value || Object.keys(OPS)[0]));
@@ -2008,17 +2346,23 @@ princess</textarea>
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }
-  targetBtns.addEventListener('click', function(e){
-    var btn = e.target.closest('.tbtn');
-    if (!btn) return;
-    TARGET = btn.dataset.target;
-    targetBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+  // Shared by the Target row's own click handler and by "Fix in builder"
+  // in the rulefile validator, which needs to force the builder onto the
+  // same dialect as the line it's sending over.
+  function setTarget(target){
+    TARGET = target;
+    targetBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b.dataset.target===target); });
     targetNote.textContent = TARGET_NOTES[TARGET];
     lenFieldsRow.hidden = TARGET !== 'john_native';
     updateRuleLineHints();
     populateAddType();
     renderAll();
     renderCheatsheet();
+  }
+  targetBtns.addEventListener('click', function(e){
+    var btn = e.target.closest('.tbtn');
+    if (!btn) return;
+    setTarget(btn.dataset.target);
   });
   targetNote.textContent = TARGET_NOTES[TARGET];
 
