@@ -1,0 +1,524 @@
+<title>Rule Chain Lab</title>
+<style>
+/* Layout: ledger/logbook — a reorderable chain of steps on the left,
+   a step-by-step trace, rule export, and batch test on the right;
+   stacks to one column on phone. */
+:root{
+  --bg:#E8E2D3;
+  --surface:#FBF8F1;
+  --surface-2:#F1ECDF;
+  --ink:#1F2420;
+  --dim:#6B6555;
+  --accent:#B9862E;
+  --good:#1C6E63;
+  --danger:#9B3A33;
+  --rule:#D8D0BC;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
+    --ink:#E7E2D3; --dim:#8B9097; --accent:#D9A449;
+    --good:#4FB286; --danger:#D9695F; --rule:#323A41;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
+  --ink:#E7E2D3; --dim:#8B9097; --accent:#D9A449;
+  --good:#4FB286; --danger:#D9695F; --rule:#323A41;
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Source Sans 3',system-ui,sans-serif;
+  padding-inline:20px;
+  padding-block:32px 48px;
+}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0}
+.mono{font-family:'IBM Plex Mono','SF Mono',monospace}
+
+.wrap{max-width:1040px;margin:0 auto}
+
+header.page{margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
+header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
+header.page p{margin:0;color:var(--dim);max-width:68ch;line-height:1.55}
+
+.grid{display:grid;grid-template-columns:1.05fr 1fr;gap:20px;align-items:start}
+@media (max-width:780px){ .grid{grid-template-columns:1fr} }
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--rule);
+  border-radius:10px;
+  padding:20px;
+  display:flex;flex-direction:column;gap:16px;
+  min-width:0;
+}
+.card h2{font-size:1rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.card h2 .n{color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-right:8px}
+.card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin-top:-8px}
+
+label.field{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--dim)}
+label.field input[type=text]{
+  font-family:'IBM Plex Mono',monospace;font-size:1rem;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  padding:9px 10px;width:100%;
+}
+label.field input:focus{outline:2px solid var(--accent);outline-offset:1px}
+label.field textarea{
+  font-family:'IBM Plex Mono',monospace;font-size:.95rem;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  padding:9px 10px;width:100%;resize:vertical;min-height:88px;
+}
+
+/* step chain */
+.chain{display:flex;flex-direction:column;gap:8px}
+.step{
+  display:flex;align-items:flex-start;gap:8px;
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
+  padding:10px;
+}
+.step.disabled{opacity:.5}
+.step .idx{
+  font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
+  width:20px;flex:none;text-align:center;padding-top:8px;
+}
+.step .body{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.step select{
+  font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:6px 7px;
+}
+.step input[type=text]{
+  font-family:'IBM Plex Mono',monospace;font-size:.9rem;color:var(--ink);
+  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  padding:6px 8px;width:64px;text-align:center;min-width:0;
+}
+.step input[type=text].wide{width:84px;text-align:left}
+.step .arrow{color:var(--dim);font-size:.85rem}
+.step .btns{display:flex;flex-direction:column;gap:3px;flex:none}
+.step .btns .row{display:flex;gap:3px}
+.step button.iconbtn{
+  background:none;border:1px solid var(--rule);color:var(--dim);
+  width:24px;height:24px;border-radius:5px;cursor:pointer;font-size:.8rem;
+  display:flex;align-items:center;justify-content:center;line-height:1;
+}
+.step button.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
+.step button.iconbtn:disabled{opacity:.35;cursor:default}
+.step button.iconbtn.del:hover{border-color:var(--danger);color:var(--danger)}
+.step input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin-top:8px}
+
+.addrow{display:flex;gap:8px;flex-wrap:wrap}
+select#addType{
+  font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  padding:8px 10px;flex:1;min-width:140px;
+}
+button.add{
+  background:none;border:1px dashed var(--rule);color:var(--dim);
+  padding:7px 14px;border-radius:6px;font-size:.85rem;cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;
+}
+button.add:hover{border-color:var(--accent);color:var(--accent)}
+
+/* trace */
+.trace{display:flex;flex-direction:column;gap:0}
+.trace-row{
+  display:grid;grid-template-columns:28px 1fr;gap:10px;
+  padding-block:8px;position:relative;
+}
+.trace-row:not(:last-child){border-bottom:1px dashed var(--rule)}
+.trace-row .dot{
+  width:8px;height:8px;border-radius:50%;background:var(--accent);
+  margin-top:6px;justify-self:center;
+}
+.trace-row .content{min-width:0;display:flex;flex-direction:column;gap:3px}
+.trace-row .word{font-family:'IBM Plex Mono',monospace;font-size:1.15rem;word-break:break-all}
+.trace-row .word .hl{color:var(--accent);font-weight:600}
+.trace-row .caption{font-size:.78rem;color:var(--dim)}
+.trace-row.start .word{color:var(--dim)}
+.trace-row.final .dot{background:var(--good)}
+.trace-row.final .word{color:var(--good);font-weight:600;font-size:1.3rem}
+
+.copyrow{display:flex;gap:8px;flex-wrap:wrap}
+button.copy{
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;
+  background:var(--surface-2);border:1px solid var(--rule);color:var(--ink);
+  padding:7px 11px;border-radius:6px;cursor:pointer;
+}
+button.copy:hover{border-color:var(--accent)}
+button.copy.copied{color:var(--good);border-color:var(--good)}
+
+.rule-out{
+  font-family:'IBM Plex Mono',monospace;font-size:.85rem;
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
+  padding:12px 14px;overflow-x:auto;white-space:pre;color:var(--ink);
+}
+
+table.batch{width:100%;border-collapse:collapse;font-size:.88rem}
+table.batch th{
+  text-align:left;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--dim);padding:0 6px 8px;font-weight:600;
+}
+table.batch td{padding:6px;font-family:'IBM Plex Mono',monospace;vertical-align:top;word-break:break-all}
+table.batch tr+tr td{border-top:1px solid var(--rule)}
+table.batch td.arrow{color:var(--dim);font-family:inherit;text-align:center;padding-top:7px}
+table.batch td.out{color:var(--good)}
+
+.callout{
+  background:var(--surface-2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
+  padding:10px 14px;font-size:.85rem;color:var(--ink);line-height:1.55;
+}
+.callout b{color:var(--accent)}
+</style>
+
+<div class="wrap">
+  <header class="page">
+    <h1>Rule Chain Lab</h1>
+    <p>
+      A mask is just a chain of small transformation steps — capitalize, substitute,
+      append — applied to a word in order. Build a chain below, watch each step fire
+      one at a time, and see what happens when you reorder, add, or remove a step.
+      The same chain exports as a Hashcat rule.
+    </p>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: chain builder -->
+    <div class="card">
+      <h2><span class="n">01</span>Word to transform</h2>
+      <label class="field">
+        <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false">
+      </label>
+
+      <h2 style="margin-top:4px"><span class="n">02</span>Step chain</h2>
+      <p class="sub">Steps run top to bottom. Drag isn't needed — use the arrows to move a step and watch the trace change.</p>
+      <div class="chain" id="chain"></div>
+      <div class="addrow">
+        <select id="addType">
+          <option value="cap_first">Capitalize first letter</option>
+          <option value="upper_all">Uppercase everything</option>
+          <option value="lower_all">Lowercase everything</option>
+          <option value="sub">Substitute a letter</option>
+          <option value="append">Append text</option>
+          <option value="prepend">Prepend text</option>
+        </select>
+        <button class="add" id="addBtn">+ add step</button>
+      </div>
+
+      <div class="callout">
+        <b>Order changes the result.</b> Substituting before capitalizing can skip a
+        letter that capitalizing would otherwise touch, and prepending before
+        appending builds a different string than the reverse. Move a step with the
+        arrows and compare the trace on the right — no two orderings are guaranteed
+        to produce the same output.
+      </div>
+    </div>
+
+    <!-- RIGHT: trace + export + batch -->
+    <div class="card">
+      <h2><span class="n">03</span>Step-by-step trace</h2>
+      <div class="trace" id="trace"></div>
+
+      <h2 style="margin-top:4px"><span class="n">04</span>Export</h2>
+      <div class="copyrow">
+        <button class="copy" id="copyResultBtn">Copy final result</button>
+        <button class="copy" id="copyRuleBtn">Copy Hashcat rule</button>
+      </div>
+      <div class="rule-out mono" id="hashcatOutput"></div>
+
+      <h2 style="margin-top:4px"><span class="n">05</span>Batch test</h2>
+      <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
+      <label class="field">
+        <textarea id="batchInput" spellcheck="false">password
+dragon
+sunshine
+letmein
+princess</textarea>
+      </label>
+      <table class="batch">
+        <thead><tr><th>Input</th><th></th><th>Output</th></tr></thead>
+        <tbody id="batchBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var wordInput = document.getElementById('wordInput');
+  var chainEl = document.getElementById('chain');
+  var addType = document.getElementById('addType');
+  var addBtn = document.getElementById('addBtn');
+  var traceEl = document.getElementById('trace');
+  var hashcatOutput = document.getElementById('hashcatOutput');
+  var copyResultBtn = document.getElementById('copyResultBtn');
+  var copyRuleBtn = document.getElementById('copyRuleBtn');
+  var batchInput = document.getElementById('batchInput');
+  var batchBody = document.getElementById('batchBody');
+
+  var uid = 0;
+  var steps = [
+    {id: uid++, type:'cap_first', enabled:true, from:'', to:'', text:''},
+    {id: uid++, type:'sub', enabled:true, from:'a', to:'4', text:''},
+    {id: uid++, type:'sub', enabled:true, from:'e', to:'3', text:''},
+    {id: uid++, type:'sub', enabled:true, from:'i', to:'1', text:''},
+    {id: uid++, type:'sub', enabled:true, from:'o', to:'0', text:''},
+    {id: uid++, type:'sub', enabled:true, from:'s', to:'5', text:''},
+    {id: uid++, type:'append', enabled:true, from:'', to:'', text:'!1'}
+  ];
+
+  var TYPE_LABEL = {
+    cap_first:'Capitalize first letter',
+    upper_all:'Uppercase everything',
+    lower_all:'Lowercase everything',
+    sub:'Substitute',
+    append:'Append',
+    prepend:'Prepend'
+  };
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function newStep(type){
+    var s = {id: uid++, type:type, enabled:true, from:'', to:'', text:''};
+    if (type==='sub'){ s.from='t'; s.to='7'; }
+    if (type==='append'){ s.text='1'; }
+    if (type==='prepend'){ s.text='_'; }
+    return s;
+  }
+
+  function renderParams(step){
+    if (step.type==='sub'){
+      return '<input type="text" class="p-from mono" maxlength="1" value="'+escapeHtml(step.from)+'" placeholder="a">'+
+             '<span class="arrow">&rarr;</span>'+
+             '<input type="text" class="p-to mono" maxlength="2" value="'+escapeHtml(step.to)+'" placeholder="4">';
+    }
+    if (step.type==='append' || step.type==='prepend'){
+      return '<input type="text" class="p-text mono wide" value="'+escapeHtml(step.text)+'" placeholder="text">';
+    }
+    return '';
+  }
+
+  function renderChain(){
+    chainEl.innerHTML = '';
+    steps.forEach(function(step, i){
+      var row = document.createElement('div');
+      row.className = 'step' + (step.enabled ? '' : ' disabled');
+      row.dataset.id = step.id;
+
+      var typeOptions = Object.keys(TYPE_LABEL).map(function(t){
+        return '<option value="'+t+'"'+(t===step.type?' selected':'')+'>'+TYPE_LABEL[t]+'</option>';
+      }).join('');
+
+      row.innerHTML =
+        '<span class="idx mono">'+(i+1)+'</span>'+
+        '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
+        '<div class="body">'+
+          '<select class="s-type">'+typeOptions+'</select>'+
+          '<span class="params">'+renderParams(step)+'</span>'+
+        '</div>'+
+        '<div class="btns">'+
+          '<div class="row">'+
+            '<button class="iconbtn up" '+(i===0?'disabled':'')+' title="move up">&uarr;</button>'+
+            '<button class="iconbtn down" '+(i===steps.length-1?'disabled':'')+' title="move down">&darr;</button>'+
+          '</div>'+
+          '<button class="iconbtn del" title="remove step">&times;</button>'+
+        '</div>';
+
+      row.querySelector('.s-enabled').addEventListener('change', function(e){
+        step.enabled = e.target.checked; renderAll();
+      });
+      row.querySelector('.s-type').addEventListener('change', function(e){
+        var fresh = newStep(e.target.value);
+        step.type = fresh.type; step.from = fresh.from; step.to = fresh.to; step.text = fresh.text;
+        renderAll();
+      });
+      var pf = row.querySelector('.p-from'); if (pf) pf.addEventListener('input', function(e){ step.from = e.target.value.toLowerCase(); renderTraceAndRule(); renderBatch(); });
+      var pt = row.querySelector('.p-to'); if (pt) pt.addEventListener('input', function(e){ step.to = e.target.value; renderTraceAndRule(); renderBatch(); });
+      var ptx = row.querySelector('.p-text'); if (ptx) ptx.addEventListener('input', function(e){ step.text = e.target.value; renderTraceAndRule(); renderBatch(); });
+
+      row.querySelector('.up').addEventListener('click', function(){
+        if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAll(); }
+      });
+      row.querySelector('.down').addEventListener('click', function(){
+        if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAll(); }
+      });
+      row.querySelector('.del').addEventListener('click', function(){
+        steps.splice(i,1); renderAll();
+      });
+
+      chainEl.appendChild(row);
+    });
+  }
+
+  function applyStep(word, step){
+    switch(step.type){
+      case 'cap_first':
+        return word.length ? word[0].toUpperCase() + word.slice(1) : word;
+      case 'upper_all':
+        return word.toUpperCase();
+      case 'lower_all':
+        return word.toLowerCase();
+      case 'sub': {
+        if (!step.from) return word;
+        var out = '';
+        for (var i=0;i<word.length;i++){
+          out += (word[i].toLowerCase() === step.from) ? step.to : word[i];
+        }
+        return out;
+      }
+      case 'append':
+        return word + (step.text||'');
+      case 'prepend':
+        return (step.text||'') + word;
+      default:
+        return word;
+    }
+  }
+
+  function stepCaption(step, before, after){
+    switch(step.type){
+      case 'cap_first': return 'Capitalize first letter';
+      case 'upper_all': return 'Uppercase everything';
+      case 'lower_all': return 'Lowercase everything';
+      case 'sub': return step.from ? ("Substitute '"+step.from+"' → '"+(step.to||'')+"'") : 'Substitute (no letter set)';
+      case 'append': return "Append '"+(step.text||'')+"'";
+      case 'prepend': return "Prepend '"+(step.text||'')+"'";
+    }
+    return '';
+  }
+
+  // Highlight what changed between `before` and `after` for a given step,
+  // rendering `after` with the changed region wrapped for emphasis.
+  function highlightAfter(step, before, after){
+    if (step.type==='append'){
+      var addLen = (step.text||'').length;
+      var head = after.slice(0, after.length-addLen);
+      var tail = after.slice(after.length-addLen);
+      return escapeHtml(head) + (tail ? '<span class="hl">'+escapeHtml(tail)+'</span>' : '');
+    }
+    if (step.type==='prepend'){
+      var pLen = (step.text||'').length;
+      var pHead = after.slice(0,pLen);
+      var pTail = after.slice(pLen);
+      return (pHead ? '<span class="hl">'+escapeHtml(pHead)+'</span>' : '') + escapeHtml(pTail);
+    }
+    // same-length transforms: diff char by char against `before`
+    if (before.length === after.length){
+      var html = '';
+      for (var i=0;i<after.length;i++){
+        if (before[i] !== after[i]) html += '<span class="hl">'+escapeHtml(after[i])+'</span>';
+        else html += escapeHtml(after[i]);
+      }
+      return html;
+    }
+    return escapeHtml(after);
+  }
+
+  function runChain(word){
+    var current = word;
+    var trace = [{word: current, caption:'Starting word', changedHtml: escapeHtml(current)}];
+    steps.forEach(function(step){
+      if (!step.enabled) return;
+      var before = current;
+      var after = applyStep(before, step);
+      trace.push({
+        word: after,
+        caption: stepCaption(step, before, after),
+        changedHtml: highlightAfter(step, before, after)
+      });
+      current = after;
+    });
+    return {final: current, trace: trace};
+  }
+
+  function renderTraceAndRule(){
+    var word = wordInput.value || '';
+    var result = runChain(word);
+
+    traceEl.innerHTML = result.trace.map(function(row, i){
+      var isFirst = i===0, isLast = i===result.trace.length-1 && result.trace.length>1;
+      var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'');
+      return '<div class="'+cls+'"><span class="dot"></span>'+
+        '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
+        '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
+    }).join('');
+
+    hashcatOutput.textContent = buildHashcatRule();
+  }
+
+  function buildHashcatRule(){
+    var parts = [];
+    steps.forEach(function(step){
+      if (!step.enabled) return;
+      switch(step.type){
+        case 'cap_first': parts.push('c'); break;
+        case 'upper_all': parts.push('u'); break;
+        case 'lower_all': parts.push('l'); break;
+        case 'sub': if (step.from) parts.push('s'+step.from+(step.to||'')); break;
+        case 'append': (step.text||'').split('').forEach(function(ch){ parts.push('$'+ch); }); break;
+        case 'prepend': (step.text||'').split('').reverse().forEach(function(ch){ parts.push('^'+ch); }); break;
+      }
+    });
+    return parts.length ? parts.join(' ') : '(no rule — chain is empty)';
+  }
+
+  function renderBatch(){
+    var lines = (batchInput.value||'').split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    batchBody.innerHTML = lines.map(function(w){
+      var out = runChain(w).final;
+      return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out">'+escapeHtml(out)+'</td></tr>';
+    }).join('') || '<tr><td colspan="3" style="color:var(--dim);font-family:inherit">Add words above, one per line.</td></tr>';
+  }
+
+  function renderAll(){
+    renderChain();
+    renderTraceAndRule();
+    renderBatch();
+  }
+
+  wordInput.addEventListener('input', renderTraceAndRule);
+  batchInput.addEventListener('input', renderBatch);
+  addBtn.addEventListener('click', function(){
+    steps.push(newStep(addType.value));
+    renderAll();
+  });
+
+  function flashCopied(btn){
+    var old = btn.textContent;
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(function(){ btn.textContent = old; btn.classList.remove('copied'); }, 1300);
+  }
+  function copyText(text, btn){
+    function fallback(){
+      try{
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand('copy'); document.body.removeChild(ta);
+        flashCopied(btn);
+      }catch(e){}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ flashCopied(btn); }).catch(fallback);
+    } else { fallback(); }
+  }
+  copyResultBtn.addEventListener('click', function(){
+    copyText(runChain(wordInput.value||'').final, copyResultBtn);
+  });
+  copyRuleBtn.addEventListener('click', function(){
+    copyText(hashcatOutput.textContent, copyRuleBtn);
+  });
+
+  renderAll();
+})();
+</script>
