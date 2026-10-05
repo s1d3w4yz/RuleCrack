@@ -299,8 +299,7 @@ table.batch td.out.rejected{color:var(--danger)}
       <span class="targetlabel">Target:</span>
       <div class="targetbtns" id="targetBtns" role="tablist">
         <button class="tbtn active" data-target="hashcat" type="button">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
-        <button class="tbtn" data-target="both" type="button">Both (portable)</button>
-        <button class="tbtn" data-target="john" type="button">John (hashcat rules)</button>
+        <button class="tbtn" data-target="both" type="button">Both (hashcat-compatible)</button>
         <button class="tbtn" data-target="john_native" type="button">John (native rules)</button>
       </div>
       <span class="targetnote" id="targetNote"></span>
@@ -1493,16 +1492,15 @@ princess</textarea>
   var minLenInput = document.getElementById('minLenInput');
   var maxLenInput = document.getElementById('maxLenInput');
 
-  var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john' | 'john_native'
+  var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
     hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Operators tagged [Hashcat only] in the add-step menu (colored red in the cheat sheet) only run in hashcat — John has no equivalent at all.',
-    both:        'John’s rule engine is a subset of hashcat’s, so this drops the [Hashcat only]-tagged operators (the ones colored red elsewhere) entirely — what’s left behaves identically in both.',
-    john:        'John running hashcat-syntax rules (via "!! hashcat logic ON"). Same portable subset as Both, plus a reference list of what John can do that hashcat can’t.',
+    both:        'Hashcat syntax, restricted to the 57 operators John’s own hashcat-compat engine also implements (via "!! hashcat logic ON") — everything here runs identically in both. See the reference list below for what John can do that hashcat can’t.',
     john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; commands tagged [John only] in the add-step menu (colored teal in the cheat sheet) have no hashcat equivalent at all.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
-  // are excluded from both/john/john_native; johnOnly ops are excluded from
-  // hashcat/both/john and only appear once you're building John's own syntax.
+  // are excluded from both/john_native; johnOnly ops are excluded from
+  // hashcat/both and only appear once you're building John's own syntax.
   function buildableInTarget(key, target){
     var op = OPS[key];
     if (op.johnOnly) return target==='john_native';
@@ -1839,7 +1837,7 @@ princess</textarea>
       });
     });
 
-    if (TARGET === 'both' || TARGET === 'john'){
+    if (TARGET === 'both'){
       html += '<div class="callout small" style="margin-top:14px">'+
         '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
         '<span class="mono">john.conf</span>:<br>'+
@@ -1858,11 +1856,11 @@ princess</textarea>
       '</div>';
     }
 
-    var refList = TARGET==='john' ? JOHN_ONLY : (TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null);
+    var refList = TARGET==='both' ? JOHN_ONLY : (TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null);
     if (refList && refList.length){
       html += '<div class="john-only-section">'+
         '<div class="jhead"><span class="jtitle">✓ John-only — not hashcat syntax</span>'+
-        '<span class="jsub">'+(TARGET==='john'
+        '<span class="jsub">'+(TARGET==='both'
           ? 'These use John’s own, separate rule grammar — none of this is hashcat syntax, so none of it can appear in the rule line above or run via "!! hashcat logic ON". It’s listed here only so you know it exists. To actually type and build these, switch to the "John (native rules)" tab, which implements most of them for real.'
           : 'The few John-native commands still out of scope for this tool’s chain engine even here — reference only, nothing below is buildable.')+
         '</span></div>';

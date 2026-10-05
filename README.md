@@ -36,20 +36,22 @@ real `.rule` line, and batch-test it against a list of words.
   same engine that runs the chain — click one to drop it straight into the
   rule line, for learning the syntax by typing instead of clicking through
   the chain builder.
-- **Hashcat / John the Ripper compatibility**: a four-way target switch,
+- **Hashcat / John the Ripper compatibility**: a three-way target switch,
   since John's rule engine and hashcat's overlap but neither is a subset of
   the other — hashcat has 13 operators John never implements at all, and
   John has its own native grammar with commands hashcat has no concept of
   (verified against both projects' own source, not from memory):
   - **Hashcat** — the full 70-operator set. The 13 hashcat-only ops (`3`,
-    `B`, `h`, `H`, the nine `~`-class ops) carry a `⚠` marker and badge
+    `B`, `h`, `H`, the nine `~`-class ops) carry a `[Hashcat only]` tag
     inline, everywhere, all the time — no tab-switching needed to see
     what won't port to John.
-  - **Both (portable)** — those 13 are dropped entirely; what's left (57
-    ops) behaves identically in hashcat and in John's hashcat-compat mode.
-  - **John (hashcat rules)** — the same portable 57, framed as "hashcat
-    syntax running inside John," plus a reference box of John-exclusive
-    commands this tool doesn't build in this mode.
+  - **Both (hashcat-compatible)** — those 13 are dropped entirely; what's
+    left (57 ops) behaves identically in hashcat and in John's
+    hashcat-compat mode (`!! hashcat logic ON`), plus a reference box of
+    John-exclusive commands this tool doesn't build in this mode. (This
+    used to be two separate tabs — "Both (portable)" and "John (hashcat
+    rules)" — until it became clear they built the exact same 57-op subset
+    and differed only in that reference box, so they were merged into one.)
   - **John (native rules)** — switches to building rules in **John's own
     syntax** instead. The 20 commands John has that hashcat can't express
     at all — pluralization/past-tense/-ing-form, whole-string insert,
@@ -70,9 +72,12 @@ real `.rule` line, and batch-test it against a list of words.
     dependent line-level reject flags, single-crack word-pair commands) —
     see the comments above `JOHN_ONLY` in `index.html` for why each one
     is out of scope.
-  Any chain step already added keeps its own compatibility badge and full
-  type dropdown regardless of target, and the Export panel always shows a
-  one-line portability verdict for whichever direction is relevant.
+  Any chain step already added keeps its own compatibility badge, and its
+  type dropdown is filtered by the current target the same way the "+ add
+  step" menu is — except the step's own current type always stays in the
+  list even if it fails that filter, so switching target never silently
+  breaks or changes a step you already built. The Export panel always
+  shows a one-line portability verdict for whichever direction is relevant.
   The cheat sheet itself uses color instead of a badge per row — a
   hashcat-only syntax token is always red, a John-only one always teal,
   and a shared one stays the default color — so a dense reference list of
