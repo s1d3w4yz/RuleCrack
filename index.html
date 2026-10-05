@@ -109,7 +109,15 @@ header.page p strong{color:var(--ink);font-weight:600}
   font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:.95rem;color:var(--good);
 }
 .john-only-section .jhead .jsub{font-size:.76rem;color:var(--dim)}
-.john-only-section .cheat-row{padding:6px 12px}
+/* This reference list's syntax strings run much longer than the main
+   cheat sheet's (whole flag groups, variable-assignment forms, etc.) —
+   left in the normal .cheat-row's side-by-side layout, a long one eats
+   most of the row's width and squeezes .desc (flex:1; min-width:0) down
+   into a narrow, oddly tall column instead of wrapping to a fresh line.
+   Stacking syntax above its description here avoids that regardless of
+   how long either one is. */
+.john-only-section .cheat-row{padding:6px 12px;flex-direction:column;align-items:flex-start;gap:2px}
+.john-only-section .cheat-row .syntax{min-width:0}
 .john-only-section .cheat-row:not(:last-child){border-bottom:1px dashed var(--rule)}
 
 .inline-fields{display:flex;gap:10px;flex-wrap:wrap}
