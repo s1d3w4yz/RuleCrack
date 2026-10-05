@@ -1727,7 +1727,16 @@ d $1$2$3"></textarea>
   }
   function syncColumnFit(){
     if (document.getElementById('builderView').hidden) return;
-    var top = document.getElementById('builderView').getBoundingClientRect().top;
+    // getBoundingClientRect().top is relative to the CURRENT scroll
+    // position, not a fixed point in the document — adding window.scrollY
+    // back converts it to an absolute, scroll-independent document
+    // position (builderView's distance below the header never changes
+    // just because the page happens to be scrolled somewhere, or because
+    // a sibling column is taller/shorter at this exact moment). Without
+    // this, the computed "available" space — and so the collapsed
+    // height every column lands on — silently depended on exactly where
+    // the page was scrolled to when Collapse was clicked.
+    var top = document.getElementById('builderView').getBoundingClientRect().top + window.scrollY;
     var available = window.innerHeight - top - 48; // 48 = body's own bottom padding
     fitListHeight(col1Card, chainEl, available);
     fitListHeight(col2Card, traceEl, available);
