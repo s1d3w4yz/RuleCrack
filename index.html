@@ -166,6 +166,12 @@ label.field textarea{
 }
 
 /* step chain */
+/* max-height is set inline by JS (syncColumnFit) to whatever makes the
+   column fit the viewport by default, clamped to a 160px floor — see
+   that function's comment for why this is done via direct measurement
+   rather than a pure CSS flex/grid stretch (which was tried first and
+   reliably mis-sized things in ways that were hard to predict). The
+   560px here is only the pre-JS/no-JS fallback. */
 .chain{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;padding-right:2px}
 .chain.expanded{max-height:none}
 .step{
@@ -1680,8 +1686,12 @@ d $1$2$3"></textarea>
       if (onToggle) onToggle(expanded);
     });
   }
-  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl);
-  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl);
+  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(expanded){
+    if (expanded) chainEl.style.maxHeight = ''; else syncColumnFit();
+  });
+  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(expanded){
+    if (expanded) traceEl.style.maxHeight = ''; else syncColumnFit();
+  });
 
   // Column 3 (cheat sheet) should match whichever of columns 1/2 is
   // taller, WITHOUT ever influencing columns 1/2's own height back — a
@@ -1696,6 +1706,33 @@ d $1$2$3"></textarea>
   var cheatCard = document.getElementById('cheatCard');
   var col1Card = document.getElementById('col1Card');
   var col2Card = document.getElementById('col2Card');
+
+  // Shrinks .chain/.trace, via an inline max-height, so columns 1/2 fit
+  // within the viewport by default — direct measurement, not a flex/grid
+  // stretch. A pure-CSS version was tried first (the whole chain-builder
+  // grid stretched to .wrap's viewport-driven height, with .chain/.trace
+  // as flex:1 children); it reliably mis-sized things in ways that were
+  // hard to predict and worse to debug — automatic-minimum-size rules
+  // for nested flex/grid containers either squeezed every sibling
+  // (inputs, the callout, the batch table) along with the lists, so
+  // fixed content rendered past its own card's background/border, or
+  // (once that was fixed) stopped shrinking anything at all and the
+  // mechanism went fully inert. Explicit arithmetic avoids all of that.
+  var MIN_LIST_HEIGHT = 160;
+  function fitListHeight(card, listEl, available){
+    if (listEl.classList.contains('expanded')) return; // left at its natural/full size
+    var fixedOverhead = card.getBoundingClientRect().height - listEl.getBoundingClientRect().height;
+    var desired = Math.max(MIN_LIST_HEIGHT, Math.min(available - fixedOverhead, listEl.scrollHeight));
+    listEl.style.maxHeight = desired + 'px';
+  }
+  function syncColumnFit(){
+    if (document.getElementById('builderView').hidden) return;
+    var top = document.getElementById('builderView').getBoundingClientRect().top;
+    var available = window.innerHeight - top - 48; // 48 = body's own bottom padding
+    fitListHeight(col1Card, chainEl, available);
+    fitListHeight(col2Card, traceEl, available);
+    syncCheatHeight();
+  }
   var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
   function syncCheatHeight(){
     if (cheatCard.classList.contains('expanded')) return;
@@ -1721,7 +1758,7 @@ d $1$2$3"></textarea>
     cheatHeightObserver.observe(col1Card);
     cheatHeightObserver.observe(col2Card);
   }
-  window.addEventListener('resize', syncCheatHeight);
+  window.addEventListener('resize', syncColumnFit);
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
     if (expanded){ cheatCard.style.maxHeight = ''; } // CSS .expanded{max-height:none} takes over
     else { syncCheatHeight(); }
@@ -2097,10 +2134,10 @@ d $1$2$3"></textarea>
     validatorIntro.hidden = mode !== 'validator';
     builderView.hidden = mode !== 'builder';
     validatorView.hidden = mode !== 'validator';
-    // columns 1/2 render at height 0 while builderView is hidden, so the
-    // cheat card's height needs re-measuring once it's visible again —
-    // a ResizeObserver doesn't fire for a display:none subtree.
-    if (mode === 'builder') syncCheatHeight();
+    // Everything renders at height 0 while builderView is display:none,
+    // so columns 1/2's fit and column 3's synced height both need
+    // re-measuring once it's visible again.
+    if (mode === 'builder') syncColumnFit();
   }
   modeToggle.addEventListener('click', function(e){
     var btn = e.target.closest('.mbtn');
@@ -2288,6 +2325,7 @@ d $1$2$3"></textarea>
     renderChain();
     renderTraceAndRule();
     renderBatch();
+    syncColumnFit();
   }
 
   function renderCheatsheet(){
@@ -2510,6 +2548,6 @@ d $1$2$3"></textarea>
   ruleTextInput.value = buildRuleString();
   renderCheatsheet();
   renderValidator();
-  syncCheatHeight();
+  syncColumnFit();
 })();
 </script>
