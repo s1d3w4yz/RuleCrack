@@ -1751,11 +1751,29 @@ d $1$2$3"></textarea>
     var available = window.innerHeight - top - 48; // 48 = body's own bottom padding
     var fit1 = fitListHeight(col1Card, chainEl, available);
     var fit2 = fitListHeight(col2Card, traceEl, available);
-    var targetTotal = Math.max(fit1 ? fit1.total : 0, fit2 ? fit2.total : 0);
+    var rawTarget = Math.max(fit1 ? fit1.total : 0, fit2 ? fit2.total : 0);
+    var targetTotal;
+    if (fit1 && fit2){
+      // Neither column is manually expanded — this is a real, authoritative
+      // measurement of what both should match, so remember it.
+      targetTotal = rawTarget;
+      lastColumnTarget = targetTotal;
+    } else {
+      // One column is expanded and excluded from rawTarget entirely (so
+      // it doesn't get chased, per the existing design) — but the OTHER
+      // one still shouldn't shrink below the real baseline just because
+      // its sibling's current size isn't being counted this time. E.g.
+      // expand column 1, expand column 2, then collapse column 1: column
+      // 2 is still excluded, so rawTarget would be column 1's own natural
+      // minimum alone — smaller than the true shared baseline whenever
+      // column 2 is the one with more fixed content around its list.
+      targetTotal = Math.max(rawTarget, lastColumnTarget || 0);
+    }
     if (fit1 && targetTotal>0) chainEl.style.maxHeight = (targetTotal - fit1.fixedOverhead) + 'px';
     if (fit2 && targetTotal>0) traceEl.style.maxHeight = (targetTotal - fit2.fixedOverhead) + 'px';
     syncCheatHeight();
   }
+  var lastColumnTarget = null; // last target height measured with neither chain nor trace expanded
   var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
   function syncCheatHeight(){
     if (cheatCard.classList.contains('expanded')) return;
