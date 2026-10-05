@@ -242,6 +242,28 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row.rejected .num{background:var(--danger)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
+.locktoggle{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--dim);margin:-8px 0 8px;cursor:pointer;user-select:none}
+.locktoggle input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
+/* With locking on, the first row (starting word) and last row (the final
+   result, or a reject) stay pinned to the top/bottom of the scroll area
+   while everything between them scrolls underneath — so on a long chain
+   you can always see where you started and where you ended up without
+   scrolling back and forth. Keyed off :first-child/:last-child rather
+   than .start/.final specifically, so it still works correctly when the
+   chain rejects (the last row is .rejected, not .final) or when there's
+   only one row total (both selectors hit the same element, which is
+   harmless — sticky just has nothing to stick against). */
+.trace.locked .trace-row:first-child{
+  position:sticky;top:0;z-index:2;background:var(--surface);
+  box-shadow:0 4px 6px -4px rgba(0,0,0,.35);
+}
+.trace.locked .trace-row:last-child{
+  position:sticky;bottom:0;z-index:2;background:var(--surface);
+  border-top:1px dashed var(--rule);
+  box-shadow:0 -4px 6px -4px rgba(0,0,0,.35);
+}
+.trace.locked .trace-row:first-child:last-child{box-shadow:none;border-top:none}
+
 .copyrow{display:flex;gap:8px;flex-wrap:wrap}
 button.copy{
   font-family:'IBM Plex Mono',monospace;font-size:.8rem;
@@ -443,7 +465,8 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
     <!-- RIGHT: trace + export + batch -->
     <div class="card">
       <h2><span class="n">04</span>Step-by-step trace</h2>
-      <div class="trace" id="trace"></div>
+      <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked> Lock start/end rows while scrolling</label>
+      <div class="trace locked" id="trace"></div>
 
       <h2 style="margin-top:4px"><span class="n">05</span>Export</h2>
       <div class="copyrow">
@@ -1606,6 +1629,10 @@ d $1$2$3"></textarea>
   var addType = document.getElementById('addType');
   var addBtn = document.getElementById('addBtn');
   var traceEl = document.getElementById('trace');
+  var traceLockToggle = document.getElementById('traceLockToggle');
+  traceLockToggle.addEventListener('change', function(){
+    traceEl.classList.toggle('locked', traceLockToggle.checked);
+  });
   var hashcatOutput = document.getElementById('hashcatOutput');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
