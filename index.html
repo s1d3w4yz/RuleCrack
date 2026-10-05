@@ -136,6 +136,14 @@ header.page p strong{color:var(--ink);font-weight:600}
 .card h2 .n{color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-right:8px}
 .card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin-top:-8px}
 
+.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.expandbtn{
+  font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--dim);
+  background:none;border:1px solid var(--rule);border-radius:5px;padding:3px 8px;
+  cursor:pointer;white-space:nowrap;flex:none;letter-spacing:normal;text-transform:none;
+}
+.expandbtn:hover{border-color:var(--accent);color:var(--accent)}
+
 label.field{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--dim)}
 label.field input[type=text]{
   font-family:'IBM Plex Mono',monospace;font-size:1rem;color:var(--ink);
@@ -151,6 +159,7 @@ label.field textarea{
 
 /* step chain */
 .chain{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;padding-right:2px}
+.chain.expanded{max-height:none}
 .step{
   display:flex;align-items:flex-start;gap:8px;
   background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
@@ -219,6 +228,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 
 /* trace */
 .trace{display:flex;flex-direction:column;gap:0;max-height:420px;overflow-y:auto}
+.trace.expanded{max-height:none}
 .trace-row{
   display:grid;grid-template-columns:28px 1fr;gap:10px;
   padding-block:8px;position:relative;
@@ -451,7 +461,10 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
       </label>
       <div id="ruleParseStatus" class="sub" style="margin-top:-6px"></div>
 
-      <h2 style="margin-top:4px"><span class="n">03</span>Step chain</h2>
+      <div class="sectionhead" style="margin-top:4px">
+        <h2><span class="n">03</span>Step chain</h2>
+        <button class="expandbtn" id="chainExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
+      </div>
       <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output.</p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
@@ -470,7 +483,10 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 
     <!-- RIGHT: trace + export + batch -->
     <div class="card">
-      <h2><span class="n">04</span>Step-by-step trace</h2>
+      <div class="sectionhead">
+        <h2><span class="n">04</span>Step-by-step trace</h2>
+        <button class="expandbtn" id="traceExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
+      </div>
       <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked> Lock start/end rows while scrolling</label>
       <div class="trace locked" id="trace"></div>
 
@@ -1639,6 +1655,20 @@ d $1$2$3"></textarea>
   traceLockToggle.addEventListener('change', function(){
     traceEl.classList.toggle('locked', traceLockToggle.checked);
   });
+  // Both section 03 and 04 default to a fixed-height scrolling box so a
+  // long chain/trace doesn't push the rest of the page down — "Expand"
+  // just lifts that cap (max-height:none) so the full list renders in
+  // place instead, with the page itself scrolling. Independent per
+  // section and purely a display toggle, nothing about the underlying
+  // data changes.
+  function wireExpandBtn(btn, el){
+    btn.addEventListener('click', function(){
+      var expanded = el.classList.toggle('expanded');
+      btn.innerHTML = expanded ? '&#10531; Collapse' : '&#10530; Expand';
+    });
+  }
+  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl);
+  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl);
   var hashcatOutput = document.getElementById('hashcatOutput');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
