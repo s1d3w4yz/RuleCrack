@@ -1747,7 +1747,7 @@ princess</textarea>
     if (TARGET === 'hashcat'){
       legend += '<br><span class="badge hc-only" style="margin-left:0">⚠ HC-only</span> = no John the Ripper equivalent at all.';
     } else if (TARGET === 'john'){
-      legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = John has it, hashcat doesn’t — see the box at the end, or switch to "John (native rules)" to build some of them.';
+      legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = exists in John’s own syntax, not hashcat’s at all — see the reference box at the end (not buildable in this tab), or switch to "John (native rules)" to build some of them for real.';
     } else if (TARGET === 'john_native'){
       legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = buildable here, but has no hashcat form at all — won’t appear in the Hashcat or Both views.';
     }
@@ -1797,16 +1797,16 @@ princess</textarea>
     var refList = TARGET==='john' ? JOHN_ONLY : (TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null);
     if (refList && refList.length){
       html += '<div class="john-only-section">'+
-        '<div class="jhead"><span class="jtitle">✓ John-only</span>'+
+        '<div class="jhead"><span class="jtitle">✓ John-only — not hashcat syntax</span>'+
         '<span class="jsub">'+(TARGET==='john'
-          ? 'commands John has that hashcat doesn’t — reference only here; switch to "John (native rules)" to build most of these'
-          : 'the few commands still out of scope for this tool even in John-native mode — reference only')+
+          ? 'These use John’s own, separate rule grammar — none of this is hashcat syntax, so none of it can appear in the rule line above or run via "!! hashcat logic ON". It’s listed here only so you know it exists. To actually type and build these, switch to the "John (native rules)" tab, which implements most of them for real.'
+          : 'The few John-native commands still out of scope for this tool’s chain engine even here — reference only, nothing below is buildable.')+
         '</span></div>';
       refList.forEach(function(j){
         html += '<div class="cheat-row">'+
           '<span class="syntax">'+escapeHtml(j.syntax)+'</span>'+
           '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span style="opacity:.75">— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
-          '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>'+
+          '<span class="badge john-only" title="John’s own syntax — not hashcat syntax, has no hashcat equivalent at all">✓ John-only</span>'+
         '</div>';
       });
       html += '</div>';
