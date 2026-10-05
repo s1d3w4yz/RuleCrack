@@ -48,6 +48,29 @@ header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
 
+.targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
+.targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.targetbtns{display:flex;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px}
+.tbtn{
+  font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--dim);
+  background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;
+}
+.tbtn:hover{color:var(--ink)}
+.tbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
+.targetnote{font-size:.78rem;color:var(--dim)}
+
+.badge{
+  display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.66rem;
+  letter-spacing:.02em;padding:1px 6px;border-radius:4px;border:1px solid var(--rule);
+  color:var(--dim);flex:none;white-space:nowrap;
+}
+.badge.hc-only{color:var(--danger);border-color:var(--danger)}
+
+.cheat-row .badge{margin-left:auto}
+
+#portabilityNote.ok{color:var(--good)}
+#portabilityNote.warn{color:var(--danger)}
+
 .grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
 @media (max-width:1150px){ .grid{grid-template-columns:1fr 1fr} .grid .card.cheat{grid-column:1 / -1} }
 @media (max-width:800px){ .grid{grid-template-columns:1fr} .grid .card.cheat{grid-column:auto} }
@@ -224,6 +247,15 @@ table.batch td.out.rejected{color:var(--danger)}
       a real <span class="mono">.rule</span> line, matching the syntax documented in
       <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule-based attack reference</a>.
     </p>
+    <div class="targetrow">
+      <span class="targetlabel">Target:</span>
+      <div class="targetbtns" id="targetBtns" role="tablist">
+        <button class="tbtn active" data-target="hashcat" type="button">Hashcat</button>
+        <button class="tbtn" data-target="both" type="button">Both (portable)</button>
+        <button class="tbtn" data-target="john" type="button">John the Ripper</button>
+      </div>
+      <span class="targetnote" id="targetNote"></span>
+    </div>
   </header>
 
   <div class="grid">
@@ -269,6 +301,7 @@ table.batch td.out.rejected{color:var(--danger)}
         <button class="copy" id="copyRuleBtn">Copy Hashcat rule</button>
       </div>
       <div class="rule-out mono" id="hashcatOutput"></div>
+      <div class="sub" id="portabilityNote" style="margin-top:-6px"></div>
 
       <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
@@ -765,6 +798,46 @@ princess</textarea>
     cls_reject_contains:  {syntax:'~%N?C', ex:{N:1,C:'d'}}
   };
 
+  // ---------- hashcat / John the Ripper compatibility ----------
+  // John the Ripper (jumbo) added a hashcat-compatible rule processing mode
+  // ("!! hashcat logic ON" in john.conf) that handles everything below
+  // byte-for-byte identically to hashcat's CPU engine — EXCEPT the ops
+  // listed here, which John's rules.c (jumbo 1.9.0) never implements at
+  // all, in or out of hashcat mode. Verified by grepping john/src/rules.c
+  // for `case '<letter>'` and finding no match for these.
+  var JOHN_UNSUPPORTED = {
+    toggle_at_sep: 1,   // '3' — no case '3' anywhere in rules.c
+    chr_add:       1,   // 'B' — no case 'B'
+    to_hex_lower:  1,   // 'h' — no case 'h'
+    to_hex_upper:  1,   // 'H' — no case 'H'
+    cls_replace: 1, cls_purge: 1, cls_title_sep: 1,
+    cls_reject_contain: 1, cls_reject_not_contain: 1,
+    cls_reject_first: 1, cls_reject_last: 1,
+    cls_reject_at: 1, cls_reject_contains: 1   // '~...' — no case '~' at all;
+                                                // John's own class ops use a
+                                                // different syntax (see below)
+  };
+  function isJohnCompatible(key){ return !JOHN_UNSUPPORTED[key]; }
+
+  // Commands John the Ripper has natively that hashcat has no equivalent
+  // for at all — reference only, not buildable in this tool's chain engine.
+  // Verified against john/doc/RULES and john/src/rules.c.
+  var JOHN_ONLY = [
+    {syntax:'AN"STR"', label:'Insert/append/prepend a whole string at N', note:"hashcat can only place one character at a time ($X / ^X / iNX)."},
+    {syntax:'p',   label:'Pluralize (crack → cracks)', note:"only when NOT followed by a digit — 'pN' is hashcat's duplicate-word-N-times instead."},
+    {syntax:'P',   label:'Simple past tense (crack → cracked)', note:''},
+    {syntax:'I',   label:'-ing form (crack → cracking)', note:''},
+    {syntax:'aN',  label:'Reject unless still within length limits after adding N chars', note:''},
+    {syntax:'bN',  label:'Reject unless still within length limits after removing N chars', note:''},
+    {syntax:'WN',  label:'Shift-toggle (keyboard shift) the char at position N', note:"hashcat's T only toggles letter case; S shift-toggles the whole word, not one position."},
+    {syntax:'V',   label:'Uppercase consonants, lowercase vowels', note:''},
+    {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:''},
+    {syntax:'vVNM',label:'Assign (N−M) to variable V, for later position args', note:"collides with hashcat's own 'v' (insert char every N chars) — John always reads v as this variable-assign form, even in hashcat mode."},
+    {syntax:'#@$*-+a-k l m p z', label:'Symbolic position values (e.g. D@ = delete at min_length−1)', note:'hashcat positions are always a literal 0–9 or A–Z digit.'},
+    {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ + l u d s a h H b), and John never accepts the '~' prefix at all."},
+    {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Line-level reject flags, written before the rule', note:'hashcat has no such prefix — its own reject commands (<N >N _N !X …) are inline instead, and those ARE shared.'}
+  ];
+
   // ---------- rule-line parser ----------
   // Turns a raw hashcat rule line (e.g. "c sa4 se3 si1 so0 ss5 $! $1") into
   // the same {type, args} step shape the visual builder uses, so typing a
@@ -917,6 +990,15 @@ princess</textarea>
   var ruleTextInput = document.getElementById('ruleTextInput');
   var ruleParseStatus = document.getElementById('ruleParseStatus');
   var cheatBody = document.getElementById('cheatBody');
+  var targetBtns = document.getElementById('targetBtns');
+  var targetNote = document.getElementById('targetNote');
+
+  var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john'
+  var TARGET_NOTES = {
+    hashcat: 'Every operator below runs in hashcat. Rows marked ⚠ have no John the Ripper equivalent at all.',
+    both:    'Showing the portable subset: identical behavior in hashcat and in John’s hashcat-compat mode.',
+    john:    'Assumes John’s hashcat-compat mode ("!! hashcat logic ON" in john.conf) — see the note below.'
+  };
 
   var uid = 0;
   function newStep(type){
@@ -937,19 +1019,37 @@ princess</textarea>
     Object.assign(newStep('append'), {args:{X:'1'}})
   ];
 
-  // populate add-type dropdown, grouped
-  GROUPS.forEach(function(g){
-    var og = document.createElement('optgroup');
-    og.label = g;
-    Object.keys(OPS).forEach(function(key){
-      if (OPS[key].group===g){
-        var opt = document.createElement('option');
-        opt.value = key; opt.textContent = OPS[key].label;
-        og.appendChild(opt);
-      }
+  // Builds grouped <optgroup> HTML for a type <select>. When the target
+  // isn't plain hashcat, John-incompatible ops are pulled out of their
+  // normal category into a trailing, clearly-labeled group instead of
+  // being hidden — you can still pick one, you just see the warning first.
+  function typeOptionsHtml(selectedKey){
+    var html = '';
+    GROUPS.forEach(function(g){
+      var keys = Object.keys(OPS).filter(function(k){
+        return OPS[k].group===g && (TARGET==='hashcat' || isJohnCompatible(k));
+      });
+      if (!keys.length) return;
+      var opts = keys.map(function(k){
+        return '<option value="'+k+'"'+(k===selectedKey?' selected':'')+'>'+OPS[k].label+'</option>';
+      }).join('');
+      html += '<optgroup label="'+g+'">'+opts+'</optgroup>';
     });
-    addType.appendChild(og);
-  });
+    if (TARGET !== 'hashcat'){
+      var warnKeys = Object.keys(OPS).filter(function(k){ return !isJohnCompatible(k); });
+      if (warnKeys.length){
+        var wopts = warnKeys.map(function(k){
+          return '<option value="'+k+'"'+(k===selectedKey?' selected':'')+'>'+OPS[k].label+'</option>';
+        }).join('');
+        html += '<optgroup label="⚠ Hashcat-only (no John equivalent)">'+wopts+'</optgroup>';
+      }
+    }
+    return html;
+  }
+  function populateAddType(){
+    addType.innerHTML = typeOptionsHtml(null);
+  }
+  populateAddType();
 
   function renderArgInput(step, spec){
     var val = step.args[spec.n];
@@ -974,13 +1074,6 @@ princess</textarea>
       row.className = 'step' + (step.enabled ? '' : ' disabled') + (op.kind==='reject' ? ' rejecty' : '');
       row.dataset.id = step.id;
 
-      var typeOptions = [];
-      GROUPS.forEach(function(g){
-        var opts = Object.keys(OPS).filter(function(k){ return OPS[k].group===g; })
-          .map(function(k){ return '<option value="'+k+'"'+(k===step.type?' selected':'')+'>'+OPS[k].label+'</option>'; }).join('');
-        typeOptions.push('<optgroup label="'+g+'">'+opts+'</optgroup>');
-      });
-
       var argsHtml = op.args.map(function(spec){ return renderArgInput(step, spec); }).join('');
 
       row.innerHTML =
@@ -988,9 +1081,10 @@ princess</textarea>
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
-            '<select class="s-type">'+typeOptions.join('')+'</select>'+
+            '<select class="s-type">'+typeOptionsHtml(step.type)+'</select>'+
             (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
             (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
+            (!isJohnCompatible(step.type) ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
           '</div>'+
           (argsHtml ? '<div class="argrow">'+argsHtml+'</div>' : '')+
         '</div>'+
@@ -1095,6 +1189,20 @@ princess</textarea>
     }).join('');
 
     hashcatOutput.textContent = buildHashcatRule();
+
+    var incompatible = steps.filter(function(s){ return s.enabled && !isJohnCompatible(s.type); });
+    var noteEl = document.getElementById('portabilityNote');
+    if (!steps.some(function(s){return s.enabled;})){
+      noteEl.textContent = '';
+      noteEl.className = 'sub';
+    } else if (incompatible.length){
+      var names = incompatible.map(function(s){ return CHEAT[s.type] ? CHEAT[s.type].syntax : s.type; }).join(', ');
+      noteEl.textContent = '✗ Won’t run in John the Ripper — ' + incompatible.length + ' step(s) are hashcat-only: ' + names;
+      noteEl.className = 'sub warn';
+    } else {
+      noteEl.textContent = '✓ Portable — every enabled step also runs identically in John the Ripper’s hashcat-compat mode.';
+      noteEl.className = 'sub ok';
+    }
   }
 
   function buildHashcatRule(){
@@ -1131,25 +1239,52 @@ princess</textarea>
       keys.forEach(function(k){
         var cheat = CHEAT[k];
         if (!cheat) return;
+        var compat = isJohnCompatible(k);
         var example = OPS[k].hashcat(cheat.ex);
         html += '<div class="cheat-row">'+
           '<span class="syntax">'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
           '<span class="desc">'+escapeHtml(OPS[k].label)+'</span>'+
+          (compat ? '' : '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>')+
         '</div>';
       });
     });
+
+    if (TARGET !== 'hashcat'){
+      html += '<div class="callout small" style="margin-top:14px">'+
+        '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
+        '<span class="mono">john.conf</span>:<br>'+
+        '<span class="mono">[List.Rules:MyRules]<br>!! hashcat logic ON<br>.include \'mychain.rule\'<br>!! hashcat logic OFF</span><br>'+
+        'In that mode John processes everything above identically to hashcat. Outside it, a few letters are '+
+        'overloaded with John’s own commands of the same name — notably <span class="mono">v</span> '+
+        '(hashcat: insert a char every N chars — John: always reads it as assign-a-variable, regardless of mode) '+
+        'and <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>, <span class="mono">+</span>/<span class="mono">-</span> '+
+        '(John falls back to its own meaning when hashcat mode is off and no digit follows).'+
+      '</div>';
+
+      html += '<div class="cheat-group">John-exclusive syntax (reference only — not buildable here)</div>';
+      JOHN_ONLY.forEach(function(j){
+        html += '<div class="cheat-row">'+
+          '<span class="syntax">'+escapeHtml(j.syntax)+'</span>'+
+          '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span style="opacity:.75">— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
+        '</div>';
+      });
+    }
+
     cheatBody.innerHTML = html;
-    cheatBody.addEventListener('click', function(e){
-      var btn = e.target.closest('button.ex');
-      if (!btn) return;
-      var token = btn.dataset.token;
-      var cur = ruleTextInput.value;
-      ruleTextInput.value = cur && !/\s$/.test(cur) ? (cur + ' ' + token) : (cur + token);
-      loadRuleText();
-      ruleTextInput.focus();
-    });
   }
+  // Event delegation on the stable container — registered once, so
+  // re-rendering the cheat sheet (e.g. on target change) never stacks
+  // duplicate click handlers.
+  cheatBody.addEventListener('click', function(e){
+    var btn = e.target.closest('button.ex');
+    if (!btn) return;
+    var token = btn.dataset.token;
+    var cur = ruleTextInput.value;
+    ruleTextInput.value = cur && !/\s$/.test(cur) ? (cur + ' ' + token) : (cur + token);
+    loadRuleText();
+    ruleTextInput.focus();
+  });
 
   wordInput.addEventListener('input', renderTraceAndRule);
   batchInput.addEventListener('input', renderBatch);
@@ -1216,6 +1351,19 @@ princess</textarea>
   copyRuleBtn.addEventListener('click', function(){
     copyText(hashcatOutput.textContent, copyRuleBtn);
   });
+
+  // ---------- target selector wiring ----------
+  targetBtns.addEventListener('click', function(e){
+    var btn = e.target.closest('.tbtn');
+    if (!btn) return;
+    TARGET = btn.dataset.target;
+    targetBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    targetNote.textContent = TARGET_NOTES[TARGET];
+    populateAddType();
+    renderAll();
+    renderCheatsheet();
+  });
+  targetNote.textContent = TARGET_NOTES[TARGET];
 
   renderAll();
   ruleTextInput.value = buildHashcatRule();

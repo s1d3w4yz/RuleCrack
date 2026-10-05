@@ -1,3 +1,4 @@
-# Reference checkout used to verify hashcat rule semantics against the
-# real implementation and test suite — not part of this project.
+# Reference checkouts used to verify hashcat/JtR rule semantics against the
+# real implementations and test suites — not part of this project.
 /hashcat/
+/john/

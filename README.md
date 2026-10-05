@@ -33,6 +33,17 @@ and batch-test it against a list of words.
   same engine that runs the chain — click one to drop it straight into the
   rule line, for learning the syntax by typing instead of clicking through
   the chain builder.
+- **Hashcat / John the Ripper compatibility**: a target switch (Hashcat /
+  Both (portable) / John the Ripper) that doesn't hide anything — it badges
+  the 13 operators hashcat has that John's rule engine (even in its
+  hashcat-compat mode) never implements at all (`3`, `B`, `h`, `H`, and the
+  nine `~`-class operators), flags any chain step that uses one, shows a
+  portability line in the Export panel, and lists the reverse direction
+  too: commands John has with no hashcat equivalent (pluralization, string
+  insert, numeric variables, …), including the `v` token collision where
+  the two tools disagree on what it means. See the comments above
+  `JOHN_UNSUPPORTED` in `index.html` for how this was verified against
+  John's own source and docs.
 
 Operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
