@@ -1699,6 +1699,14 @@ d $1$2$3"></textarea>
   function syncCheatHeight(){
     if (cheatCard.classList.contains('expanded')) return;
     if (document.getElementById('builderView').hidden) return;
+    // Manually expanding the chain (03) or trace (04) grows its own
+    // column well past its normal height — that's a one-off "show me
+    // everything" action on that column alone, not a new baseline the
+    // cheat sheet should chase. Skip the update while either is expanded
+    // so column 3 stays put at its last normal-state height instead of
+    // growing right along with whichever one was just expanded; it
+    // re-syncs to the real heights again as soon as both are collapsed.
+    if (chainEl.classList.contains('expanded') || traceEl.classList.contains('expanded')) return;
     var h = Math.max(col1Card.getBoundingClientRect().height, col2Card.getBoundingClientRect().height);
     if (h > 0) cheatCard.style.maxHeight = h + 'px';
   }
