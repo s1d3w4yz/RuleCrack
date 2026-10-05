@@ -44,11 +44,13 @@ and batch-test it against a list of words.
   - **Both (portable)** — those 13 are dropped from the add-step menu and
     cheat sheet entirely, since they're simply not buildable for John;
     what's left behaves identically in both tools.
-  - **John the Ripper** — the same portable subset, plus a reference-only
-    section listing commands John has that hashcat (and so this tool)
-    doesn't: pluralization, whole-string insert, numeric variables, …
-    including the `v` token collision where the two tools disagree on
-    what it means even in John's hashcat-compat mode.
+  - **John the Ripper** — the same portable subset, plus a distinctly
+    styled (teal-bordered) reference box listing commands John has that
+    hashcat (and so this tool) doesn't: pluralization, whole-string
+    insert, numeric variables, … each tagged with its own `✓ John-only`
+    badge — the mirror image of `⚠ HC-only`, including the `v` token
+    collision where the two tools disagree on what it means even in
+    John's hashcat-compat mode.
   Any chain step already added also keeps its own `⚠ HC-only` badge and
   full type dropdown regardless of target, and the Export panel always
   shows a one-line portability verdict. See the comments above

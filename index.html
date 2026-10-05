@@ -65,8 +65,27 @@ header.page p a{color:var(--accent)}
   color:var(--dim);flex:none;white-space:nowrap;
 }
 .badge.hc-only{color:var(--danger);border-color:var(--danger)}
+.badge.john-only{color:var(--good);border-color:var(--good)}
 
 .cheat-row .badge{margin-left:auto}
+
+.john-only-section{
+  margin-top:16px;border:1px solid var(--good);border-radius:8px;
+  background:var(--surface-2);
+  background:color-mix(in srgb, var(--good) 8%, var(--surface));
+  overflow:hidden;
+}
+.john-only-section .jhead{
+  display:flex;align-items:baseline;gap:8px;padding:10px 12px;
+  border-bottom:1px solid var(--good);
+}
+.john-only-section .jhead .jtitle{
+  font-family:'Fraunces',Georgia,serif;font-weight:600;font-size:.95rem;color:var(--good);
+}
+.john-only-section .jhead .jsub{font-size:.76rem;color:var(--dim)}
+.john-only-section .cheat-row{padding:6px 12px}
+.john-only-section .cheat-row:not(:last-child){border-bottom:1px dashed var(--rule)}
+.john-only-section .syntax{color:var(--good)}
 
 #portabilityNote.ok{color:var(--good)}
 #portabilityNote.warn{color:var(--danger)}
@@ -321,12 +340,7 @@ princess</textarea>
     <!-- FAR RIGHT: cheat sheet -->
     <div class="card cheat">
       <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
-      <div class="cheat-legend">
-        <span class="mono">N M I</span> = position, 0&ndash;9 then A&ndash;Z for 10&ndash;35 &middot;
-        <span class="mono">X Y</span> = a literal character &middot;
-        <span class="mono">C</span> = a class letter (<span class="mono">l u d s a h H b</span>) &middot;
-        click an example to drop it into the rule line.
-      </div>
+      <div class="cheat-legend" id="cheatLegend"></div>
       <div id="cheatBody"></div>
     </div>
   </div>
@@ -990,6 +1004,7 @@ princess</textarea>
   var ruleTextInput = document.getElementById('ruleTextInput');
   var ruleParseStatus = document.getElementById('ruleParseStatus');
   var cheatBody = document.getElementById('cheatBody');
+  var cheatLegend = document.getElementById('cheatLegend');
   var targetBtns = document.getElementById('targetBtns');
   var targetNote = document.getElementById('targetNote');
 
@@ -1238,6 +1253,18 @@ princess</textarea>
                                           // strict subset of hashcat's, so
                                           // the reference list itself
                                           // narrows to what's actually usable.
+
+    var legend = '<span class="mono">N M I</span> = position, 0–9 then A–Z for 10–35 &middot; '+
+      '<span class="mono">X Y</span> = a literal character &middot; '+
+      '<span class="mono">C</span> = a class letter (<span class="mono">l u d s a h H b</span>) &middot; '+
+      'click an example to drop it into the rule line.';
+    if (TARGET === 'hashcat'){
+      legend += '<br><span class="badge hc-only" style="margin-left:0">⚠ HC-only</span> = no John the Ripper equivalent at all.';
+    } else if (TARGET === 'john'){
+      legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = John has it, hashcat doesn’t — see the box at the end.';
+    }
+    cheatLegend.innerHTML = legend;
+
     var html = '';
     GROUPS.forEach(function(g){
       var keys = Object.keys(OPS).filter(function(k){
@@ -1273,13 +1300,17 @@ princess</textarea>
     }
 
     if (TARGET === 'john'){
-      html += '<div class="cheat-group">John-exclusive syntax (reference only — not buildable here)</div>';
+      html += '<div class="john-only-section">'+
+        '<div class="jhead"><span class="jtitle">✓ John-only</span>'+
+        '<span class="jsub">commands John has that hashcat doesn’t — reference only, not buildable in this tool</span></div>';
       JOHN_ONLY.forEach(function(j){
         html += '<div class="cheat-row">'+
           '<span class="syntax">'+escapeHtml(j.syntax)+'</span>'+
           '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span style="opacity:.75">— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
+          '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>'+
         '</div>';
       });
+      html += '</div>';
     }
 
     cheatBody.innerHTML = html;
