@@ -2,3 +2,6 @@
 # real implementations and test suites — not part of this project.
 /hashcat/
 /john/
+
+__pycache__/
+*.pyc

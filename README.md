@@ -136,15 +136,19 @@ No build step, no dependencies — it's a single self-contained HTML file.
 ## Tests
 
 ```sh
-python3 tests/run_tests.py
+python3 tests/run_tests.py   # the rule engine in isolation
+python3 tests/test_ui.py     # the same rule-handling, driven through the actual UI
 ```
 
-Runs the rule-handling engine (parsing, tokenizing, running a chain)
-against test vectors from hashcat's own test suite and John's
-documentation — not a reimplementation of the engine, a check that this
-project's engine agrees with those external, authoritative sources. See
-[`tests/README.md`](tests/README.md) for how it works and what it does
-and doesn't cover.
+The first checks parsing/tokenizing/running a chain against test
+vectors from hashcat's own test suite and John's documentation. The
+second drives the real page (adding chain steps, typing a rule line,
+pasting a rulefile into the validator) and checks the result against
+what the engine itself independently predicts for the same input.
+Neither reimplements the engine's rules in Python — both check that
+this project's own engine agrees with an external or independently-
+computed source. See [`tests/README.md`](tests/README.md) for how each
+one works and what they do and don't cover.
 
 ## License
 

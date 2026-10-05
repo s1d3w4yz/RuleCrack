@@ -1,33 +1,46 @@
 # Tests
 
-Automated checks for the rule-handling engine (parsing, tokenizing, and
-running hashcat/John rule chains) — the part of `index.html` most worth
-protecting from silent regressions, since a subtle bug there produces a
-wrong-but-plausible-looking result rather than an obvious crash.
+Two scripts, in priority order:
+
+- **`run_tests.py`** — the rule-handling engine itself (parsing,
+  tokenizing, running a chain), tested in isolation against external
+  ground truth. The highest-value thing to protect, since a bug here
+  produces a wrong-but-plausible-looking result rather than an obvious
+  crash.
+- **`test_ui.py`** — the same rule-handling logic, but exercised *through
+  the actual page* in both views (chain builder and rulefile validator),
+  confirming the UI wiring around the engine — adding steps, typing a
+  rule line, pasting a rulefile, the validator's fix-in-builder round
+  trip — doesn't silently diverge from what the engine itself would
+  predict for the same input.
 
 ## Running
 
 ```sh
 python3 tests/run_tests.py
+python3 tests/test_ui.py
 ```
 
-Requires `selenium` (`pip install selenium`), a Chromium binary, and a
-matching chromedriver. Defaults to `/usr/bin/chromium` and
+Both require `selenium` (`pip install selenium`), a Chromium binary, and
+a matching chromedriver. Defaults to `/usr/bin/chromium` and
 `/usr/bin/chromedriver`; override with the `CHROME_BIN` /
 `CHROMEDRIVER_BIN` environment variables if yours live elsewhere.
 
-Exit code is 0 if everything passes, 1 otherwise, so it's CI-friendly.
+Exit code is 0 if everything passes, 1 otherwise, so both are
+CI-friendly.
 
 ## How it works
 
-`run_tests.py` loads `index.html` in headless Chromium and calls the
-same parser/token/engine functions the UI itself calls — `parseRuleLine`,
-`parseRuleLineJohn`, `hashcatToken`, `johnToken`, `runChain` — via a
-small, permanent, read-only hook (`window.__test`) at the end of the
-main `<script>`. It does **not** reimplement any rule semantics in
-Python; every expected result comes from an external, authoritative
-source, and the test only checks that this project's engine, running in
-a real browser, agrees with that source.
+Both scripts load `index.html` in headless Chromium and call the same
+parser/token/engine functions the UI itself calls — `parseRuleLine`,
+`parseRuleLineJohn`, `hashcatToken`, `johnToken`, `runChain`, `mkStep` —
+via a small, permanent, read-only hook (`window.__test`) at the end of
+the main `<script>`. Neither reimplements any rule semantics in Python:
+`run_tests.py`'s expected results come from an external, authoritative
+source (see Fixtures, below); `test_ui.py`'s expected results are
+computed independently via that same `window.__test` hook from steps it
+knows it just added/typed, then compared against what the page's own DOM
+shows — never read back from the page and compared to itself.
 
 ## Fixtures
 
@@ -62,12 +75,29 @@ digit-lookahead disambiguation for `p`/`R`/`L` (documented in John's
 forms, while bare `p`/`R` parse as John's own pluralize/keyboard-shift
 forms.
 
+## What `test_ui.py` covers
+
+- **Chain builder**: adding steps via the dropdown + arg inputs produces
+  the trace/export the engine predicts for that exact step list; typing
+  a raw rule line (section 02) round-trips through the parser into the
+  chain and back out through the trace, in both the hashcat and
+  John-native dialects; a reject step actually marks the candidate
+  rejected in the trace.
+- **Rulefile validator**: a pasted multi-line file is classified
+  (comment/blank/valid/invalid) correctly and each valid row's preview
+  matches the engine's own result for the same word; deleting a row
+  removes it from the exported file while preserving order and
+  comments/blanks; the "Fix in builder" round trip loads the right raw
+  text, switches target to match the validator's dialect, and writes the
+  fixed rule back into the right row on "Save & return".
+
 ## What's *not* covered yet
 
-This suite only exercises the rule engine itself. The UI/integration
-behavior fixed over the course of this project (column-height syncing
-and its expand/collapse interactions, the rulefile validator's
-fix-in-builder round trip, the theme toggle, etc.) is currently only
-verified by ad hoc Selenium scripts written during development, not
-checked into a persistent suite. A reasonable next step if this project
-keeps growing.
+Cosmetic/layout behavior fixed over the course of this project —
+column-height syncing and its expand/collapse interactions, the theme
+toggle, the mode toggle itself, the cheat sheet's click-to-insert — is
+currently only verified by ad hoc Selenium scripts written during
+development, not checked into either persistent suite. Per this
+project's own priority (rule-handling correctness first), that's a
+reasonable gap to leave for now rather than a thing both suites quietly
+promise to catch.
