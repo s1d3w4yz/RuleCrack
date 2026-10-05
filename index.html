@@ -3,7 +3,18 @@
 /* Layout: ledger/logbook — a reorderable chain of steps on the left,
    a step-by-step trace, rule export, and batch test on the right;
    stacks to one column on phone. */
+/* Dark is the default theme regardless of system preference — set
+   explicitly here rather than behind a prefers-color-scheme query, per
+   request. Light is still available as an explicit opt-in via the
+   toggle button, which sets data-theme="light" on <html> (and is
+   remembered in localStorage across visits, same browser only). */
 :root{
+  --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
+  --ink:#E7E2D3; --dim:#8B9097; --accent:#D9A449;
+  --good:#4FB286; --danger:#D9695F; --rule:#323A41;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
   --bg:#E8E2D3;
   --surface:#FBF8F1;
   --surface-2:#F1ECDF;
@@ -14,20 +25,6 @@
   --danger:#9B3A33;
   --rule:#D8D0BC;
   color-scheme:light;
-}
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
-    --ink:#E7E2D3; --dim:#8B9097; --accent:#D9A449;
-    --good:#4FB286; --danger:#D9695F; --rule:#323A41;
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
-  --ink:#E7E2D3; --dim:#8B9097; --accent:#D9A449;
-  --good:#4FB286; --danger:#D9695F; --rule:#323A41;
-  color-scheme:dark;
 }
 
 *{box-sizing:border-box}
@@ -48,6 +45,14 @@ header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
 header.page p strong{color:var(--ink);font-weight:600}
+
+.titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.themebtn{
+  font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
+  background:none;border:1px solid var(--rule);border-radius:6px;padding:6px 12px;
+  cursor:pointer;white-space:nowrap;flex:none;
+}
+.themebtn:hover{border-color:var(--accent);color:var(--accent)}
 
 .targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 .targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
@@ -395,10 +400,22 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 }
 .cheat-row button.ex:hover{border-color:var(--accent)}
 </style>
+<script>
+// Applied synchronously, before the page body renders, so a saved
+// light-mode preference doesn't show a flash of the (now-default) dark
+// theme first. The main theme-toggle wiring (button label, click
+// handler) lives in the main script at the bottom with everything else.
+try{
+  if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light';
+}catch(e){}
+</script>
 
 <div class="wrap">
   <header class="page">
-    <h1>Rule Chain Lab</h1>
+    <div class="titlerow">
+      <h1>Rule Chain Lab</h1>
+      <button class="themebtn" id="themeToggleBtn" type="button" title="Switch color theme">&#9728; Light mode</button>
+    </div>
     <div class="modetoggle" id="modeToggle" role="tablist">
       <button class="mbtn active" data-mode="builder" type="button">Chain builder</button>
       <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
@@ -2186,6 +2203,27 @@ d $1$2$3"></textarea>
     if (!btn) return;
     setMode(btn.dataset.mode);
   });
+
+  // Dark is the default theme (set directly on :root in the stylesheet,
+  // not behind a prefers-color-scheme query) — this button is the only
+  // way to switch to light, and the choice is remembered per-browser via
+  // localStorage so it survives a reload. The early inline script right
+  // after </style> applies a saved "light" preference before the page
+  // body renders, so there's no flash of dark-then-light on load; this
+  // just keeps the button's own label in sync and handles the click.
+  var themeToggleBtn = document.getElementById('themeToggleBtn');
+  function applyThemeButtonLabel(){
+    var isLight = document.documentElement.dataset.theme === 'light';
+    themeToggleBtn.innerHTML = isLight ? '&#9790; Dark mode' : '&#9728; Light mode';
+  }
+  themeToggleBtn.addEventListener('click', function(){
+    var goingLight = document.documentElement.dataset.theme !== 'light';
+    if (goingLight) document.documentElement.dataset.theme = 'light';
+    else delete document.documentElement.dataset.theme;
+    try{ localStorage.setItem('theme', goingLight ? 'light' : 'dark'); }catch(e){}
+    applyThemeButtonLabel();
+  });
+  applyThemeButtonLabel();
 
   function classifyLine(raw){
     var trimmed = raw.trim();
