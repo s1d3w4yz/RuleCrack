@@ -2220,7 +2220,32 @@ d $1$2$3"></textarea>
       '</div>';
     cheatLegend.innerHTML = legend + keyHtml;
 
-    var html = '';
+    // These two are setup instructions, not reference material — getting
+    // them wrong silently changes what several rules below actually do
+    // (wrap when you shouldn't, or forget to wrap when you must), so they
+    // go first, above the operator list, rather than waiting at the
+    // bottom where they'd be easy to miss on a quick lookup visit.
+    var topCallout = '';
+    if (TARGET === 'both'){
+      topCallout = '<div class="callout small" style="margin-bottom:14px">'+
+        '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
+        '<span class="mono">john.conf</span>:<br>'+
+        '<span class="mono">[List.Rules:MyRules]<br>!! hashcat logic ON<br>.include \'mychain.rule\'<br>!! hashcat logic OFF</span><br>'+
+        'In that mode John processes everything above identically to hashcat. Outside it, a few letters are '+
+        'overloaded with John’s own commands of the same name — notably <span class="mono">v</span> '+
+        '(hashcat: insert a char every N chars — John: always reads it as assign-a-variable, regardless of mode) '+
+        'and <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>, <span class="mono">+</span>/<span class="mono">-</span> '+
+        '(John falls back to its own meaning when hashcat mode is off and no digit follows).'+
+      '</div>';
+    } else if (TARGET === 'john_native'){
+      topCallout = '<div class="callout small" style="margin-bottom:14px">'+
+        '<b>This is John’s own syntax.</b> Include it directly in <span class="mono">john.conf</span> — '+
+        '<i>don’t</i> wrap it in <span class="mono">!! hashcat logic ON</span>, since that mode changes how a '+
+        'few of these letters (<span class="mono">p R L + -</span>) are read and would break them.'+
+      '</div>';
+    }
+
+    var html = topCallout;
     GROUPS.forEach(function(g){
       var keys = Object.keys(OPS).filter(function(k){
         return OPS[k].group===g && buildableInTarget(k, TARGET);
@@ -2245,25 +2270,6 @@ d $1$2$3"></textarea>
         '</div>';
       });
     });
-
-    if (TARGET === 'both'){
-      html += '<div class="callout small" style="margin-top:14px">'+
-        '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
-        '<span class="mono">john.conf</span>:<br>'+
-        '<span class="mono">[List.Rules:MyRules]<br>!! hashcat logic ON<br>.include \'mychain.rule\'<br>!! hashcat logic OFF</span><br>'+
-        'In that mode John processes everything above identically to hashcat. Outside it, a few letters are '+
-        'overloaded with John’s own commands of the same name — notably <span class="mono">v</span> '+
-        '(hashcat: insert a char every N chars — John: always reads it as assign-a-variable, regardless of mode) '+
-        'and <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>, <span class="mono">+</span>/<span class="mono">-</span> '+
-        '(John falls back to its own meaning when hashcat mode is off and no digit follows).'+
-      '</div>';
-    } else if (TARGET === 'john_native'){
-      html += '<div class="callout small" style="margin-top:14px">'+
-        '<b>This is John’s own syntax.</b> Include it directly in <span class="mono">john.conf</span> — '+
-        '<i>don’t</i> wrap it in <span class="mono">!! hashcat logic ON</span>, since that mode changes how a '+
-        'few of these letters (<span class="mono">p R L + -</span>) are read and would break them.'+
-      '</div>';
-    }
 
     var refList = TARGET==='both' ? JOHN_ONLY : (TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null);
     if (refList && refList.length){
