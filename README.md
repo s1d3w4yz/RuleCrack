@@ -17,6 +17,10 @@ and batch-test it against a list of words.
 - **Step chain**: steps run top to bottom. Reorder them with the arrow
   buttons and watch the output change — this is the core lesson: rule order
   changes the result.
+- **Type a rule line**: paste or type a raw hashcat rule (your own, or a
+  line from an existing `.rule` file) and it's parsed straight into the
+  step chain below, using the same engine as the visual builder — no
+  separate "mode" or view, just another way to drive the same chain.
 - **Step-by-step trace**: see the word after each individual step, with the
   part that changed highlighted. Reject steps stop the chain and mark the
   candidate as discarded, matching real hashcat behavior.

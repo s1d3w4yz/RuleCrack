@@ -191,6 +191,10 @@ table.batch td.out.rejected{color:var(--danger)}
 }
 .callout b{color:var(--accent)}
 .callout.small{font-size:.78rem}
+
+#ruleParseStatus.ok{color:var(--good)}
+#ruleParseStatus.err{color:var(--danger)}
+#ruleTextInput.err{border-color:var(--danger)}
 </style>
 
 <div class="wrap">
@@ -214,7 +218,14 @@ table.batch td.out.rejected{color:var(--danger)}
         <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false">
       </label>
 
-      <h2 style="margin-top:4px"><span class="n">02</span>Step chain</h2>
+      <h2 style="margin-top:4px"><span class="n">02</span>Or type a rule line</h2>
+      <p class="sub">Paste a raw hashcat rule (your own, or a line from a <span class="mono">.rule</span> file) to load it straight into the chain below — same engine either way.</p>
+      <label class="field">
+        <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
+      </label>
+      <div id="ruleParseStatus" class="sub" style="margin-top:-6px"></div>
+
+      <h2 style="margin-top:4px"><span class="n">03</span>Step chain</h2>
       <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output.</p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
@@ -233,17 +244,17 @@ table.batch td.out.rejected{color:var(--danger)}
 
     <!-- RIGHT: trace + export + batch -->
     <div class="card">
-      <h2><span class="n">03</span>Step-by-step trace</h2>
+      <h2><span class="n">04</span>Step-by-step trace</h2>
       <div class="trace" id="trace"></div>
 
-      <h2 style="margin-top:4px"><span class="n">04</span>Export</h2>
+      <h2 style="margin-top:4px"><span class="n">05</span>Export</h2>
       <div class="copyrow">
         <button class="copy" id="copyResultBtn">Copy final result</button>
         <button class="copy" id="copyRuleBtn">Copy Hashcat rule</button>
       </div>
       <div class="rule-out mono" id="hashcatOutput"></div>
 
-      <h2 style="margin-top:4px"><span class="n">05</span>Batch test</h2>
+      <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
       <label class="field">
         <textarea id="batchInput" spellcheck="false">password
@@ -363,6 +374,11 @@ princess</textarea>
 
   var OPS = {};
   function def(key, o){ OPS[key] = o; }
+
+  // --- Misc ---
+  def('noop',         {label:'No-op', group:'Case', args:[], kind:'normal',
+    hashcat:function(){ return ':'; }, run:function(w){ return {word:w}; },
+    caption:function(){ return 'No operation'; }});
 
   // --- Case ---
   def('lrest',        {label:'Lowercase everything', group:'Case', args:[], kind:'normal',
@@ -644,6 +660,133 @@ princess</textarea>
 
   var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','special'],['a','any'],['h','hex (lower)'],['H','hex (upper)'],['b','any byte']];
 
+  // ---------- rule-line parser ----------
+  // Turns a raw hashcat rule line (e.g. "c sa4 se3 si1 so0 ss5 $! $1") into
+  // the same {type, args} step shape the visual builder uses, so typing a
+  // rule and building one by hand are two inputs to the same engine.
+  function parseRuleLine(str, mkStep){
+    var i = 0, steps = [], errors = [];
+    function skipWs(){ while (i < str.length && /\s/.test(str[i])) i++; }
+    function readPos(){
+      if (i >= str.length) return null;
+      var ch = str[i];
+      if (/[0-9]/.test(ch)){ i++; return ch.charCodeAt(0) - 48; }
+      if (/[A-Z]/.test(ch)){ i++; return 10 + (ch.charCodeAt(0) - 65); }
+      return null;
+    }
+    function readChar(){
+      if (i >= str.length) return null;
+      if (str[i] === '\\' && str[i+1] === 'x' && /^[0-9a-fA-F]{2}$/.test(str.substr(i+2,2))){
+        var code = parseInt(str.substr(i+2,2), 16);
+        i += 4;
+        return String.fromCharCode(code);
+      }
+      var ch = str[i]; i++; return ch;
+    }
+    function readClassLetter(){
+      if (str[i] !== '?') return null;
+      i++;
+      if (i >= str.length) return null;
+      var c = str[i]; i++;
+      return c;
+    }
+
+    while (true){
+      skipWs();
+      if (i >= str.length) break;
+      var startIdx = i;
+      var c = str[i]; i++;
+      var ok = true;
+      try{
+        switch(c){
+          case ':': steps.push(mkStep('noop',{})); break;
+          case 'l': steps.push(mkStep('lrest',{})); break;
+          case 'u': steps.push(mkStep('urest',{})); break;
+          case 'c': steps.push(mkStep('lrest_ufirst',{})); break;
+          case 'C': steps.push(mkStep('urest_lfirst',{})); break;
+          case 't': steps.push(mkStep('trest',{})); break;
+          case 'S': steps.push(mkStep('shift_case',{})); break;
+          case 'r': steps.push(mkStep('reverse',{})); break;
+          case 'd': steps.push(mkStep('dupeword',{})); break;
+          case 'f': steps.push(mkStep('reflect',{})); break;
+          case '{': steps.push(mkStep('rotate_left',{})); break;
+          case '}': steps.push(mkStep('rotate_right',{})); break;
+          case '[': steps.push(mkStep('delete_first',{})); break;
+          case ']': steps.push(mkStep('delete_last',{})); break;
+          case 'q': steps.push(mkStep('dupechar_all',{})); break;
+          case 'k': steps.push(mkStep('switch_first',{})); break;
+          case 'K': steps.push(mkStep('switch_last',{})); break;
+          case 'E': steps.push(mkStep('title',{})); break;
+          case 'h': steps.push(mkStep('to_hex_lower',{})); break;
+          case 'H': steps.push(mkStep('to_hex_upper',{})); break;
+          case 'M': steps.push(mkStep('memorize',{})); break;
+          case '4': steps.push(mkStep('append_memory',{})); break;
+          case '6': steps.push(mkStep('prepend_memory',{})); break;
+          case 'Q': steps.push(mkStep('reject_memory',{})); break;
+          case 'T': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('toggle_at',{N:N})); break; }
+          case '3': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('toggle_at_sep',{N:N,X:X})); break; }
+          case 'p': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeword_times',{N:N})); break; }
+          case '$': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('append',{X:X})); break; }
+          case '^': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('prepend',{X:X})); break; }
+          case 'D': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('delete_at',{N:N})); break; }
+          case 'x': { var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('extract',{N:N,M:M})); break; }
+          case 'O': { var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('omit',{N:N,M:M})); break; }
+          case 'i': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert',{N:N,X:X})); break; }
+          case 'v': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert_every',{N:N,X:X})); break; }
+          case 'o': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('overstrike',{N:N,X:X})); break; }
+          case "'": { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('truncate_at',{N:N})); break; }
+          case 's': { var X=readChar(),Y=readChar(); if(X==null||Y==null){ok=false;break;} steps.push(mkStep('replace',{X:X,Y:Y})); break; }
+          case '@': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('purgechar',{X:X})); break; }
+          case 'z': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupechar_first',{N:N})); break; }
+          case 'Z': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupechar_last',{N:N})); break; }
+          case '*': { var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('switch_at',{N:N,M:M})); break; }
+          case 'L': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('chr_shiftl',{N:N})); break; }
+          case 'R': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('chr_shiftr',{N:N})); break; }
+          case '+': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('chr_incr',{N:N})); break; }
+          case '-': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('chr_decr',{N:N})); break; }
+          case 'B': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('chr_add',{N:N,X:X})); break; }
+          case '.': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('replace_np1',{N:N})); break; }
+          case ',': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('replace_nm1',{N:N})); break; }
+          case 'y': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeblock_first',{N:N})); break; }
+          case 'Y': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeblock_last',{N:N})); break; }
+          case 'e': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('title_sep',{X:X})); break; }
+          case 'X': { var N=readPos(),M=readPos(),I=readPos(); if(N==null||M==null||I==null){ok=false;break;} steps.push(mkStep('extract_memory',{N:N,M:M,I:I})); break; }
+          case '<': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('reject_less',{N:N})); break; }
+          case '>': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('reject_greater',{N:N})); break; }
+          case '_': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('reject_equal',{N:N})); break; }
+          case '!': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('reject_contain',{X:X})); break; }
+          case '/': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('reject_not_contain',{X:X})); break; }
+          case '(': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('reject_equal_first',{X:X})); break; }
+          case ')': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('reject_equal_last',{X:X})); break; }
+          case '=': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('reject_equal_at',{N:N,X:X})); break; }
+          case '%': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('reject_contains',{N:N,X:X})); break; }
+          case '~': {
+            if (i >= str.length){ ok=false; break; }
+            var base = str[i]; i++;
+            if (base==='s'){ var C=readClassLetter(),Y=readChar(); if(C==null||Y==null){ok=false;break;} steps.push(mkStep('cls_replace',{C:C,Y:Y})); }
+            else if (base==='@'){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_purge',{C:C})); }
+            else if (base==='e'){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_title_sep',{C:C})); }
+            else if (base==='!'){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_reject_contain',{C:C})); }
+            else if (base==='/'){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_reject_not_contain',{C:C})); }
+            else if (base==='('){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_reject_first',{C:C})); }
+            else if (base===')'){ var C=readClassLetter(); if(C==null){ok=false;break;} steps.push(mkStep('cls_reject_last',{C:C})); }
+            else if (base==='='){ var N=readPos(),C=readClassLetter(); if(N==null||C==null){ok=false;break;} steps.push(mkStep('cls_reject_at',{N:N,C:C})); }
+            else if (base==='%'){ var N=readPos(),C=readClassLetter(); if(N==null||C==null){ok=false;break;} steps.push(mkStep('cls_reject_contains',{N:N,C:C})); }
+            else { ok = false; }
+            break;
+          }
+          default: ok = false;
+        }
+      } catch(e){ ok = false; }
+
+      if (!ok){
+        errors.push("'"+str.slice(startIdx, Math.min(str.length, startIdx+6)).trim()+"' near position "+startIdx);
+        i = startIdx + 1; // always advance, so a bad token can't loop forever
+      }
+    }
+    return {steps: steps, errors: errors};
+  }
+
   // ---------- default args per op ----------
   function defaultArgs(opKey){
     var op = OPS[opKey], out = {};
@@ -666,10 +809,15 @@ princess</textarea>
   var copyRuleBtn = document.getElementById('copyRuleBtn');
   var batchInput = document.getElementById('batchInput');
   var batchBody = document.getElementById('batchBody');
+  var ruleTextInput = document.getElementById('ruleTextInput');
+  var ruleParseStatus = document.getElementById('ruleParseStatus');
 
   var uid = 0;
   function newStep(type){
     return {id: uid++, type:type, enabled:true, args: defaultArgs(type)};
+  }
+  function mkStep(type, args){
+    return {id: uid++, type:type, enabled:true, args: args};
   }
 
   var steps = [
@@ -875,6 +1023,37 @@ princess</textarea>
     renderAll();
   });
 
+  // ---------- rule-line input wiring ----------
+  var ruleParseTimer = null;
+  function loadRuleText(){
+    var text = ruleTextInput.value;
+    if (!text.trim()){
+      ruleParseStatus.textContent = '';
+      ruleParseStatus.className = 'sub';
+      ruleTextInput.classList.remove('err');
+      return;
+    }
+    var parsed = parseRuleLine(text, mkStep);
+    steps.length = 0;
+    parsed.steps.forEach(function(s){ steps.push(s); });
+    renderAll();
+
+    if (parsed.errors.length){
+      ruleParseStatus.textContent = 'Loaded ' + parsed.steps.length + ' operation(s). Skipped ' +
+        parsed.errors.length + ': ' + parsed.errors.join(', ');
+      ruleParseStatus.className = 'sub err';
+      ruleTextInput.classList.add('err');
+    } else {
+      ruleParseStatus.textContent = 'Loaded ' + parsed.steps.length + ' operation(s) into the chain below.';
+      ruleParseStatus.className = 'sub ok';
+      ruleTextInput.classList.remove('err');
+    }
+  }
+  ruleTextInput.addEventListener('input', function(){
+    clearTimeout(ruleParseTimer);
+    ruleParseTimer = setTimeout(loadRuleText, 300);
+  });
+
   function flashCopied(btn){
     var old = btn.textContent;
     btn.textContent = 'Copied';
@@ -904,5 +1083,6 @@ princess</textarea>
   });
 
   renderAll();
+  ruleTextInput.value = buildHashcatRule();
 })();
 </script>
