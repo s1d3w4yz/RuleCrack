@@ -1754,7 +1754,8 @@ princess</textarea>
       var tok = tokenFn(step.type, step.args);
       if (tok===null) return;
       var cc = compatClass(step.type);
-      parts.push(cc ? '<span class="'+cc+'">'+escapeHtml(tok)+'</span>' : escapeHtml(tok));
+      var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
+      parts.push(cc ? '<span class="'+cc+'"'+tip+'>'+escapeHtml(tok)+'</span>' : escapeHtml(tok));
     });
     return parts.length ? parts.join(' ') : '(no rule — chain is empty, or nothing here converts to this syntax)';
   }
@@ -1809,9 +1810,13 @@ princess</textarea>
         var example = tokenFn(k, cheat.ex);
         if (example===null) return;
         var cc = compatClass(k);
-        var tip = cc==='tok-hc' ? 'No John the Ripper equivalent at all' : (cc==='tok-john' ? 'No hashcat equivalent at all' : 'Works identically in hashcat and John');
+        // Only the two "exclusive" colors earn a tooltip — a shared op
+        // needs no explanation beyond its default (uncolored) look, so
+        // hovering it shows nothing extra rather than a redundant "works
+        // in both" on every single row.
+        var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
         html += '<div class="cheat-row">'+
-          '<span class="syntax '+cc+'" title="'+tip+'">'+escapeHtml(cheat.syntax)+'</span>'+
+          '<span class="syntax '+cc+'"'+tip+'>'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
           '<span class="desc">'+escapeHtml(OPS[k].label)+'</span>'+
         '</div>';
