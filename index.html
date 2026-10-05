@@ -69,6 +69,18 @@ header.page p a{color:var(--accent)}
 
 .cheat-row .badge{margin-left:auto}
 
+/* The one compatibility color language, reused by the cheat sheet's syntax
+   column and the rule-line export: red = hashcat-only, teal = John-only,
+   default ink = shared (works identically in both). */
+.tok-hc{color:var(--danger)}
+.tok-john{color:var(--good)}
+
+.compat-key{display:flex;gap:14px;flex-wrap:wrap;font-size:.76rem;color:var(--dim);align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule)}
+.compat-key .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.compat-key .dot.shared{background:var(--dim)}
+.compat-key .dot.hc{background:var(--danger)}
+.compat-key .dot.john{background:var(--good)}
+
 .john-only-section{
   margin-top:16px;border:1px solid var(--good);border-radius:8px;
   background:var(--surface-2);
@@ -85,7 +97,6 @@ header.page p a{color:var(--accent)}
 .john-only-section .jhead .jsub{font-size:.76rem;color:var(--dim)}
 .john-only-section .cheat-row{padding:6px 12px}
 .john-only-section .cheat-row:not(:last-child){border-bottom:1px dashed var(--rule)}
-.john-only-section .syntax{color:var(--good)}
 
 .inline-fields{display:flex;gap:10px;flex-wrap:wrap}
 .inline-fields label.field{flex:1;min-width:160px}
@@ -249,6 +260,8 @@ table.batch td.out.rejected{color:var(--danger)}
 .cheat-group:first-child{margin-top:0;padding-top:0;border-top:none}
 .cheat-row{display:flex;align-items:baseline;gap:8px;padding:4px 0;flex-wrap:wrap}
 .cheat-row .syntax{font-family:'IBM Plex Mono',monospace;font-size:.88rem;color:var(--ink);min-width:72px;flex:none}
+.cheat-row .syntax.tok-hc{color:var(--danger)}
+.cheat-row .syntax.tok-john{color:var(--good)}
 .cheat-row .desc{font-size:.78rem;color:var(--dim);flex:1;min-width:0}
 .cheat-row button.ex{
   font-family:'IBM Plex Mono',monospace;font-size:.76rem;color:var(--accent);
@@ -869,6 +882,16 @@ princess</textarea>
   // True for anything hashcat can express: shared ops and hashcat-only ops.
   // False only for the John-native-exclusive ops added below (johnOnly:true).
   function isHashcatCompatible(key){ return !OPS[key] || !OPS[key].johnOnly; }
+  // The one color language used everywhere compatibility is shown: a
+  // hashcat-only op's syntax text is always --danger (red), a John-only
+  // op's is always --good (teal), and a shared op's is left uncolored —
+  // so "no color" itself means "works in both," consistently across the
+  // cheat sheet, the reference box, and the rule-line export.
+  function compatClass(key){
+    if (JOHN_UNSUPPORTED[key]) return 'tok-hc';
+    if (OPS[key] && OPS[key].johnOnly) return 'tok-john';
+    return '';
+  }
 
   // Commands John the Ripper has natively that hashcat has no equivalent for
   // at all. The ones marked promoted:true are implemented as real, buildable
@@ -1676,7 +1699,7 @@ princess</textarea>
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
     }).join('');
 
-    hashcatOutput.textContent = buildRuleString();
+    hashcatOutput.innerHTML = buildRuleHtml();
     copyRuleBtn.textContent = TARGET==='john_native' ? 'Copy John rule' : 'Copy Hashcat rule';
 
     var enabledSteps = steps.filter(function(s){ return s.enabled; });
@@ -1720,6 +1743,21 @@ princess</textarea>
     });
     return parts.length ? parts.join(' ') : '(no rule — chain is empty, or nothing here converts to this syntax)';
   }
+  // Same string, but with each token colored by the same compat-key used
+  // in the cheat sheet — so compatibility is visible on the literal rule
+  // you're about to copy, not just in the reference list above it.
+  function buildRuleHtml(){
+    var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
+    var parts = [];
+    steps.forEach(function(step){
+      if (!step.enabled) return;
+      var tok = tokenFn(step.type, step.args);
+      if (tok===null) return;
+      var cc = compatClass(step.type);
+      parts.push(cc ? '<span class="'+cc+'">'+escapeHtml(tok)+'</span>' : escapeHtml(tok));
+    });
+    return parts.length ? parts.join(' ') : '(no rule — chain is empty, or nothing here converts to this syntax)';
+  }
 
   function renderBatch(){
     var lines = (batchInput.value||'').split('\n').map(function(l){return l.trim();}).filter(Boolean);
@@ -1744,14 +1782,19 @@ princess</textarea>
       '<span class="mono">X Y</span> = a literal character &middot; '+
       '<span class="mono">C</span> = a class letter &middot; '+
       'click an example to drop it into the rule line.';
-    if (TARGET === 'hashcat'){
-      legend += '<br><span class="badge hc-only" style="margin-left:0">⚠ HC-only</span> = no John the Ripper equivalent at all.';
-    } else if (TARGET === 'john'){
-      legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = exists in John’s own syntax, not hashcat’s at all — see the reference box at the end (not buildable in this tab), or switch to "John (native rules)" to build some of them for real.';
-    } else if (TARGET === 'john_native'){
-      legend += '<br><span class="badge john-only" style="margin-left:0">✓ John-only</span> = buildable here, but has no hashcat form at all — won’t appear in the Hashcat or Both views.';
-    }
-    cheatLegend.innerHTML = legend;
+    // One color key, same meaning in every tab: a row's syntax text is
+    // colored by what it's compatible with, not labeled — so a long list
+    // stays scannable instead of growing a badge pill per row. The chain
+    // steps you've actually built (section 03) still get a full text
+    // badge, since there it's one or two items, not a reference list.
+    // Pinned here (outside the scrolling list) so it's visible no matter
+    // how far down the list you've scrolled.
+    var keyHtml = '<div class="compat-key">'+
+      '<span><span class="dot shared"></span>works in both</span>'+
+      '<span><span class="dot hc"></span><span class="tok-hc">hashcat-only</span></span>'+
+      '<span><span class="dot john"></span><span class="tok-john">John-only</span></span>'+
+      '</div>';
+    cheatLegend.innerHTML = legend + keyHtml;
 
     var html = '';
     GROUPS.forEach(function(g){
@@ -1765,12 +1808,12 @@ princess</textarea>
         if (!cheat) return;
         var example = tokenFn(k, cheat.ex);
         if (example===null) return;
+        var cc = compatClass(k);
+        var tip = cc==='tok-hc' ? 'No John the Ripper equivalent at all' : (cc==='tok-john' ? 'No hashcat equivalent at all' : 'Works identically in hashcat and John');
         html += '<div class="cheat-row">'+
-          '<span class="syntax">'+escapeHtml(cheat.syntax)+'</span>'+
+          '<span class="syntax '+cc+'" title="'+tip+'">'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
           '<span class="desc">'+escapeHtml(OPS[k].label)+'</span>'+
-          (JOHN_UNSUPPORTED[k] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
-          (OPS[k].johnOnly ? '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>' : '')+
         '</div>';
       });
     });
@@ -1804,9 +1847,8 @@ princess</textarea>
         '</span></div>';
       refList.forEach(function(j){
         html += '<div class="cheat-row">'+
-          '<span class="syntax">'+escapeHtml(j.syntax)+'</span>'+
+          '<span class="syntax tok-john" title="John’s own syntax — not hashcat syntax, has no hashcat equivalent at all">'+escapeHtml(j.syntax)+'</span>'+
           '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span style="opacity:.75">— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
-          '<span class="badge john-only" title="John’s own syntax — not hashcat syntax, has no hashcat equivalent at all">✓ John-only</span>'+
         '</div>';
       });
       html += '</div>';

@@ -70,6 +70,15 @@ and batch-test it against a list of words.
   Any chain step already added keeps its own compatibility badge and full
   type dropdown regardless of target, and the Export panel always shows a
   one-line portability verdict for whichever direction is relevant.
+  The cheat sheet itself uses color instead of a badge per row — a
+  hashcat-only syntax token is always red, a John-only one always teal,
+  and a shared one stays the default color — so a dense reference list of
+  70+ rows stays scannable instead of growing a text pill on every line.
+  A small color key pins at the top of the cheat sheet card. The same
+  colors carry through to the actual rule-line export in section 05: an
+  incompatible token in the copyable rule string itself is colored, so
+  compatibility is visible on the literal thing you copy, not just in the
+  reference list above it.
 
 Hashcat operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
