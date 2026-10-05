@@ -132,3 +132,8 @@ python3 -m http.server 8000
 Then visit `http://localhost:8000/`.
 
 No build step, no dependencies — it's a single self-contained HTML file.
+
+## License
+
+[MIT](LICENSE) — update the copyright line in `LICENSE` with your own name
+or handle before publishing.
