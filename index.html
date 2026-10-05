@@ -173,6 +173,12 @@ label.field textarea{
   background:var(--surface);border:1px solid var(--rule);border-radius:5px;
   padding:6px 7px;max-width:100%;
 }
+/* The <select> itself still clips long labels to its own box width (a
+   native control, not something text-overflow can reliably fix cross-
+   browser) — hover it for the full text via its title attribute, or
+   just read it here: a full, untruncated copy of the same label,
+   always visible underneath, regardless of hover or dropdown width. */
+.step .steplabel{font-size:.72rem;color:var(--dim);line-height:1.3;margin-top:-2px}
 .step .argrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .step .argrow .argwrap{display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--dim)}
 .step input.p-arg{
@@ -1777,12 +1783,13 @@ d $1$2$3"></textarea>
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
-            '<select class="s-type">'+typeOptionsHtml(step.type, TARGET)+'</select>'+
+            '<select class="s-type" title="'+escapeHtml(opLabel(step.type))+'">'+typeOptionsHtml(step.type, TARGET)+'</select>'+
             (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
             (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
             (JOHN_UNSUPPORTED[step.type] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
             (op.johnOnly ? '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>' : '')+
           '</div>'+
+          '<div class="steplabel">'+escapeHtml(OPS[step.type].label)+'</div>'+
           (argsHtml ? '<div class="argrow">'+argsHtml+'</div>' : '')+
         '</div>'+
         '<div class="btns">'+
