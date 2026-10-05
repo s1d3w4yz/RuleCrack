@@ -167,7 +167,7 @@ label.field textarea{
 
 /* step chain */
 /* max-height is set inline by JS (syncColumnFit) to whatever makes the
-   column fit the viewport by default, clamped to a 160px floor — see
+   column fit the viewport by default, clamped to MIN_LIST_HEIGHT — see
    that function's comment for why this is done via direct measurement
    rather than a pure CSS flex/grid stretch (which was tried first and
    reliably mis-sized things in ways that were hard to predict). The
@@ -1718,12 +1718,23 @@ d $1$2$3"></textarea>
   // fixed content rendered past its own card's background/border, or
   // (once that was fixed) stopped shrinking anything at all and the
   // mechanism went fully inert. Explicit arithmetic avoids all of that.
-  var MIN_LIST_HEIGHT = 160;
+  var MIN_LIST_HEIGHT = 300;
+  // col1 and col2 carry different amounts of fixed (non-list) content —
+  // section 03's add-step row + callout isn't the same size as section
+  // 04's checkbox + section 05's export box + section 06's batch test —
+  // so sizing each column's list independently from the same "available"
+  // figure doesn't actually produce equal column heights: whichever
+  // column has MORE fixed content around its list ends up with a taller
+  // total once both lists hit the MIN_LIST_HEIGHT floor (there's nothing
+  // left to take the difference out of). Work out what each column would
+  // need on its own first, then apply the larger of the two totals to
+  // BOTH — the one with less fixed content just gets a taller list than
+  // its own floor would otherwise ask for, to make up the difference.
   function fitListHeight(card, listEl, available){
-    if (listEl.classList.contains('expanded')) return; // left at its natural/full size
+    if (listEl.classList.contains('expanded')) return null; // left at its natural/full size
     var fixedOverhead = card.getBoundingClientRect().height - listEl.getBoundingClientRect().height;
-    var desired = Math.max(MIN_LIST_HEIGHT, Math.min(available - fixedOverhead, listEl.scrollHeight));
-    listEl.style.maxHeight = desired + 'px';
+    var listHeight = Math.max(MIN_LIST_HEIGHT, available - fixedOverhead);
+    return {fixedOverhead: fixedOverhead, total: fixedOverhead + listHeight};
   }
   function syncColumnFit(){
     if (document.getElementById('builderView').hidden) return;
@@ -1738,8 +1749,11 @@ d $1$2$3"></textarea>
     // the page was scrolled to when Collapse was clicked.
     var top = document.getElementById('builderView').getBoundingClientRect().top + window.scrollY;
     var available = window.innerHeight - top - 48; // 48 = body's own bottom padding
-    fitListHeight(col1Card, chainEl, available);
-    fitListHeight(col2Card, traceEl, available);
+    var fit1 = fitListHeight(col1Card, chainEl, available);
+    var fit2 = fitListHeight(col2Card, traceEl, available);
+    var targetTotal = Math.max(fit1 ? fit1.total : 0, fit2 ? fit2.total : 0);
+    if (fit1 && targetTotal>0) chainEl.style.maxHeight = (targetTotal - fit1.fixedOverhead) + 'px';
+    if (fit2 && targetTotal>0) traceEl.style.maxHeight = (targetTotal - fit2.fixedOverhead) + 'px';
     syncCheatHeight();
   }
   var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
