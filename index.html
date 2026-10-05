@@ -2629,5 +2629,24 @@ d $1$2$3"></textarea>
   renderCheatsheet();
   renderValidator();
   syncColumnFit();
+
+  // Read-only hook for tests/ (see tests/README.md) — exposes the rule
+  // engine's pure logic (parsing, tokenizing, running a chain) so it can
+  // be exercised directly against known-good test vectors (hashcat's own
+  // tools/rules-test-cases.yaml, John's doc/RULES worked examples)
+  // without needing to drive the UI for every case. Nothing here writes
+  // to page state; it only calls the same functions the UI already calls.
+  window.__test = {
+    OPS: OPS,
+    JOHN_UNSUPPORTED: JOHN_UNSUPPORTED,
+    mkStep: mkStep,
+    parseRuleLine: parseRuleLine,
+    parseRuleLineJohn: parseRuleLineJohn,
+    hashcatToken: hashcatToken,
+    johnToken: johnToken,
+    compatClass: compatClass,
+    buildableInTarget: buildableInTarget,
+    runChain: runChain
+  };
 })();
 </script>

@@ -1,0 +1,836 @@
+[
+  {
+    "rule": ":",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ]
+  },
+  {
+    "rule": "l",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "abcd",
+      "abcd",
+      "abcd"
+    ]
+  },
+  {
+    "rule": "u",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "ABCD",
+      "ABCD",
+      "ABCD"
+    ]
+  },
+  {
+    "rule": "c",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "Abcd",
+      "Abcd",
+      "Abcd"
+    ]
+  },
+  {
+    "rule": "C",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "aBCD",
+      "aBCD",
+      "aBCD"
+    ]
+  },
+  {
+    "rule": "t",
+    "words": [
+      "AbCd",
+      "abcd",
+      "ABCD"
+    ],
+    "expected": [
+      "aBcD",
+      "ABCD",
+      "abcd"
+    ]
+  },
+  {
+    "rule": "T5",
+    "words": [
+      "AbCde",
+      "abcdef",
+      "ABCDEFg"
+    ],
+    "expected": [
+      "AbCde",
+      "abcdeF",
+      "ABCDEfg"
+    ]
+  },
+  {
+    "rule": "r",
+    "words": [
+      "AbCd",
+      "abcd"
+    ],
+    "expected": [
+      "dCbA",
+      "dcba"
+    ]
+  },
+  {
+    "rule": "d",
+    "words": [
+      "3abc"
+    ],
+    "expected": [
+      "3abc3abc"
+    ]
+  },
+  {
+    "rule": "ddd",
+    "words": [
+      "3ab"
+    ],
+    "expected": [
+      "3ab3ab3ab3ab3ab3ab3ab3ab"
+    ]
+  },
+  {
+    "rule": "p0",
+    "words": [
+      "3abc"
+    ],
+    "expected": [
+      "3abc"
+    ]
+  },
+  {
+    "rule": "p3",
+    "words": [
+      "3abc"
+    ],
+    "expected": [
+      "3abc3abc3abc3abc"
+    ]
+  },
+  {
+    "rule": "f",
+    "words": [
+      "3abc"
+    ],
+    "expected": [
+      "3abccba3"
+    ]
+  },
+  {
+    "rule": "{",
+    "words": [
+      "3abc",
+      "a"
+    ],
+    "expected": [
+      "abc3",
+      "a"
+    ]
+  },
+  {
+    "rule": "}",
+    "words": [
+      "3abc",
+      "a"
+    ],
+    "expected": [
+      "c3ab",
+      "a"
+    ]
+  },
+  {
+    "rule": "$1$2",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "abc12"
+    ]
+  },
+  {
+    "rule": "^1^2",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "21abc"
+    ]
+  },
+  {
+    "rule": "[",
+    "words": [
+      "a",
+      "abc",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "",
+      "bc",
+      "23456790abcdefghijklmnopqrstuvw"
+    ]
+  },
+  {
+    "rule": "]",
+    "words": [
+      "a",
+      "abc",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "",
+      "ab",
+      "123456790abcdefghijklmnopqrstuv"
+    ]
+  },
+  {
+    "rule": "D3",
+    "words": [
+      "abc",
+      "abcd",
+      "abcde",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "abc",
+      "abc",
+      "abce",
+      "12356790abcdefghijklmnopqrstuvw"
+    ]
+  },
+  {
+    "rule": "x14",
+    "words": [
+      "a",
+      "abc",
+      "abcde",
+      "abcdef",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "a",
+      "abc",
+      "bcde",
+      "bcde",
+      "2345"
+    ]
+  },
+  {
+    "rule": "O22",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "abcd",
+      "abcde",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abc",
+      "ab",
+      "abe",
+      "1256790abcdefghijklmnopqrstuvw"
+    ]
+  },
+  {
+    "rule": "O04",
+    "words": [
+      "a",
+      "abc",
+      "abcd",
+      "abcde",
+      "abcdef",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "a",
+      "abc",
+      "",
+      "e",
+      "ef",
+      "56790abcdefghijklmnopqrstuvw"
+    ]
+  },
+  {
+    "rule": "i3!",
+    "words": [
+      "a",
+      "abc",
+      "abcd",
+      "abcde"
+    ],
+    "expected": [
+      "a",
+      "abc!",
+      "abc!d",
+      "abc!de"
+    ]
+  },
+  {
+    "rule": "o3!",
+    "words": [
+      "a",
+      "abc",
+      "abcd",
+      "abcde"
+    ],
+    "expected": [
+      "a",
+      "abc",
+      "abc!",
+      "abc!e"
+    ]
+  },
+  {
+    "rule": "'4",
+    "words": [
+      "a",
+      "abc",
+      "abcd",
+      "abcde",
+      "abcdef"
+    ],
+    "expected": [
+      "a",
+      "abc",
+      "abcd",
+      "abcd",
+      "abcd"
+    ]
+  },
+  {
+    "rule": "sab",
+    "words": [
+      "123b",
+      "a123ba"
+    ],
+    "expected": [
+      "123b",
+      "b123bb"
+    ]
+  },
+  {
+    "rule": "saa",
+    "words": [
+      "123b",
+      "a123ba"
+    ],
+    "expected": [
+      "123b",
+      "a123ba"
+    ]
+  },
+  {
+    "rule": "@a",
+    "words": [
+      "123b",
+      "aaa",
+      "a123ba",
+      "123456790abcdefghijklmnopqrstuvw"
+    ],
+    "expected": [
+      "123b",
+      "",
+      "123b",
+      "123456790bcdefghijklmnopqrstuvw"
+    ]
+  },
+  {
+    "rule": "z0",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "abc"
+    ]
+  },
+  {
+    "rule": "z3",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "aaaabc"
+    ]
+  },
+  {
+    "rule": "Z0",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "abc"
+    ]
+  },
+  {
+    "rule": "Z3",
+    "words": [
+      "abc"
+    ],
+    "expected": [
+      "abcccc"
+    ]
+  },
+  {
+    "rule": "q",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "aa",
+      "aabbcc"
+    ]
+  },
+  {
+    "rule": "qqq",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "aaaaaaaa",
+      "aaaaaaaabbbbbbbbcccccccc"
+    ]
+  },
+  {
+    "rule": "uMlX134",
+    "words": [
+      "a",
+      "abc",
+      "abcd",
+      "abcdef"
+    ],
+    "expected": [
+      "abcdBCD",
+      "abcdBCDef"
+    ]
+  },
+  {
+    "rule": "uMl4",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "aA",
+      "abcABC"
+    ]
+  },
+  {
+    "rule": "uMl6",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "Aa",
+      "ABCabc"
+    ]
+  },
+  {
+    "rule": "<0",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": []
+  },
+  {
+    "rule": "<1",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "a"
+    ]
+  },
+  {
+    "rule": ">0",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "abc"
+    ]
+  },
+  {
+    "rule": ">2",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "ab",
+      "abc"
+    ]
+  },
+  {
+    "rule": "_2",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "ab"
+    ]
+  },
+  {
+    "rule": "!a",
+    "words": [
+      "1",
+      "ab",
+      "abc",
+      "bcde"
+    ],
+    "expected": [
+      "1",
+      "bcde"
+    ]
+  },
+  {
+    "rule": "/a",
+    "words": [
+      "1",
+      "ab",
+      "abc",
+      "bcde"
+    ],
+    "expected": [
+      "ab",
+      "abc"
+    ]
+  },
+  {
+    "rule": "(a",
+    "words": [
+      "1",
+      "ab",
+      "bac",
+      "abc",
+      "bcde"
+    ],
+    "expected": [
+      "ab",
+      "abc"
+    ]
+  },
+  {
+    "rule": ")c",
+    "words": [
+      "1",
+      "ab",
+      "bac",
+      "abc",
+      "bcde"
+    ],
+    "expected": [
+      "bac",
+      "abc"
+    ]
+  },
+  {
+    "rule": "=2c",
+    "words": [
+      "1",
+      "ab",
+      "bac",
+      "abc",
+      "bcde"
+    ],
+    "expected": [
+      "bac",
+      "abc"
+    ]
+  },
+  {
+    "rule": "%2a",
+    "words": [
+      "a",
+      "aa",
+      "aaa",
+      "aaaa",
+      "bcde"
+    ],
+    "expected": [
+      "aaa",
+      "aaaa"
+    ]
+  },
+  {
+    "rule": "Q",
+    "words": [
+      "a",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "abc"
+    ]
+  },
+  {
+    "rule": "rMrQ",
+    "words": [
+      "ab",
+      "abcba"
+    ],
+    "expected": [
+      "ab"
+    ]
+  },
+  {
+    "rule": "k",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "ba",
+      "bac"
+    ]
+  },
+  {
+    "rule": "K",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "ba",
+      "acb"
+    ]
+  },
+  {
+    "rule": "*24",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "abcd",
+      "abcde",
+      "abcdef"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abc",
+      "abcd",
+      "abedc",
+      "abedcf"
+    ]
+  },
+  {
+    "rule": "L2",
+    "words": [
+      "a",
+      "ab",
+      "ab!"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abB"
+    ]
+  },
+  {
+    "rule": "R2",
+    "words": [
+      "a",
+      "ab",
+      "abB"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "ab!"
+    ]
+  },
+  {
+    "rule": "+2",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abd"
+    ]
+  },
+  {
+    "rule": "-2",
+    "words": [
+      "a",
+      "ab",
+      "abc"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abb"
+    ]
+  },
+  {
+    "rule": ".2",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "abcd"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abc",
+      "abdd"
+    ]
+  },
+  {
+    "rule": ",2",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "abcd"
+    ],
+    "expected": [
+      "a",
+      "ab",
+      "abb",
+      "abbd"
+    ]
+  },
+  {
+    "rule": "y2",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "123456790abcdefghijklmnopqrstuv"
+    ],
+    "expected": [
+      "a",
+      "abab",
+      "ababc",
+      "12123456790abcdefghijklmnopqrstuv"
+    ]
+  },
+  {
+    "rule": "Y2",
+    "words": [
+      "a",
+      "ab",
+      "abc",
+      "123456790abcdefghijklmnopqrstuv"
+    ],
+    "expected": [
+      "a",
+      "abab",
+      "abcbc",
+      "123456790abcdefghijklmnopqrstuvuv"
+    ]
+  },
+  {
+    "rule": "E",
+    "words": [
+      "a bc",
+      "ab c",
+      "abc"
+    ],
+    "expected": [
+      "A Bc",
+      "Ab C",
+      "Abc"
+    ]
+  },
+  {
+    "rule": "e-",
+    "words": [
+      "a-bc",
+      "ab-c",
+      "abc"
+    ],
+    "expected": [
+      "A-Bc",
+      "Ab-C",
+      "Abc"
+    ]
+  },
+  {
+    "rule": "~e?l",
+    "words": [
+      "p@ssW0rd"
+    ],
+    "expected": [
+      "P@sSW0rD"
+    ]
+  },
+  {
+    "rule": "~e?u",
+    "words": [
+      "hAShcAt"
+    ],
+    "expected": [
+      "HaSHcaT"
+    ]
+  },
+  {
+    "rule": "~e?h",
+    "words": [
+      "aGbcD"
+    ],
+    "expected": [
+      "AGbCD"
+    ]
+  },
+  {
+    "rule": "~e?H",
+    "words": [
+      "abCDefGHij"
+    ],
+    "expected": [
+      "AbcDEfghij"
+    ]
+  }
+]

@@ -133,6 +133,19 @@ Then visit `http://localhost:8000/`.
 
 No build step, no dependencies — it's a single self-contained HTML file.
 
+## Tests
+
+```sh
+python3 tests/run_tests.py
+```
+
+Runs the rule-handling engine (parsing, tokenizing, running a chain)
+against test vectors from hashcat's own test suite and John's
+documentation — not a reimplementation of the engine, a check that this
+project's engine agrees with those external, authoritative sources. See
+[`tests/README.md`](tests/README.md) for how it works and what it does
+and doesn't cover.
+
 ## License
 
 [MIT](LICENSE) — update the copyright line in `LICENSE` with your own name

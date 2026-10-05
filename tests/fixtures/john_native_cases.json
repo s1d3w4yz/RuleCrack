@@ -1,0 +1,9 @@
+[
+  {"rule": "S", "words": ["Crack96"], "expected": ["cRACK(^"], "source": "john/doc/RULES:198"},
+  {"rule": "V", "words": ["Crack96"], "expected": ["CRaCK96"], "source": "john/doc/RULES:199"},
+  {"rule": "R", "words": ["Crack96"], "expected": ["Vtsvl07"], "source": "john/doc/RULES:200"},
+  {"rule": "L", "words": ["Crack96"], "expected": ["Xeaxj85"], "source": "john/doc/RULES:201"},
+  {"rule": "p", "words": ["crack"], "expected": ["cracks"], "source": "john/doc/RULES:169"},
+  {"rule": "P", "words": ["crack"], "expected": ["cracked"], "source": "john/doc/RULES:170"},
+  {"rule": "I", "words": ["crack"], "expected": ["cracking"], "source": "john/doc/RULES:171"}
+]
