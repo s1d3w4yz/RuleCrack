@@ -258,6 +258,19 @@ table.batch tr+tr td{border-top:1px solid var(--rule)}
 table.batch td.arrow{color:var(--dim);font-family:inherit;text-align:center;padding-top:7px}
 table.batch td.out{color:var(--good)}
 table.batch td.out.rejected{color:var(--danger)}
+table.batch td.tracecol{text-align:right;padding-top:5px}
+button.tracebtn{
+  background:none;border:1px solid var(--rule);color:var(--dim);
+  padding:3px 8px;border-radius:5px;font-size:.72rem;cursor:pointer;
+  font-family:'IBM Plex Mono',monospace;white-space:nowrap;
+}
+button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
+
+@keyframes jumpFlash{
+  0%{box-shadow:0 0 0 3px var(--accent); border-color:var(--accent);}
+  100%{box-shadow:0 0 0 0 transparent;}
+}
+.jump-highlight{animation:jumpFlash 1s ease}
 
 .callout{
   background:var(--surface-2);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;
@@ -379,7 +392,7 @@ letmein
 princess</textarea>
       </label>
       <table class="batch">
-        <thead><tr><th>Input</th><th></th><th>Output</th></tr></thead>
+        <thead><tr><th>Input</th><th></th><th>Output</th><th></th></tr></thead>
         <tbody id="batchBody"></tbody>
       </table>
     </div>
@@ -1791,9 +1804,27 @@ princess</textarea>
       var result = runChain(w);
       var out = result.rejected ? 'rejected' : result.final;
       var cls = result.rejected ? ' rejected' : '';
-      return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out'+cls+'">'+escapeHtml(out)+'</td></tr>';
-    }).join('') || '<tr><td colspan="3" style="color:var(--dim);font-family:inherit">Add words above, one per line.</td></tr>';
+      return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out'+cls+'">'+escapeHtml(out)+'</td>'+
+        '<td class="tracecol"><button class="tracebtn" data-word="'+escapeHtml(w)+'" title="Load this word into Word to transform, and jump to the step chain + trace above">&uarr; trace</button></td></tr>';
+    }).join('') || '<tr><td colspan="4" style="color:var(--dim);font-family:inherit">Add words above, one per line.</td></tr>';
   }
+  // One word from the batch list, loaded back into section 01 so its own
+  // step-by-step breakdown shows in sections 03/04 above — batch test only
+  // shows the final output, this is how you see *how* it got there.
+  batchBody.addEventListener('click', function(e){
+    var btn = e.target.closest('.tracebtn');
+    if (!btn) return;
+    wordInput.value = btn.dataset.word;
+    renderTraceAndRule();
+    var chainCard = chainEl.closest('.card');
+    [chainCard, traceEl].forEach(function(el){
+      if (!el) return;
+      el.classList.remove('jump-highlight');
+      void el.offsetWidth; // restart the animation if clicked twice
+      el.classList.add('jump-highlight');
+    });
+    traceEl.scrollIntoView({behavior:'smooth', block:'center'});
+  });
 
   function renderAll(){
     renderChain();
