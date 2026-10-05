@@ -1696,19 +1696,25 @@ d $1$2$3"></textarea>
   var cheatCard = document.getElementById('cheatCard');
   var col1Card = document.getElementById('col1Card');
   var col2Card = document.getElementById('col2Card');
+  var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
   function syncCheatHeight(){
     if (cheatCard.classList.contains('expanded')) return;
     if (document.getElementById('builderView').hidden) return;
     // Manually expanding the chain (03) or trace (04) grows its own
     // column well past its normal height — that's a one-off "show me
     // everything" action on that column alone, not a new baseline the
-    // cheat sheet should chase. Skip the update while either is expanded
-    // so column 3 stays put at its last normal-state height instead of
-    // growing right along with whichever one was just expanded; it
-    // re-syncs to the real heights again as soon as both are collapsed.
-    if (chainEl.classList.contains('expanded') || traceEl.classList.contains('expanded')) return;
+    // cheat sheet should chase. While either is expanded, re-apply the
+    // last *real* measurement instead of a fresh one (and instead of
+    // just doing nothing — collapsing the cheat sheet itself calls this
+    // same function, and bailing out here with no fallback used to leave
+    // column 3 with no inline max-height at all, so it fell all the way
+    // back to the generic CSS cap instead of the synced height).
+    if (chainEl.classList.contains('expanded') || traceEl.classList.contains('expanded')){
+      if (lastCheatHeight != null) cheatCard.style.maxHeight = lastCheatHeight + 'px';
+      return;
+    }
     var h = Math.max(col1Card.getBoundingClientRect().height, col2Card.getBoundingClientRect().height);
-    if (h > 0) cheatCard.style.maxHeight = h + 'px';
+    if (h > 0){ lastCheatHeight = h; cheatCard.style.maxHeight = h + 'px'; }
   }
   if (window.ResizeObserver){
     var cheatHeightObserver = new ResizeObserver(syncCheatHeight);
