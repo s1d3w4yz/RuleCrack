@@ -1495,8 +1495,8 @@ princess</textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john' | 'john_native'
   var TARGET_NOTES = {
-    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Rows marked ⚠ only run in hashcat — John has no equivalent at all.',
-    both:        'John’s rule engine is a subset of hashcat’s, so this hides the ⚠ hashcat-only operators — what’s left behaves identically in both.',
+    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Operators marked ⚠ in the add-step menu (colored red in the cheat sheet) only run in hashcat — John has no equivalent at all.',
+    both:        'John’s rule engine is a subset of hashcat’s, so this drops the hashcat-only operators (the ones colored red elsewhere) entirely — what’s left behaves identically in both.',
     john:        'John running hashcat-syntax rules (via "!! hashcat logic ON"). Same portable subset as Both, plus a reference list of what John can do that hashcat can’t.',
     john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; the commands below with no hashcat equivalent are now real buildable steps.'
   };
