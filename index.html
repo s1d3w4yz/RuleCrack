@@ -41,15 +41,16 @@ body{
 h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0}
 .mono{font-family:'IBM Plex Mono','SF Mono',monospace}
 
-.wrap{max-width:1080px;margin:0 auto}
+.wrap{max-width:1360px;margin:0 auto}
 
 header.page{margin-bottom:28px;display:flex;flex-direction:column;gap:10px}
 header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
 
-.grid{display:grid;grid-template-columns:1.08fr 1fr;gap:20px;align-items:start}
-@media (max-width:800px){ .grid{grid-template-columns:1fr} }
+.grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
+@media (max-width:1150px){ .grid{grid-template-columns:1fr 1fr} .grid .card.cheat{grid-column:1 / -1} }
+@media (max-width:800px){ .grid{grid-template-columns:1fr} .grid .card.cheat{grid-column:auto} }
 
 .card{
   background:var(--surface);
@@ -195,6 +196,21 @@ table.batch td.out.rejected{color:var(--danger)}
 #ruleParseStatus.ok{color:var(--good)}
 #ruleParseStatus.err{color:var(--danger)}
 #ruleTextInput.err{border-color:var(--danger)}
+
+.cheat{max-height:calc(100vh - 64px);overflow-y:auto}
+.cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
+.cheat-legend .mono{color:var(--accent)}
+.cheat-group{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 6px;padding-top:10px;border-top:1px dashed var(--rule)}
+.cheat-group:first-child{margin-top:0;padding-top:0;border-top:none}
+.cheat-row{display:flex;align-items:baseline;gap:8px;padding:4px 0;flex-wrap:wrap}
+.cheat-row .syntax{font-family:'IBM Plex Mono',monospace;font-size:.88rem;color:var(--ink);min-width:72px;flex:none}
+.cheat-row .desc{font-size:.78rem;color:var(--dim);flex:1;min-width:0}
+.cheat-row button.ex{
+  font-family:'IBM Plex Mono',monospace;font-size:.76rem;color:var(--accent);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;
+  padding:1px 7px;cursor:pointer;flex:none;
+}
+.cheat-row button.ex:hover{border-color:var(--accent)}
 </style>
 
 <div class="wrap">
@@ -267,6 +283,18 @@ princess</textarea>
         <thead><tr><th>Input</th><th></th><th>Output</th></tr></thead>
         <tbody id="batchBody"></tbody>
       </table>
+    </div>
+
+    <!-- FAR RIGHT: cheat sheet -->
+    <div class="card cheat">
+      <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
+      <div class="cheat-legend">
+        <span class="mono">N M I</span> = position, 0&ndash;9 then A&ndash;Z for 10&ndash;35 &middot;
+        <span class="mono">X Y</span> = a literal character &middot;
+        <span class="mono">C</span> = a class letter (<span class="mono">l u d s a h H b</span>) &middot;
+        click an example to drop it into the rule line.
+      </div>
+      <div id="cheatBody"></div>
     </div>
   </div>
 </div>
@@ -660,6 +688,83 @@ princess</textarea>
 
   var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','special'],['a','any'],['h','hex (lower)'],['H','hex (upper)'],['b','any byte']];
 
+  // ---------- cheat sheet data ----------
+  // Abstract syntax shape (for pattern-matching real rules) plus a concrete,
+  // clickable example (built through the op's own hashcat() function, so it
+  // can never drift from what the engine actually accepts).
+  var CHEAT = {
+    noop:          {syntax:':',      ex:{}},
+    lrest:         {syntax:'l',      ex:{}},
+    urest:         {syntax:'u',      ex:{}},
+    lrest_ufirst:  {syntax:'c',      ex:{}},
+    urest_lfirst:  {syntax:'C',      ex:{}},
+    trest:         {syntax:'t',      ex:{}},
+    shift_case:    {syntax:'S',      ex:{}},
+    toggle_at:     {syntax:'TN',     ex:{N:3}},
+    toggle_at_sep: {syntax:'3NX',    ex:{N:0,X:'-'}},
+    title:         {syntax:'E',      ex:{}},
+    title_sep:     {syntax:'eX',     ex:{X:'-'}},
+    reverse:       {syntax:'r',      ex:{}},
+    dupeword:      {syntax:'d',      ex:{}},
+    dupeword_times:{syntax:'pN',     ex:{N:2}},
+    reflect:       {syntax:'f',      ex:{}},
+    rotate_left:   {syntax:'{',      ex:{}},
+    rotate_right:  {syntax:'}',      ex:{}},
+    dupechar_first:{syntax:'zN',     ex:{N:3}},
+    dupechar_last: {syntax:'ZN',     ex:{N:3}},
+    dupechar_all:  {syntax:'q',      ex:{}},
+    dupeblock_first:{syntax:'yN',    ex:{N:2}},
+    dupeblock_last: {syntax:'YN',    ex:{N:2}},
+    switch_first:  {syntax:'k',      ex:{}},
+    switch_last:   {syntax:'K',      ex:{}},
+    switch_at:     {syntax:'*NM',    ex:{N:0,M:2}},
+    append:        {syntax:'$X',     ex:{X:'!'}},
+    prepend:       {syntax:'^X',     ex:{X:'_'}},
+    delete_first:  {syntax:'[',      ex:{}},
+    delete_last:   {syntax:']',      ex:{}},
+    delete_at:     {syntax:'DN',     ex:{N:0}},
+    extract:       {syntax:'xNM',    ex:{N:0,M:3}},
+    omit:          {syntax:'ONM',    ex:{N:0,M:1}},
+    insert:        {syntax:'iNX',    ex:{N:0,X:'!'}},
+    insert_every:  {syntax:'vNX',    ex:{N:4,X:'-'}},
+    overstrike:    {syntax:'oNX',    ex:{N:0,X:'@'}},
+    truncate_at:   {syntax:"'N",     ex:{N:4}},
+    replace:       {syntax:'sXY',    ex:{X:'a',Y:'4'}},
+    purgechar:     {syntax:'@X',     ex:{X:'a'}},
+    chr_shiftl:    {syntax:'LN',     ex:{N:0}},
+    chr_shiftr:    {syntax:'RN',     ex:{N:0}},
+    chr_incr:      {syntax:'+N',     ex:{N:0}},
+    chr_decr:      {syntax:'-N',     ex:{N:0}},
+    chr_add:       {syntax:'BNX',    ex:{N:0,X:'a'}},
+    replace_np1:   {syntax:'.N',     ex:{N:0}},
+    replace_nm1:   {syntax:',N',     ex:{N:1}},
+    to_hex_lower:  {syntax:'h',      ex:{}},
+    to_hex_upper:  {syntax:'H',      ex:{}},
+    memorize:      {syntax:'M',      ex:{}},
+    append_memory: {syntax:'4',      ex:{}},
+    prepend_memory:{syntax:'6',      ex:{}},
+    extract_memory:{syntax:'XNMI',   ex:{N:0,M:2,I:0}},
+    reject_memory: {syntax:'Q',      ex:{}},
+    reject_less:       {syntax:'<N',  ex:{N:8}},
+    reject_greater:    {syntax:'>N',  ex:{N:8}},
+    reject_equal:      {syntax:'_N',  ex:{N:8}},
+    reject_contain:    {syntax:'!X',  ex:{X:'$'}},
+    reject_not_contain:{syntax:'/X',  ex:{X:'0'}},
+    reject_equal_first:{syntax:'(X',  ex:{X:'a'}},
+    reject_equal_last: {syntax:')X',  ex:{X:'!'}},
+    reject_equal_at:   {syntax:'=NX', ex:{N:0,X:'a'}},
+    reject_contains:   {syntax:'%NX', ex:{N:1,X:'a'}},
+    cls_replace:          {syntax:'~s?CY', ex:{C:'l',Y:'4'}},
+    cls_purge:            {syntax:'~@?C',  ex:{C:'d'}},
+    cls_title_sep:        {syntax:'~e?C',  ex:{C:'d'}},
+    cls_reject_contain:   {syntax:'~!?C',  ex:{C:'s'}},
+    cls_reject_not_contain:{syntax:'~/?C', ex:{C:'d'}},
+    cls_reject_first:     {syntax:'~(?C',  ex:{C:'u'}},
+    cls_reject_last:      {syntax:'~)?C',  ex:{C:'d'}},
+    cls_reject_at:        {syntax:'~=N?C', ex:{N:0,C:'u'}},
+    cls_reject_contains:  {syntax:'~%N?C', ex:{N:1,C:'d'}}
+  };
+
   // ---------- rule-line parser ----------
   // Turns a raw hashcat rule line (e.g. "c sa4 se3 si1 so0 ss5 $! $1") into
   // the same {type, args} step shape the visual builder uses, so typing a
@@ -811,6 +916,7 @@ princess</textarea>
   var batchBody = document.getElementById('batchBody');
   var ruleTextInput = document.getElementById('ruleTextInput');
   var ruleParseStatus = document.getElementById('ruleParseStatus');
+  var cheatBody = document.getElementById('cheatBody');
 
   var uid = 0;
   function newStep(type){
@@ -1016,6 +1122,35 @@ princess</textarea>
     renderBatch();
   }
 
+  function renderCheatsheet(){
+    var html = '';
+    GROUPS.forEach(function(g){
+      var keys = Object.keys(OPS).filter(function(k){ return OPS[k].group===g; });
+      if (!keys.length) return;
+      html += '<div class="cheat-group">'+escapeHtml(g)+'</div>';
+      keys.forEach(function(k){
+        var cheat = CHEAT[k];
+        if (!cheat) return;
+        var example = OPS[k].hashcat(cheat.ex);
+        html += '<div class="cheat-row">'+
+          '<span class="syntax">'+escapeHtml(cheat.syntax)+'</span>'+
+          '<button class="ex" data-token="'+escapeHtml(example)+'" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
+          '<span class="desc">'+escapeHtml(OPS[k].label)+'</span>'+
+        '</div>';
+      });
+    });
+    cheatBody.innerHTML = html;
+    cheatBody.addEventListener('click', function(e){
+      var btn = e.target.closest('button.ex');
+      if (!btn) return;
+      var token = btn.dataset.token;
+      var cur = ruleTextInput.value;
+      ruleTextInput.value = cur && !/\s$/.test(cur) ? (cur + ' ' + token) : (cur + token);
+      loadRuleText();
+      ruleTextInput.focus();
+    });
+  }
+
   wordInput.addEventListener('input', renderTraceAndRule);
   batchInput.addEventListener('input', renderBatch);
   addBtn.addEventListener('click', function(){
@@ -1084,5 +1219,6 @@ princess</textarea>
 
   renderAll();
   ruleTextInput.value = buildHashcatRule();
+  renderCheatsheet();
 })();
 </script>

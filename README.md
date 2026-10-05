@@ -28,6 +28,11 @@ and batch-test it against a list of words.
   (e.g. `c sa4 se3 si1 so0 ss5 $! $1`), ready to drop into a `.rule` file.
 - **Batch test**: run the whole chain against a list of words (one per line)
   to see how it generalizes beyond a single example.
+- **Cheat sheet**: every operator listed with its abstract syntax
+  (`sXY`, `TN`, `~s?CY`, …) and a concrete, clickable example built from the
+  same engine that runs the chain — click one to drop it straight into the
+  rule line, for learning the syntax by typing instead of clicking through
+  the chain builder.
 
 Operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
