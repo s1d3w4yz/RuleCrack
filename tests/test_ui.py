@@ -390,8 +390,8 @@ def test_batch_test_produces_correct_outputs(driver, r):
 
     rows = driver.execute_script(
         "return Array.from(document.querySelectorAll('#batchBody tr')).map(function(tr){"
-        "  var tds = tr.querySelectorAll('td');"
-        "  return {word: tds[0].textContent, out: tds[2].textContent, rejected: tds[2].classList.contains('rejected')};"
+        "  var out = tr.querySelector('td.out');"
+        "  return {word: tr.querySelector('td.b-in').textContent, out: out.textContent, rejected: out.classList.contains('rejected')};"
         "});"
     )
     short_expected = engine_run(driver, 'ab', [('urest', {}), ('reject_less', {'N': 3})])
@@ -1442,6 +1442,22 @@ def test_rule_line_caret_links_its_step(driver, r):
     set_value(driver, box, 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
 
 
+def test_batch_rows_keep_their_line_numbers(driver, r):
+    """Each batch table row shows the line number it came from in the
+    input box; a blank line is skipped but leaves a gap in the numbers,
+    so a row can always be matched to its line."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'batchInput'), 'alpha\n\nbravo\n   \ncharlie\ndelta')
+    rows = driver.execute_script(
+        "return [].map.call(document.querySelectorAll('#batchBody tr'), function(tr){"
+        "  return [tr.querySelector('td.b-n').textContent, tr.querySelector('td.b-in').textContent]; });")
+    r.check(rows == [['1', 'alpha'], ['3', 'bravo'], ['5', 'charlie'], ['6', 'delta']],
+            'rows keep their input-line numbers, with gaps where lines were blank', f'{rows}')
+    head = driver.execute_script("return document.querySelector('table.batch th.b-n').textContent;")
+    r.check(head == '#', 'the number column has a header', repr(head))
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1478,6 +1494,7 @@ def main():
         test_trace_row_hover_links_back_to_its_step(driver, r)
         test_rule_line_hover_links_its_step(driver, r)
         test_rule_line_caret_links_its_step(driver, r)
+        test_batch_rows_keep_their_line_numbers(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
