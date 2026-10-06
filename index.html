@@ -11,7 +11,7 @@
 :root{
   --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
   --ink:#E7E2D3; --dim:#A9AFB6; --accent:#D9A449;
-  --good:#4FB286; --danger:#D9695F; --rule:#323A41;
+  --good:#4FB286; --danger:#E27A70; --rule:#323A41;
   color-scheme:dark;
 }
 :root[data-theme="light"]{
@@ -20,7 +20,7 @@
   --surface-2:#F1ECDF;
   --ink:#1F2420;
   --dim:#524D3E;
-  --accent:#8A5A0C;
+  --accent:#7D5108;
   --good:#1C6E63;
   --danger:#9B3A33;
   --rule:#D8D0BC;
@@ -69,7 +69,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .syntaxnotes{list-style:none;margin:10px 0 0;padding:0;max-width:var(--intro-w);display:grid;grid-template-columns:max-content max-content 1fr;column-gap:12px;row-gap:8px;align-items:baseline;font-size:.92rem;line-height:1.45;color:var(--dim)}
 .syntaxnotes li{display:contents}
 .syntaxnotes a{color:var(--accent);font-weight:600}
-.syntaxnotes .tag{justify-self:start;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
+.syntaxnotes .tag{justify-self:start;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
 .syntaxnotes strong{color:var(--ink);font-weight:600}
 @media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
 
@@ -87,7 +87,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .tbtn:hover{color:var(--ink)}
 .tbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
 .tbtn .rec{
-  display:inline-block;margin-left:6px;font-size:.6rem;letter-spacing:.04em;
+  display:inline-block;margin-left:6px;font-size:.75rem;letter-spacing:.04em;
   color:var(--accent);border:1px solid var(--accent);border-radius:3px;
   padding:0 4px;vertical-align:middle;text-transform:uppercase;
 }
@@ -102,7 +102,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .mbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
 
 .badge{
-  display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.66rem;
+  display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.75rem;
   letter-spacing:.02em;padding:1px 6px;border-radius:4px;border:1px solid var(--rule);
   color:var(--dim);flex:none;white-space:nowrap;
 }
@@ -231,16 +231,16 @@ label.field textarea{
 /* same filled accent circle the trace uses for a step's number, so step N
    here visibly matches row N in section 04 */
 .step .idx{
-  flex:none;width:18px;height:18px;margin-top:7px;border-radius:50%;
+  flex:none;width:20px;height:20px;margin-top:6px;border-radius:50%;
   background:var(--accent);color:var(--bg);
-  font-family:'IBM Plex Mono',monospace;font-size:.68rem;font-weight:700;
+  font-family:'IBM Plex Mono',monospace;font-size:.75rem;font-weight:700;
   display:flex;align-items:center;justify-content:center;user-select:none;
 }
 .step .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .step .body .toprow{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
 .step .body .toprow select.s-type{flex:1 1 120px;min-width:0}
 .step .taglabel{
-  font-size:.68rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);
+  font-size:.75rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);
   background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:2px 5px;
 }
 .step select.s-type{
@@ -253,10 +253,10 @@ label.field textarea{
    browser) — hover it for the full text via its title attribute, or
    just read it here: a full, untruncated copy of the same label,
    always visible underneath, regardless of hover or dropdown width. */
-.step .steplabel{display:none;font-size:.72rem;color:var(--dim);line-height:1.3;margin-top:-2px}
+.step .steplabel{display:none;font-size:.78rem;color:var(--dim);line-height:1.3;margin-top:-2px}
 .step.clipped .steplabel{display:block}
 .step .argrow{display:inline-flex;gap:6px;flex-wrap:wrap;align-items:center}
-.step .argrow .argwrap{display:flex;align-items:center;gap:4px;font-size:.72rem;color:var(--dim)}
+.step .argrow .argwrap{display:flex;align-items:center;gap:4px;font-size:.78rem;color:var(--dim)}
 .step input.p-arg{
   font-family:'IBM Plex Mono',monospace;font-size:.9rem;color:var(--ink);
   background:var(--surface);border:1px solid var(--rule);border-radius:5px;
@@ -276,7 +276,7 @@ label.field textarea{
   display:flex;align-items:center;justify-content:center;line-height:1;
 }
 .step button.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
-.step button.iconbtn:disabled{opacity:.35;cursor:default}
+.step button.iconbtn:disabled{opacity:.5;cursor:default}
 .step button.iconbtn.del:hover{border-color:var(--danger);color:var(--danger)}
 .step input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin-top:8px}
 
@@ -310,8 +310,8 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
    step's position in the chain (section 03) exactly, including gaps left
    by disabled steps, so a trace entry maps back to its row at a glance. */
 .trace-row .num{
-  width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--bg);
-  font-family:'IBM Plex Mono',monospace;font-size:.68rem;font-weight:700;
+  width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--bg);
+  font-family:'IBM Plex Mono',monospace;font-size:.75rem;font-weight:700;
   display:flex;align-items:center;justify-content:center;
   margin-top:1px;justify-self:center;
 }
@@ -364,7 +364,7 @@ button.copy.copied{color:var(--good);border-color:var(--good)}
 
 table.batch{width:100%;border-collapse:collapse;font-size:.88rem}
 table.batch th{
-  text-align:left;font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;
+  text-align:left;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;
   color:var(--dim);padding:0 6px 8px;font-weight:600;
 }
 table.batch td{padding:6px;font-family:'IBM Plex Mono',monospace;vertical-align:top;word-break:break-all}
@@ -375,7 +375,7 @@ table.batch td.out.rejected{color:var(--danger)}
 table.batch td.tracecol{text-align:right;padding-top:5px}
 button.tracebtn{
   background:none;border:1px solid var(--rule);color:var(--dim);
-  padding:3px 8px;border-radius:5px;font-size:.72rem;cursor:pointer;
+  padding:3px 8px;border-radius:5px;font-size:.75rem;cursor:pointer;
   font-family:'IBM Plex Mono',monospace;white-space:nowrap;
 }
 button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -391,7 +391,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .vtable{width:100%;border-collapse:collapse;font-size:.82rem}
 .vtable th{
   position:sticky;top:0;background:var(--surface-2);text-align:left;z-index:1;
-  font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);
+  font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);
   padding:7px 8px;font-weight:600;border-bottom:1px solid var(--rule);
 }
 .vtable td{padding:7px 8px;vertical-align:top;border-bottom:1px solid var(--rule)}
@@ -405,15 +405,15 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 }
 .vtable tr.v-deleted input.v-rule{text-decoration:line-through}
 .vtable input.v-rule:focus{border-color:var(--accent);outline:none}
-.v-status{font-size:.72rem;font-weight:700;white-space:nowrap;display:block}
+.v-status{font-size:.75rem;font-weight:700;white-space:nowrap;display:block}
 .v-status.ok{color:var(--good)}
 .v-status.err{color:var(--danger)}
-.v-err-detail{font-size:.7rem;color:var(--danger);opacity:.85;margin-top:2px}
+.v-err-detail{font-size:.75rem;color:var(--danger);opacity:.85;margin-top:2px}
 .v-preview{font-family:'IBM Plex Mono',monospace;font-size:.82rem}
 .v-preview.rejected{color:var(--danger)}
 .v-actions{display:flex;gap:5px;flex-wrap:wrap;padding-top:7px}
 .v-actions button{
-  font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--dim);
+  font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--dim);
   background:none;border:1px solid var(--rule);border-radius:5px;padding:4px 8px;cursor:pointer;white-space:nowrap;
 }
 .v-actions button:hover{border-color:var(--accent);color:var(--accent)}
@@ -462,7 +462,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 }
 .cheatsearch:focus{outline:2px solid var(--accent);outline-offset:1px}
 .cheat-empty{color:var(--dim);font-size:.9rem;padding:12px 0}
-.cheat-group{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 6px;padding-top:10px;border-top:1px dashed var(--rule)}
+.cheat-group{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 6px;padding-top:10px;border-top:1px dashed var(--rule)}
 .cheat-group:first-child{margin-top:0;padding-top:0;border-top:none}
 .cheat-row{display:contents}
 /* #cheatBody is one shared 3-column grid (syntax | example | description)
@@ -1849,7 +1849,7 @@ d $1$2$3"></textarea>
   // chain step with X/Y args is ~107px, a trace row ~55px), so a short
   // window shows a few rows and a tall one shows many. A floor, not a
   // cap: on a very short window the columns may exceed the viewport.
-  var MIN_CHAIN_HEIGHT = 170;
+  var MIN_CHAIN_HEIGHT = 165;
   var MIN_TRACE_HEIGHT = 110;
   // Columns are sized to the viewport as it was when the page loaded;
   // resizing the window afterwards deliberately does not re-fit them.
