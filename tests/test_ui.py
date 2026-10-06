@@ -858,6 +858,55 @@ def test_reduced_motion_is_respected(driver, r):
         driver.get(INDEX_URL)
 
 
+TARGET_SIZE_JS = """
+// a control scrolled out of sight inside a scroll box (the chain/trace/cheat
+// lists) can't be clicked, so it isn't a target right now
+var clipped = function(e){ var r = e.getBoundingClientRect(), cx = (r.left + r.right) / 2, cy = (r.top + r.bottom) / 2;
+  for (var p = e.parentElement; p; p = p.parentElement){
+    var c = getComputedStyle(p);
+    if (c.overflowX !== 'visible' || c.overflowY !== 'visible'){
+      var b = p.getBoundingClientRect(); if (cx < b.left || cx > b.right || cy < b.top || cy > b.bottom) return true; } }
+  return false; };
+var vis = function(e){ var r = e.getBoundingClientRect(), c = getComputedStyle(e);
+  return r.width > 0 && r.height > 0 && c.visibility !== 'hidden' && c.display !== 'none' && !e.closest('[hidden]') && !e.closest('.skipnav') && !clipped(e); };
+var all = [].filter.call(document.querySelectorAll('button, input, select, textarea, a[href]'), vis);
+// a checkbox inside/with a <label> is also clickable through the label
+var rect = function(e){ var r = e.getBoundingClientRect(), L = r;
+  if (e.labels && e.labels.length){ var l = [].map.call(e.labels, function(x){ return x.getBoundingClientRect(); }).filter(function(b){ return b.width > 0; })[0];
+    if (l) L = {left: Math.min(r.left, l.left), right: Math.max(r.right, l.right), top: Math.min(r.top, l.top), bottom: Math.max(r.bottom, l.bottom)}; }
+  return {left: L.left, right: L.right, top: L.top, bottom: L.bottom, w: L.right - L.left, h: L.bottom - L.top}; };
+var dist = function(cx, cy, b){ var dx = Math.max(b.left - cx, 0, cx - b.right), dy = Math.max(b.top - cy, 0, cy - b.bottom); return Math.hypot(dx, dy); };
+var bad = [];
+all.forEach(function(e){
+  var b = rect(e); if (b.w >= 24 && b.h >= 24) return;
+  // Only native checkboxes may be smaller (a native control can't be padded).
+  // They use WCAG 2.2 2.5.8's spacing exception: a 24px circle centered on
+  // the target must not touch any other target.
+  if (e.type !== 'checkbox'){ bad.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + '.' + String(e.className).split(' ')[0] + ' ' + Math.round(b.w) + 'x' + Math.round(b.h)); return; }
+  var cx = (b.left + b.right) / 2, cy = (b.top + b.bottom) / 2;
+  var clash = all.some(function(o){ return o !== e && dist(cx, cy, rect(o)) < 12; });
+  if (clash) bad.push(e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + '.' + String(e.className).split(' ')[0] + ' ' + Math.round(b.w) + 'x' + Math.round(b.h));
+});
+return bad;
+"""
+
+
+def test_click_targets_are_big_enough(driver, r):
+    """Every visible control is at least 24x24 CSS px (WCAG 2.2 AA, 2.5.8);
+    only native checkboxes may be smaller, and only if a 24px circle around
+    them touches no other control. Controls scrolled out of sight inside a
+    list are skipped."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 $1 x14', debounced=True)
+    bad = driver.execute_script(TARGET_SIZE_JS)
+    r.check(not bad, 'builder view: no click target is too small', f'too small: {bad}')
+    driver.find_element('css selector', '.mbtn[data-mode="validator"]').click()
+    set_value(driver, driver.find_element('id', 'validatorInput'), 'c sa4\nzzz\n# a comment\n', debounced=True)
+    bad = driver.execute_script(TARGET_SIZE_JS)
+    r.check(not bad, 'validator view: no click target is too small', f'too small: {bad}')
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -886,6 +935,7 @@ def main():
         test_every_control_has_an_accessible_name(driver, r)
         test_toggle_groups_expose_pressed_state(driver, r)
         test_live_announcements(driver, r)
+        test_click_targets_are_big_enough(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)

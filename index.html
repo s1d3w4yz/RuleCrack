@@ -87,7 +87,7 @@ header.page p strong{color:var(--ink);font-weight:600}
 header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:var(--intro-w)} /* same cap as .syntaxnotes below, so their right edges line up */
 .syntaxnotes{list-style:none;margin:10px 0 0;padding:0;max-width:var(--intro-w);display:grid;grid-template-columns:max-content max-content 1fr;column-gap:12px;row-gap:8px;align-items:baseline;font-size:.92rem;line-height:1.45;color:var(--dim)}
 .syntaxnotes li{display:contents}
-.syntaxnotes a{color:var(--accent);font-weight:600}
+.syntaxnotes a{color:var(--accent);font-weight:600;padding-block:2px} /* link height 21px -> 25px */
 .syntaxnotes .tag{justify-self:start;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
 .syntaxnotes strong{color:var(--ink);font-weight:600}
 @media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
@@ -300,7 +300,7 @@ label.field textarea{
 .step button.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
 .step button.iconbtn:disabled{opacity:.5;cursor:default}
 .step button.iconbtn.del:hover{border-color:var(--danger);color:var(--danger)}
-.step input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin-top:8px}
+.step input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent);margin-top:6px}
 
 .addrow{display:flex;gap:8px;flex-wrap:wrap}
 select#addType{
@@ -348,7 +348,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
 .traceopts{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin:-8px 0 8px}
-.locktoggle{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--dim);cursor:pointer;user-select:none}
+.locktoggle{display:flex;align-items:center;gap:6px;min-height:24px;font-size:.78rem;color:var(--dim);cursor:pointer;user-select:none}
 .locktoggle input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
 /* With locking on, the first row (starting word) and last row (the final
    result, or a reject) stay pinned to the top/bottom of the scroll area
@@ -398,7 +398,7 @@ table.batch td.out.rejected{color:var(--danger)}
 table.batch td.tracecol{text-align:right;padding-top:5px}
 button.tracebtn{
   background:none;border:1px solid var(--rule);color:var(--dim);
-  padding:3px 8px;border-radius:5px;font-size:.75rem;cursor:pointer;
+  padding:3px 8px;min-height:24px;border-radius:5px;font-size:.75rem;cursor:pointer;
   font-family:'IBM Plex Mono',monospace;white-space:nowrap;
 }
 button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -481,7 +481,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .cf-hide{display:none !important}
 .searchrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .searchrow .cheatsearch{flex:1 1 180px;width:auto}
-.searchopt{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--dim);cursor:pointer;white-space:nowrap}
+.searchopt{display:flex;align-items:center;gap:6px;min-height:24px;font-size:.82rem;color:var(--dim);cursor:pointer;white-space:nowrap}
 .searchopt input{accent-color:var(--accent)}
 .cheatsearch{
   font-family:'Source Sans 3',system-ui,sans-serif;font-size:.84rem;color:var(--ink);
@@ -508,7 +508,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .cheat-row button.ex{
   font-family:'IBM Plex Mono',monospace;font-size:.76rem;color:var(--accent);
   background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;
-  padding:1px 7px;cursor:pointer;flex:none;
+  padding:1px 7px;min-height:24px;cursor:pointer;flex:none;
 }
 .cheat-row button.ex:hover{border-color:var(--accent)}
 </style>
