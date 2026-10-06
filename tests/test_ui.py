@@ -1160,7 +1160,7 @@ def test_tooltip_information_is_also_visible(driver, r):
     driver.execute_script("document.activeElement.blur();")
 
     sub = driver.execute_script("return document.querySelector('#col2Card .sub').textContent;")
-    r.check('trace button' in sub and 'step by step' in sub, 'the batch section explains the trace buttons in plain words', repr(sub))
+    r.check('trace button' in sub and 'how that word changes' in sub, 'the batch section explains the trace buttons in plain words', repr(sub))
     r.check('\u2191' not in sub, 'the explanation does not quote the arrow glyph', repr(sub))
     desc = driver.execute_script(
         "var c = document.getElementById('cheatOpOnly'), d = document.getElementById(c.getAttribute('aria-describedby'));"
@@ -1705,6 +1705,16 @@ def test_trace_keeps_a_row_for_every_step(driver, r):
     off = info()
     r.check(off['skipped'] == 1 and off['why'] == ['Not run — this step is switched off'], 'a switched-off step keeps a dimmed row that says so', f'{off}')
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
+def test_cheat_legend_is_aligned(driver, r):
+    """The legend's descriptions all start at the same x position (a symbol column, then a text column)."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    for target in ('hashcat', 'both', 'john_native'):
+        driver.execute_script("document.querySelector('#targetBtns [data-target=\"%s\"]').click();" % target)
+        xs = driver.execute_script("return Array.from(document.querySelectorAll('.legend-grid > span:not(.mono):not(.full)')).map(function(e){return Math.round(e.getBoundingClientRect().left);});")
+        r.check(len(xs) >= 2 and len(set(xs)) == 1, f'the cheat sheet legend descriptions line up ({target})', f'{xs}')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
 def test_byte_escapes_in_the_rule_line(driver, r):
@@ -2371,6 +2381,7 @@ def main():
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
         test_byte_escapes_in_the_rule_line(driver, r)
+        test_cheat_legend_is_aligned(driver, r)
         test_trace_keeps_a_row_for_every_step(driver, r)
         test_rule_line_highlight_with_multibyte_steps(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)

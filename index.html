@@ -586,6 +586,8 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .cheat.expanded #cheatBody{overflow:visible}
 .cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
 .cheat-legend .mono{color:var(--accent)}
+.legend-grid{display:grid;grid-template-columns:max-content 1fr;column-gap:12px}
+.legend-grid .full{grid-column:1 / -1}
 .cf-hide{display:none !important}
 .searchrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .searchrow .cheatsearch{flex:1 1 180px;width:auto}
@@ -831,7 +833,7 @@ try{
           <button class="expandbtn" id="batchExpandBtn" type="button" title="Show every row instead of scrolling a fixed-height box">&#10530; Expand</button>
         </div>
       </div>
-      <p class="sub"><span class="subline">Run the same chain against a list of words, one per line.</span><span class="subline">Use a row's trace button to see that word step by step.</span></p>
+      <p class="sub"><span class="subline">Run the same chain against a list of words, one per line.</span><span class="subline">Use a row's trace button to see how that word changes.</span></p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
            cleared and the example words never come back. -->
@@ -3378,12 +3380,15 @@ d $1$2$3"></textarea>
   function renderCheatsheet(){
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
 
-    var legend = '<span class="subline"><span class="mono">N M I</span> = a position: 0–9, then A–Z for 10–35</span>'+
-      '<span class="subline"><span class="mono">X Y</span> = a literal character, or any byte as <span class="mono">\\xNN</span> (<span class="mono">$\\xc5 $\\x8d</span> appends ō)</span>'+
-      (TARGET==='both' ? '' : '<span class="subline"><span class="mono">C</span> = a class: '+(TARGET==='john_native'
+    // Two columns (the symbol, then what it stands for) so every description starts at the same place.
+    var legend = '<div class="legend-grid">'+
+      '<span class="mono">N M I</span><span>a position: 0–9, then A–Z for 10–35</span>'+
+      '<span class="mono">X Y</span><span>a literal character, or any byte as <span class="mono">\\xNN</span> (<span class="mono">$\\xc5 $\\x8d</span> appends ō)</span>'+
+      (TARGET==='both' ? '' : '<span class="mono">C</span><span>a class: '+(TARGET==='john_native'
         ? 'v vowel, c consonant, d digit, l lowercase, u uppercase, s symbol, p punctuation, w whitespace, a letter, x letter or digit (more in John’s docs)'
         : 'l lowercase, u uppercase, d digit, s symbol, h / H hex digit')+'</span>')+
-      '<span class="subline">Click an example to drop it into the rule line.</span>';
+      '<span class="full">Click an example to drop it into the rule line.</span>'+
+      '</div>';
     // One color key, same meaning in every tab: a row's syntax text is
     // colored by what it's compatible with, not labeled — so a long list
     // stays scannable instead of growing a badge pill per row. The chain
