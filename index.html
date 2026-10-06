@@ -3100,14 +3100,18 @@ d $1$2$3"></textarea>
       }
       g.classList.toggle('cf-hide', terms.length>0 && !any);
     });
-    cheatBody.querySelectorAll(':scope > .callout, .john-only-section .jhead').forEach(function(el){ el.classList.toggle('cf-hide', terms.length>0); });
+    // only the setup callout steps aside while searching; the John-only box keeps its
+    // explanation so a search that lands in it still says why it isn't buildable here
+    cheatBody.querySelectorAll(':scope > .callout').forEach(function(el){ el.classList.toggle('cf-hide', terms.length>0); });
     cheatBody.querySelectorAll('.john-only-section').forEach(function(sec){
       sec.classList.toggle('cf-hide', terms.length>0 && !sec.querySelector('.cheat-row:not(.cf-hide)'));
     });
     var empty = cheatBody.querySelector('.cheat-empty');
     if (terms.length && !shown){
       if (!empty){ empty = document.createElement('div'); empty.className = 'cheat-empty'; cheatBody.appendChild(empty); }
-      empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”.';
+      empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”. ' +
+        (TARGET === 'john_native' ? 'Hashcat-only operators (like ~s?CY) are listed under the Hashcat target.'
+                                  : 'John’s own commands (pluralize, string insert…) are built under the John (native rules) target.');
     } else if (empty){ empty.remove(); }
     if (terms.length) announceSoon('search', shown + (shown === 1 ? ' operator matches' : ' operators match'), 600);
   }

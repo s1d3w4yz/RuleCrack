@@ -34,6 +34,8 @@ everything cosmetic second):
     - the three target views agree (Hashcat = all but John-only, Both =
       minus hashcat-only, John = shared + John-only) and 'vNX' is hashcat-only
     - the Both callout is a code block plus short points
+    - cheat sheet search keeps the John-only box's explanation, and a
+      search with no results says where to look
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -1639,6 +1641,27 @@ def test_both_callout_is_a_code_block(driver, r):
             'the Both callout is a 4-line code block plus three short points', f'{cb}')
 
 
+def test_cheat_search_keeps_john_only_explanation(driver, r):
+    """Searching the cheat sheet keeps the John-only box's explanation
+    visible (a search that lands in it still says why it isn't buildable
+    here), and a search with no results says where to look."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    time.sleep(0.2)
+    # searching keeps the John-only box's explanation; no results points to the other target
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'plural')
+    st = driver.execute_script(
+        "var s = document.querySelector('.john-only-section');"
+        "return {head: !s.querySelector('.jhead').classList.contains('cf-hide'), rows: s.querySelectorAll('.cheat-row:not(.cf-hide)').length};")
+    r.check(st['head'] and st['rows'] >= 1, 'searching for a John-only command keeps the explanation of why it isn\'t buildable', f'{st}')
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'zzzz')
+    empty = driver.execute_script("return document.querySelector('.cheat-empty').textContent;")
+    r.check('John (native rules)' in empty, 'a search with no results says where John-only commands live', repr(empty))
+    set_value(driver, driver.find_element('id', 'cheatSearch'), '')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1682,6 +1705,7 @@ def main():
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)
         test_both_callout_is_a_code_block(driver, r)
+        test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
