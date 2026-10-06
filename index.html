@@ -438,7 +438,10 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .rulewrap{position:relative;display:block}
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
-.rulehl mark{color:transparent;background:color-mix(in srgb,var(--accent) 38%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
+.rulehl .hl-on{background:color-mix(in srgb,var(--accent) 38%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
+/* a disabled step: veil the token (same color as the input, so the text
+   underneath looks dimmed) and strike a line through it */
+.rulehl .hl-off{background:color-mix(in srgb,var(--surface-2) 62%, transparent);text-decoration:line-through;text-decoration-color:var(--dim);text-decoration-thickness:2px}
 
 .cheat{max-height:calc(100vh - 64px);overflow:hidden}
 .cheat.expanded{max-height:none;overflow:visible}
@@ -2625,6 +2628,7 @@ d $1$2$3"></textarea>
     renderTraceAndRule();
     renderBatch();
     syncColumnFit();
+    if (ruleHl) paintRuleHl(); // disabled steps are struck through in the rule line
   }
 
   function renderCheatsheet(){
@@ -2822,25 +2826,45 @@ d $1$2$3"></textarea>
       ruleTextInput.classList.remove('err');
     }
   }
-  // ---------- hover a step -> mark its token in the rule line ----------
+  // ---------- rule-line overlay: hover highlight + disabled steps ----------
+  // Two things are drawn over the rule line, both by finding which slice of
+  // the text each step came from: the token of the step you're hovering is
+  // highlighted, and the token of every disabled step is struck through and
+  // dimmed (so the line doesn't claim to apply a step that's switched off).
   var ruleHl = document.getElementById('ruleHl');
+  var hoverStepId = null;
   function argSig(a){ return Object.keys(a||{}).sort().map(function(k){ return k+'='+String(a[k]); }).join('|'); }
-  function showStepToken(stepId){
-    var idx = steps.findIndex(function(s){ return s.id == stepId; });
+  function paintRuleHl(){
     var text = ruleTextInput.value;
-    if (idx < 0 || !text.trim()) return hideStepToken();
     var parseFn = TARGET==='john_native' ? parseRuleLineJohn : parseRuleLine;
-    var parsed = parseFn(text, function(type, args){ return {type:type, args:args}; });
+    var parsed = text.trim() ? parseFn(text, function(type, args){ return {type:type, args:args}; }) : {steps: []};
     // The rule line only describes the chain while they still agree: edits
-    // made in section 03 (or a reorder) don't rewrite the text, so a step
-    // that no longer matches what's at its position there gets no highlight.
-    var m = parsed.steps[idx], st = steps[idx];
-    if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return hideStepToken();
-    ruleHl.innerHTML = '<span style="display:inline-block;transform:translateX(-'+ruleTextInput.scrollLeft+'px)">'+
-      escapeHtml(text.slice(0, m.src[0]))+'<mark>'+escapeHtml(text.slice(m.src[0], m.src[1]))+'</mark>'+escapeHtml(text.slice(m.src[1]))+'</span>';
+    // made in section 03 (a changed argument, a reorder, an add or delete)
+    // don't rewrite the text, so a step that no longer matches what's at its
+    // position there is simply left unmarked. Each step is checked alone.
+    var marks = [];
+    steps.forEach(function(st, idx){
+      var m = parsed.steps[idx];
+      if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return;
+      var hover = st.id == hoverStepId, off = !st.enabled;
+      if (hover || off) marks.push({from: m.src[0], to: m.src[1], hover: hover, off: off});
+    });
+    if (!marks.length){ ruleHl.innerHTML = ''; return; }
+    marks.sort(function(a, b){ return a.from - b.from; });
+    var html = '', pos = 0;
+    marks.forEach(function(m){
+      html += escapeHtml(text.slice(pos, m.from)) +
+        '<span class="'+(m.hover ? 'hl-on ' : '')+(m.off ? 'hl-off' : '')+'">'+escapeHtml(text.slice(m.from, m.to))+'</span>';
+      pos = m.to;
+    });
+    html += escapeHtml(text.slice(pos));
+    ruleHl.innerHTML = '<span style="display:inline-block;transform:translateX(-'+ruleTextInput.scrollLeft+'px)">'+html+'</span>';
   }
-  function hideStepToken(){ ruleHl.innerHTML = ''; }
+  function showStepToken(stepId){ hoverStepId = stepId; paintRuleHl(); }
+  function hideStepToken(){ hoverStepId = null; paintRuleHl(); }
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
+  ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
+  ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls
   chainEl.addEventListener('mouseover', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); else hideStepToken(); });
   chainEl.addEventListener('mouseleave', hideStepToken);
   chainEl.addEventListener('focusin', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); });
