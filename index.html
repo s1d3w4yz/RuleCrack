@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Rule Chain Lab</title>
+<title>Password Cracking Rule Chain Lab</title>
 <style>
 /* Layout: ledger/logbook — a reorderable chain of steps on the left,
    a step-by-step trace, rule export, and batch test on the right;
@@ -475,6 +475,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
    on top with identical font/padding/border, transparent text, and a
    translucent <mark>; pointer-events:none keeps the input fully usable. */
 .subline{display:block}
+.hinticon{vertical-align:-2px;margin-right:4px}
 .hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
@@ -565,7 +566,7 @@ try{
 <div class="wrap">
   <header class="page">
     <div class="titlerow">
-      <h1>Rule Chain Lab</h1>
+      <h1>Password Cracking Rule Chain Lab</h1>
     </div>
     <div class="controlrow">
       <div class="modetoggle" id="modeToggle" role="group" aria-label="View">
@@ -664,7 +665,7 @@ try{
         <h2 id="h-rule" tabindex="-1"><span class="n">02</span> Rule line</h2>
         <button class="hdrbtn" id="copyRuleBtn" type="button" data-copied="Rule copied" title="Copy the rule the chain applies — disabled steps are left out, even though the line above still shows them struck through">Copy Hashcat rule</button>
       </div>
-      <p class="sub" id="ruleLineSub">The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</p>
+      <p class="sub" id="ruleLineSub"><span class="subline">The rule as plain text, in step with the chain below.</span><span class="subline">Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</span></p>
       <label class="field">
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1" aria-labelledby="h-rule" aria-describedby="ruleLineSub ruleParseStatus portabilityNote">
@@ -688,7 +689,7 @@ try{
       <p class="sub">
         <span class="subline">Steps run top to bottom, so order changes the output.</span>
         <span class="subline">Use the arrows to move a step and watch the trace change.</span>
-        <span class="hoverhint"><span id="hintHover">&#9755; Hover a step to see which part of the rule line above it came from.</span><span id="hintKeys" hidden>&#9000; Step focused: Alt+&uarr;/&darr; move &middot; Delete remove &middot; Ctrl+Z undo</span></span></p>
+        <span class="hoverhint"><span id="hintHover"><svg class="hinticon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 1.5v11.6l3.1-3 2.1 4.6 1.9-.9-2.1-4.5h4.4z"/></svg> Hover over a step to see its part of the rule line.</span><span id="hintKeys" hidden><svg class="hinticon" viewBox="0 0 18 14" width="16" height="13" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x="1" y="1.5" width="16" height="11" rx="2"/><path stroke-linecap="round" d="M4 5h1M7 5h1M10 5h1M13 5h1M4 8h1M7 8h1M10 8h1M13 8h1M5.5 10.5h7"/></svg> Alt+&uarr;/&darr; move &middot; Delete remove &middot; Ctrl+Z undo</span></span></p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
         <select id="addType" aria-label="Step type to add"></select>
@@ -716,7 +717,7 @@ try{
       <div class="trace locked" id="trace"></div>
 
       <h2 id="h-batch" tabindex="-1" style="margin-top:4px"><span class="n">05</span> Batch test</h2>
-      <p class="sub">Run the same chain against a list of words, one per line. <span class="mono">&uarr; trace</span> loads a row's word into section 01 so you can watch it step by step.</p>
+      <p class="sub">Run the same chain against a list of words, one per line. <span class="mono" style="white-space:nowrap">&uarr; trace</span> loads a row's word into section 01 so you can watch it step by step.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
            cleared and the example words never come back. -->
@@ -3196,10 +3197,10 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax and in step with the chain. Paste or type one to replace it — hashcat-only <span class="mono">~</span>-class ops won’t parse.';
+      ruleLineSub.innerHTML = '<span class="subline">The rule as plain text, in step with the chain.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="mono">~</span> operators (like <span class="mono">~s?CY</span>) won’t parse.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = 'The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.';
+      ruleLineSub.innerHTML = '<span class="subline">The rule as plain text, in step with the chain below.</span><span class="subline">Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }

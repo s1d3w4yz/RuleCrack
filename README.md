@@ -1,4 +1,4 @@
-# Rule Chain Lab
+# Password Cracking Rule Chain Lab
 
 A single-page tool for learning how password-cracking rules work: build an
 ordered chain of transformation steps, watch each step apply one at a time,
