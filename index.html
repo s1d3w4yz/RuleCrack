@@ -408,6 +408,10 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
 .cheat-legend .mono{color:var(--accent)}
 .cf-hide{display:none !important}
+.searchrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.searchrow .cheatsearch{flex:1 1 180px;width:auto}
+.searchopt{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--dim);cursor:pointer;white-space:nowrap}
+.searchopt input{accent-color:var(--accent)}
 .cheatsearch{
   font-family:'Source Sans 3',system-ui,sans-serif;font-size:.9rem;color:var(--ink);
   background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
@@ -604,7 +608,10 @@ princess</textarea>
         <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="cheat-legend" id="cheatLegend"></div>
-      <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or descriptions…" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
+      <div class="searchrow">
+        <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or descriptions…" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
+        <label class="searchopt" title="Match only the operator and its example, not the description — case-sensitive, like the operators themselves"><input type="checkbox" id="cheatOpOnly"> Operators only</label>
+      </div>
       <div id="cheatBody"></div>
     </div>
   </div>
@@ -2628,11 +2635,18 @@ d $1$2$3"></textarea>
   // the operator and "reverse" finds it by what it does). Re-applied after
   // every render, so switching target keeps the current search.
   var cheatSearch = document.getElementById('cheatSearch');
+  var cheatOpOnly = document.getElementById('cheatOpOnly');
   function filterCheatsheet(){
-    var terms = cheatSearch.value.toLowerCase().split(/\s+/).filter(Boolean);
+    // "Operators only" matches just the syntax and example columns, and is
+    // case-sensitive (c/C and t/T are different operators) — so a single
+    // letter stops matching every description that happens to contain it.
+    var opOnly = cheatOpOnly.checked;
+    var terms = (opOnly ? cheatSearch.value : cheatSearch.value.toLowerCase()).split(/\s+/).filter(Boolean);
     var shown = 0, rows = cheatBody.querySelectorAll('.cheat-row');
     rows.forEach(function(row){
-      var hay = row.textContent.toLowerCase() + ' ' + ((row.querySelector('button.ex')||{dataset:{}}).dataset.token||'').toLowerCase();
+      var ex = (row.querySelector('button.ex')||{dataset:{}}).dataset.token || '';
+      var hay = opOnly ? (row.querySelector('.syntax').textContent + ' ' + ex)
+                       : row.textContent.toLowerCase() + ' ' + ex.toLowerCase();
       var hit = terms.every(function(t){ return hay.indexOf(t) !== -1; });
       row.classList.toggle('cf-hide', !hit);
       if (hit) shown++;
@@ -2660,6 +2674,7 @@ d $1$2$3"></textarea>
     } else if (empty){ empty.remove(); }
   }
   cheatSearch.addEventListener('input', filterCheatsheet);
+  cheatOpOnly.addEventListener('change', filterCheatsheet);
   cheatSearch.addEventListener('keydown', function(e){
     if (e.key === 'Escape' && cheatSearch.value){ cheatSearch.value = ''; filterCheatsheet(); e.stopPropagation(); }
   });
