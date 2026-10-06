@@ -46,7 +46,8 @@ existing `.rule` file line by line.
   rule line, for learning the syntax by typing instead of clicking through
   the chain builder. A search box filters by operator or description
   (with an "Operators only" option).
-- **Display options**: a Dark / Light theme and three text sizes (every size in
+- **Display options**: a Dark / Light / Auto theme (Auto follows the system's
+  setting live and uses dark if the system doesn't say) and three text sizes (every size in
   the page scales together). Both are remembered per browser. The default
   size is compact enough for the three columns to fit one screen; the
   larger sizes are there when you need more readable text.

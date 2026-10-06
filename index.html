@@ -530,11 +530,18 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 </style>
 <script>
 // Applied synchronously, before the page body renders, so a saved
-// light-mode preference doesn't show a flash of the (now-default) dark
-// theme first. The main theme-toggle wiring (button label, click
-// handler) lives in the main script at the bottom with everything else.
+// light-mode (or "auto" resolving to light) preference doesn't show a flash
+// of the default dark theme first. The main theme-switch wiring lives in the
+// main script at the bottom with everything else.
 try{
-  if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light';
+  var savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'light') document.documentElement.dataset.theme = 'light';
+  else if (savedTheme === 'auto'){
+    document.documentElement.dataset.themeMode = 'auto';
+    // Auto follows the system, and only goes light if the system says light:
+    // no preference, an unreadable one, or dark all give the dark default.
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.dataset.theme = 'light';
+  }
   var savedSize = localStorage.getItem('textsize');
   if (savedSize === 'lg' || savedSize === 'xl') document.documentElement.dataset.textsize = savedSize;
 }catch(e){}
@@ -568,6 +575,7 @@ try{
       <div class="modetoggle themeswitch" id="themeSwitch" role="group" aria-label="Color theme">
         <button class="mbtn" data-theme-set="dark" type="button" title="Dark theme">&#9790; Dark</button>
         <button class="mbtn" data-theme-set="light" type="button" title="Light theme">&#9728; Light</button>
+        <button class="mbtn" data-theme-set="auto" type="button" title="Follow the system's light or dark setting (dark if it doesn't say)">&#9680; Auto</button>
       </div>
       <div class="modetoggle sizeswitch" id="sizeSwitch" role="group" aria-label="Text size">
         <button class="mbtn" data-size-set="" type="button" title="Default text size" aria-label="Default text size" style="font-size:.8rem">A</button>
@@ -2505,16 +2513,25 @@ d $1$2$3"></textarea>
     setMode(btn.dataset.mode);
   });
 
-  // Dark is the default theme (set directly on :root in the stylesheet,
-  // not behind a prefers-color-scheme query) — the Dark/Light switch is the
-  // only way to change it, and the choice is remembered per-browser via
-  // localStorage so it survives a reload. The early inline script right
-  // after </style> applies a saved "light" preference before the page
-  // body renders, so there's no flash of dark-then-light on load; this
-  // just keeps the switch's active side in sync and handles the click.
+  // Dark is the default theme (set directly on :root in the stylesheet).
+  // The switch has three choices, remembered per browser in localStorage:
+  // Dark, Light, and Auto, which follows the system's light/dark setting
+  // live and falls back to dark when the system doesn't say. data-theme on
+  // <html> is what the CSS reads ("light" or absent); data-theme-mode="auto"
+  // records that Auto is the choice. The early script after </style> applies
+  // the saved choice before the body renders, so there's no flash.
   var themeSwitch = document.getElementById('themeSwitch');
+  var systemLight = window.matchMedia ? window.matchMedia('(prefers-color-scheme: light)') : null;
+  function applyTheme(mode){   // mode: 'dark' | 'light' | 'auto'
+    var root = document.documentElement;
+    var light = mode === 'light' || (mode === 'auto' && !!systemLight && systemLight.matches);
+    if (light) root.dataset.theme = 'light'; else delete root.dataset.theme;
+    if (mode === 'auto') root.dataset.themeMode = 'auto'; else delete root.dataset.themeMode;
+    applyThemeButtonLabel();
+  }
   function applyThemeButtonLabel(){
-    var cur = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    var root = document.documentElement;
+    var cur = root.dataset.themeMode === 'auto' ? 'auto' : (root.dataset.theme === 'light' ? 'light' : 'dark');
     themeSwitch.querySelectorAll('.mbtn').forEach(function(b){
       b.classList.toggle('active', b.dataset.themeSet === cur);
       b.setAttribute('aria-pressed', b.dataset.themeSet === cur ? 'true' : 'false');
@@ -2523,12 +2540,16 @@ d $1$2$3"></textarea>
   themeSwitch.addEventListener('click', function(e){
     var btn = e.target.closest('.mbtn');
     if (!btn) return;
-    var goingLight = btn.dataset.themeSet === 'light';
-    if (goingLight) document.documentElement.dataset.theme = 'light';
-    else delete document.documentElement.dataset.theme;
-    try{ localStorage.setItem('theme', goingLight ? 'light' : 'dark'); }catch(err){}
-    applyThemeButtonLabel();
+    var mode = btn.dataset.themeSet;
+    applyTheme(mode);
+    try{ localStorage.setItem('theme', mode); }catch(err){}
   });
+  // while Auto is chosen, follow the system if it changes (sunset, OS setting)
+  if (systemLight){
+    var onSystemChange = function(){ if (document.documentElement.dataset.themeMode === 'auto') applyTheme('auto'); };
+    if (systemLight.addEventListener) systemLight.addEventListener('change', onSystemChange);
+    else if (systemLight.addListener) systemLight.addListener(onSystemChange);
+  }
   applyThemeButtonLabel();
 
   // Text size: sets data-textsize on <html> (see the CSS), remembers it, and

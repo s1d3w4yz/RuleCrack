@@ -31,6 +31,8 @@ everything cosmetic second):
       aN reject step rejects a given word
     - an out-of-range position argument (e.g. typing 99) clamps to 35 in
       the actual exported rule, not just visually
+    - the Auto theme follows the system live, falls back to dark, is
+      remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
       (full, one-step and empty chains; expanding a short list), and in a
       tall window they end at column 2's natural height by shrinking the
@@ -1139,6 +1141,53 @@ def test_tooltip_information_is_also_visible(driver, r):
     r.check(num == 'Step 1', "trace numbers read as 'Step N'", repr(num))
 
 
+def test_auto_theme_follows_the_system(driver, r):
+    """Auto follows the system's light/dark setting live, goes dark when the
+    system doesn't say, is remembered across reloads, and an explicit Dark
+    or Light ignores the system. Runs last (changes media emulation)."""
+    def system(value):
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-color-scheme', 'value': value}]})
+        time.sleep(0.2)
+
+    def theme():
+        return driver.execute_script(
+            "var r = document.documentElement; return {theme: r.dataset.theme || 'dark',"
+            "  pressed: [].filter.call(document.querySelectorAll('#themeSwitch button'), function(b){ return b.getAttribute('aria-pressed') === 'true'; })"
+            "           .map(function(b){ return b.dataset.themeSet; })};")
+
+    def choose(mode):
+        driver.execute_script("document.querySelector('#themeSwitch [data-theme-set=\"' + arguments[0] + '\"]').click();", mode)
+        time.sleep(0.2)
+
+    try:
+        system('light')
+        driver.get(INDEX_URL)
+        time.sleep(0.6)
+        r.check(theme() == {'theme': 'dark', 'pressed': ['dark']}, 'with no saved choice the default is dark, even on a light system', f'{theme()}')
+        choose('auto')
+        r.check(theme() == {'theme': 'light', 'pressed': ['auto']}, 'Auto on a light system: light, with Auto pressed', f'{theme()}')
+        system('dark')
+        r.check(theme() == {'theme': 'dark', 'pressed': ['auto']}, 'Auto follows the system to dark live, staying on Auto', f'{theme()}')
+        system('light')
+        r.check(theme()['theme'] == 'light', 'and back to light live', f'{theme()}')
+        driver.get(INDEX_URL)
+        time.sleep(0.6)
+        r.check(theme() == {'theme': 'light', 'pressed': ['auto']}, 'Auto is remembered across a reload (light, system is light)', f'{theme()}')
+        system('no-preference')
+        r.check(theme()['theme'] == 'dark', 'Auto with no system preference falls back to dark', f'{theme()}')
+        system('dark')
+        choose('light')
+        r.check(theme() == {'theme': 'light', 'pressed': ['light']}, 'an explicit Light ignores a dark system', f'{theme()}')
+        system('light')
+        choose('dark')
+        system('dark'); system('light')
+        r.check(theme() == {'theme': 'dark', 'pressed': ['dark']}, 'an explicit Dark ignores system changes', f'{theme()}')
+    finally:
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-color-scheme', 'value': ''}]})
+        driver.execute_script("localStorage.removeItem('theme');")
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1177,6 +1226,7 @@ def main():
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)
         test_reduced_motion_is_respected(driver, r)
+        test_auto_theme_follows_the_system(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
