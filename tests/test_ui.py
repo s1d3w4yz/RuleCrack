@@ -728,6 +728,49 @@ def test_document_basics(driver, r):
     r.check(all(info['skipTargets']), 'every skip link points at a real element', f"{info['skipTargets']}")
 
 
+def test_toggle_groups_expose_pressed_state(driver, r):
+    """Mode, target, syntax, theme and text-size switches are groups of
+    toggle buttons: exactly one is aria-pressed at a time, it matches the
+    visual .active one, and it follows clicks. (They were role=tablist
+    without tabs, which assistive tech announces inconsistently.)"""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def state(group):
+        return driver.execute_script(
+            "var g = document.getElementById(arguments[0]);"
+            "return {role: g.getAttribute('role'),"
+            "  pressed: [].map.call(g.querySelectorAll('button'), function(b){ return b.getAttribute('aria-pressed'); }),"
+            "  active: [].map.call(g.querySelectorAll('button'), function(b){ return b.classList.contains('active') ? 'true' : 'false'; })};",
+            group)
+
+    groups = [('modeToggle', 'button[data-mode="validator"]'),
+              ('targetBtns', 'button[data-target="john_native"]'),
+              ('themeSwitch', 'button[data-theme-set="light"]'),
+              ('sizeSwitch', 'button[data-size-set="lg"]')]
+    for gid, other in groups:
+        st = state(gid)
+        r.check(st['role'] == 'group' and st['pressed'].count('true') == 1 and st['pressed'] == st['active'],
+                f'#{gid}: a group with exactly one pressed button, matching the visual state', f'{st}')
+        driver.execute_script("document.querySelector('#' + arguments[0] + ' ' + arguments[1]).click();", gid, other)
+        st2 = state(gid)
+        r.check(st2['pressed'].count('true') == 1 and st2['pressed'] == st2['active'] and st2['pressed'] != st['pressed'],
+                f'#{gid}: clicking another button moves the pressed state', f'{st} -> {st2}')
+    # leave everything as found: builder view, hashcat target, dark theme, default size
+    driver.execute_script("document.querySelector('#modeToggle button[data-mode=\"builder\"]').click();"
+                          "document.querySelector('#targetBtns button[data-target=\"hashcat\"]').click();"
+                          "document.querySelector('#themeSwitch button[data-theme-set=\"dark\"]').click();"
+                          "document.querySelector('#sizeSwitch button[data-size-set=\"\"]').click();")
+    driver.find_element('css selector', '.mbtn[data-mode="validator"]').click()
+    st = state('validatorDialectBtns')
+    r.check(st['role'] == 'group' and st['pressed'].count('true') == 1 and st['pressed'] == st['active'],
+            '#validatorDialectBtns: a group with exactly one pressed button', f'{st}')
+    driver.execute_script("document.querySelector('#validatorDialectBtns button[data-dialect=\"john_native\"]').click();")
+    st2 = state('validatorDialectBtns')
+    r.check(st2['pressed'] == ['false', 'true'] and st2['active'] == ['false', 'true'], '#validatorDialectBtns: clicking John moves the pressed state', f'{st2}')
+    driver.execute_script("document.querySelector('#validatorDialectBtns button[data-dialect=\"hashcat\"]').click();")
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -754,6 +797,7 @@ def main():
         test_text_size_control(driver, r)
         test_document_basics(driver, r)
         test_every_control_has_an_accessible_name(driver, r)
+        test_toggle_groups_expose_pressed_state(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)

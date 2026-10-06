@@ -534,9 +534,9 @@ try{
       <h1>Rule Chain Lab</h1>
     </div>
     <div class="controlrow">
-      <div class="modetoggle" id="modeToggle" role="tablist">
-        <button class="mbtn active" data-mode="builder" type="button">Chain builder</button>
-        <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
+      <div class="modetoggle" id="modeToggle" role="group" aria-label="View">
+        <button class="mbtn active" data-mode="builder" type="button" aria-pressed="true">Chain builder</button>
+        <button class="mbtn" data-mode="validator" type="button" aria-pressed="false">Rulefile validator</button>
       </div>
       <div class="modetoggle themeswitch" id="themeSwitch" role="group" aria-label="Color theme">
         <button class="mbtn" data-theme-set="dark" type="button" title="Dark theme">&#9790; Dark</button>
@@ -569,10 +569,10 @@ try{
       </ul>
       <div class="targetrow">
         <span class="targetlabel">Target:</span>
-        <div class="targetbtns" id="targetBtns" role="tablist">
-          <button class="tbtn active" data-target="hashcat" type="button">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
-          <button class="tbtn" data-target="both" type="button">Both (hashcat-compatible)</button>
-          <button class="tbtn" data-target="john_native" type="button">John (native rules)</button>
+        <div class="targetbtns" id="targetBtns" role="group" aria-label="Target syntax">
+          <button class="tbtn active" data-target="hashcat" type="button" aria-pressed="true">Hashcat<span class="rec" title="Unambiguous, and the de facto standard rule syntax — most public rule lists are written in it">standard</span></button>
+          <button class="tbtn" data-target="both" type="button" aria-pressed="false">Both (hashcat-compatible)</button>
+          <button class="tbtn" data-target="john_native" type="button" aria-pressed="false">John (native rules)</button>
         </div>
         <span class="targetnote" id="targetNote"></span>
       </div>
@@ -594,9 +594,9 @@ try{
       </p>
       <div class="targetrow">
         <span class="targetlabel">Syntax:</span>
-        <div class="targetbtns" id="validatorDialectBtns" role="tablist">
-          <button class="tbtn active" data-dialect="hashcat" type="button">Hashcat syntax</button>
-          <button class="tbtn" data-dialect="john_native" type="button">John native syntax</button>
+        <div class="targetbtns" id="validatorDialectBtns" role="group" aria-label="Syntax of the pasted file">
+          <button class="tbtn active" data-dialect="hashcat" type="button" aria-pressed="true">Hashcat syntax</button>
+          <button class="tbtn" data-dialect="john_native" type="button" aria-pressed="false">John native syntax</button>
         </div>
       </div>
     </div>
@@ -2425,9 +2425,18 @@ d $1$2$3"></textarea>
   var VALIDATOR_LINES = []; // [{raw, kind:'rule'|'comment'|'blank', steps, errors, deleted}]
   var VALIDATOR_FIX_ROW = null; // index into VALIDATOR_LINES currently open in the chain builder
 
+  // Marks which button of a toggle group is on, visually (.active) and for
+  // assistive tech (aria-pressed).
+  function setPressed(buttons, isOn){
+    buttons.forEach(function(b){
+      var on = isOn(b);
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
   function setMode(mode){
     MODE = mode;
-    modeToggle.querySelectorAll('.mbtn').forEach(function(b){ b.classList.toggle('active', b.dataset.mode===mode); });
+    setPressed(modeToggle.querySelectorAll('.mbtn'), function(b){ return b.dataset.mode===mode; });
     builderIntro.hidden = mode !== 'builder';
     validatorIntro.hidden = mode !== 'validator';
     builderView.hidden = mode !== 'builder';
@@ -2529,7 +2538,7 @@ d $1$2$3"></textarea>
     var btn = e.target.closest('.tbtn');
     if (!btn) return;
     VALIDATOR_DIALECT = btn.dataset.dialect;
-    validatorDialectBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    setPressed(validatorDialectBtns.querySelectorAll('.tbtn'), function(b){ return b===btn; });
     // Re-parsing from scratch (rather than just re-parsing each existing
     // row) is deliberate: switching dialect changes what several letters
     // even mean, so a diagnosis made under the old dialect isn't safe to
@@ -3006,7 +3015,7 @@ d $1$2$3"></textarea>
   // same dialect as the line it's sending over.
   function setTarget(target){
     TARGET = target;
-    targetBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b.dataset.target===target); });
+    setPressed(targetBtns.querySelectorAll('.tbtn'), function(b){ return b.dataset.target===target; });
     targetNote.innerHTML = TARGET_NOTES[TARGET]; // static strings above, never user input
     lenFieldsRow.hidden = TARGET !== 'john_native';
     updateRuleLineHints();
