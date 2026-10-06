@@ -907,6 +907,31 @@ def test_click_targets_are_big_enough(driver, r):
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
 
 
+def test_compat_operators_have_a_non_color_marker(driver, r):
+    """hashcat-only / John-only operators in the cheat sheet are told apart
+    by more than color: each such row has a letter tag (HC / J) and a
+    spoken prefix, and shared operators carry neither."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    js = ("var rows = [].slice.call(document.querySelectorAll('#cheatBody > .cheat-row'));"
+          "var count = function(cls){ var colored = rows.filter(function(x){ return x.querySelector('.syntax.' + cls); });"
+          "  return {colored: colored.length,"
+          "    tagged: colored.filter(function(x){ return x.querySelector('.desc .mk.' + cls); }).length,"
+          "    spoken: colored.filter(function(x){ return /only: /.test((x.querySelector('.desc .sr-only') || {}).textContent || ''); }).length}; };"
+          "return {hc: count('tok-hc'), john: count('tok-john'), marks: document.querySelectorAll('#cheatBody .desc .mk').length};")
+    for target, key, label in (('hashcat', 'hc', 'HC'), ('john_native', 'john', 'J')):
+        driver.execute_script("document.querySelector('#targetBtns [data-target=\"' + arguments[0] + '\"]').click();", target)
+        m = driver.execute_script(js)
+        c = m[key]
+        r.check(c['colored'] > 0 and c['colored'] == c['tagged'] == c['spoken'] and m['marks'] == c['colored'],
+                f"{target} tab: every {label}-only operator has the {label} tag and a spoken prefix, and nothing else is tagged", f'{m}')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    m = driver.execute_script(js)
+    r.check(m['marks'] == 0, 'Both tab: no operator is tagged (only shared ones are listed)', f'{m}')
+    legend = driver.execute_script("return [].map.call(document.querySelectorAll('.compat-key .mk'), function(x){ return x.textContent; });")
+    r.check(legend == ['HC', 'J'], 'the legend shows the same HC and J tags', f'{legend}')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -936,6 +961,7 @@ def main():
         test_toggle_groups_expose_pressed_state(driver, r)
         test_live_announcements(driver, r)
         test_click_targets_are_big_enough(driver, r)
+        test_compat_operators_have_a_non_color_marker(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)
