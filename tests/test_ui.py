@@ -1513,7 +1513,7 @@ def test_batch_box_line_number_gutter(driver, r):
     height; it scrolls with the text, and widens for 100+ lines."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     long1 = 'correcthorsebatterystaple' * 3
-    set_value(driver, driver.find_element('id', 'batchInput'), f'password\n\n{long1}\nsunshine')
+    set_value(driver, driver.find_element('id', 'batchInput'), f'password\n\n{long1}\nsunshine\nletmein\nprincess\nalpha')   # overflows the 5-line box
 
     def gutter():
         return driver.execute_script(
@@ -1522,19 +1522,21 @@ def test_batch_box_line_number_gutter(driver, r):
             "var sum = cells.reduce(function(a, c){ return a + c.getBoundingClientRect().height; }, 0);"
             "return {nums: cells.map(function(c){ return c.textContent; }),"
             "        lines: cells.map(function(c){ return Math.round(c.getBoundingClientRect().height / lh); }),"
-            "        diff: Math.abs(sum + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) - t.scrollHeight),"
+            "        diff: (function(){ var content = sum + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);"
+            "           /* scrollHeight is the content's height only when the content overflows the box */"
+            "           return content > t.clientHeight + 1 ? Math.abs(content - t.scrollHeight) : (content <= t.scrollHeight + 1 ? 0 : content - t.scrollHeight); })(),"
             "        width: parseFloat(getComputedStyle(document.getElementById('batchGutter')).width),"
             "        padLeft: parseFloat(cs.paddingLeft)};")
 
     g = gutter()
-    r.check(g['nums'] == ['1', '2', '3', '4'], 'one number per line of the box, blank lines included', f"{g['nums']}")
+    r.check(g['nums'] == ['1', '2', '3', '4', '5', '6', '7'], 'one number per line of the box, blank lines included', f"{g['nums']}")
     r.check(g['lines'][2] >= 2 and g['lines'][0] == 1, 'wrap on: a long entry gets a cell as tall as its wrapped lines', f"{g['lines']}")
     r.check(g['diff'] <= 1.5, 'wrap on: the cells add up to the box\'s real scroll height (they match the real wrapping)', f"off by {g['diff']}px")
 
     driver.execute_script("document.getElementById('batchWrap').click();")
     time.sleep(0.3)
     g = gutter()
-    r.check(g['lines'] == [1, 1, 1, 1], 'wrap off: every number gets exactly one line', f"{g['lines']}")
+    r.check(g['lines'] == [1, 1, 1, 1, 1, 1, 1], 'wrap off: every number gets exactly one line', f"{g['lines']}")
     r.check(g['diff'] <= 1.5, 'wrap off: the cells still add up to the real scroll height', f"off by {g['diff']}px")
     driver.execute_script("document.getElementById('batchWrap').click();")
     time.sleep(0.3)
@@ -1724,6 +1726,74 @@ def test_batch_table_is_a_capped_scroll_box(driver, r):
     words(5)
 
 
+def test_batch_box_shows_whole_lines_only(driver, r):
+    """The batch box's height is a whole number of text lines, so no line is
+    ever cut off at the bottom: by default it shows all five starter words,
+    it stays whole when wrapping is toggled (the horizontal scrollbar takes
+    height) or the text size changes, and dragging the resize handle snaps
+    to the nearest whole line on release."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
+    time.sleep(0.3)
+
+    def lines():
+        """visible text lines (the box's inner height / line height) and the box's scroll state"""
+        return driver.execute_script(
+            "var t = document.getElementById('batchInput'), cs = getComputedStyle(t), lh = parseFloat(cs.lineHeight);"
+            "var inner = t.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);"
+            "return {lines: Math.round(inner / lh * 100) / 100, overflow: t.scrollHeight > t.clientHeight + 1};")
+
+    def whole(x):
+        return abs(x - round(x)) < 0.05
+
+    g = lines()
+    r.check(round(g['lines']) == 5 and whole(g['lines']) and not g['overflow'], 'by default the box shows exactly 5 lines, i.e. all five starter words', f'{g}')
+
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\n' + 'x' * 120 + '\nletmein\nprincess\nsix')
+    time.sleep(0.3)
+    g = lines()
+    r.check(whole(g['lines']), 'wrap off (a horizontal scrollbar appears): still a whole number of lines', f'{g}')
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    g = lines()
+    r.check(whole(g['lines']), 'wrap back on: still a whole number of lines', f'{g}')
+
+    driver.execute_script("document.querySelector('[data-size-set=\"lg\"]').click();")
+    time.sleep(0.4)
+    g = lines()
+    r.check(whole(g['lines']), 'at the larger text size: still a whole number of lines', f'{g}')
+    driver.execute_script("document.querySelector('[data-size-set=\"\"]').click();")
+    time.sleep(0.4)
+
+    # simulate letting go of the resize handle after dragging the box to an arbitrary height
+    driver.execute_script(
+        "var t = document.getElementById('batchInput');"
+        "t.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));"
+        "t.style.height = (t.offsetHeight + 47) + 'px';"
+        "t.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));")
+    time.sleep(0.3)
+    g = lines()
+    r.check(whole(g['lines']) and g['lines'] >= 6, 'dragging the box taller snaps to a whole number of lines on release', f'{g}')
+    driver.execute_script(
+        "var t = document.getElementById('batchInput');"
+        "t.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));"
+        "t.style.height = '60px';"
+        "t.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));")
+    time.sleep(0.3)
+    g = lines()
+    r.check(whole(g['lines']) and g['lines'] >= 1, 'dragging it very short still leaves whole lines (at least one)', f'{g}')
+    # put it back
+    driver.execute_script(
+        "var t = document.getElementById('batchInput');"
+        "t.dispatchEvent(new MouseEvent('mousedown', {bubbles: true}));"
+        "t.style.height = (t.offsetHeight + 110) + 'px';"
+        "t.dispatchEvent(new MouseEvent('mouseup', {bubbles: true}));")
+    time.sleep(0.3)
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1764,6 +1834,7 @@ def main():
         test_batch_wrap_toggle(driver, r)
         test_batch_box_line_number_gutter(driver, r)
         test_batch_table_is_a_capped_scroll_box(driver, r)
+        test_batch_box_shows_whole_lines_only(driver, r)
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)
