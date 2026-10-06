@@ -852,7 +852,7 @@ def test_live_announcements(driver, r):
     r.check(live().startswith('Result: '), 'changing the word announces the new result after a pause', repr(live()))
 
     settle()
-    set_value(driver, driver.find_element('id', 'cheatSearch'), 'rev')
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'reverse')
     time.sleep(1.0)
     r.check(live() == '2 operators match', 'searching the cheat sheet announces how many operators match', repr(live()))
     set_value(driver, driver.find_element('id', 'cheatSearch'), '')
@@ -1160,7 +1160,7 @@ def test_tooltip_information_is_also_visible(driver, r):
     driver.execute_script("document.activeElement.blur();")
 
     sub = driver.execute_script("return document.querySelector('#col2Card .sub').textContent;")
-    r.check('trace button' in sub and 'steps above' in sub, 'the batch section explains the trace buttons in plain words', repr(sub))
+    r.check('trace button' in sub and 'step by step' in sub, 'the batch section explains the trace buttons in plain words', repr(sub))
     r.check('\u2191' not in sub, 'the explanation does not quote the arrow glyph', repr(sub))
     desc = driver.execute_script(
         "var c = document.getElementById('cheatOpOnly'), d = document.getElementById(c.getAttribute('aria-describedby'));"

@@ -686,9 +686,12 @@ try{
     </div>
     <div id="builderIntro">
       <p class="lead">
-        A password-cracking rule is a chain of small steps — capitalize, substitute,
-        append, swap, reject — applied to a word in order. Build one below, watch each
-        step fire, and see how reordering, adding or removing a step changes the result.
+        Password-cracking tools like <strong>hashcat</strong> and <strong>John the Ripper</strong>
+        don’t only try words from a list: they can also be told to apply <em>rules</em> to each word — capitalize it,
+        add a 1 at the end, swap a for @ — to guess the variations people really use. A rule is a chain of
+        small steps run in order. Build one below, watch each step fire, and see how reordering, adding
+        or removing a step changes the result. Positions count from 0 (the first character is position 0).
+        Use this only on systems you are authorized to test.
       </p>
       <ul class="syntaxnotes">
         <li>
@@ -753,10 +756,10 @@ try{
         <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false" aria-labelledby="h-word">
       </label>
       <div class="inline-fields" id="lenFieldsRow" hidden>
-        <label class="field">Min length (for John's aN/bN)
+        <label class="field">Min length (used by John's length-limit rules aN/bN)
           <input type="text" id="minLenInput" inputmode="numeric" value="0" autocomplete="off">
         </label>
-        <label class="field">Max length (for John's aN/bN)
+        <label class="field">Max length (used by John's length-limit rules aN/bN)
           <input type="text" id="maxLenInput" inputmode="numeric" value="28" autocomplete="off">
         </label>
       </div>
@@ -765,7 +768,7 @@ try{
         <h2 id="h-rule" tabindex="-1"><span class="n">02</span> Rule line</h2>
         <button class="hdrbtn" id="copyRuleBtn" type="button" data-copied="Rule copied" title="Copy the rule the chain applies — disabled steps are left out, even though the line above still shows them struck through">Copy Hashcat rule</button>
       </div>
-      <p class="sub" id="ruleLineSub"><span class="subline">The rule as plain text, in step with the chain below.</span><span class="subline">Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</span></p>
+      <p class="sub" id="ruleLineSub"><span class="subline">The same rule written as text. It updates as you edit the steps below.</span><span class="subline">Paste or type a rule here to replace the steps.</span></p>
       <label class="field">
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1" aria-labelledby="h-rule" aria-describedby="ruleLineSub ruleParseStatus portabilityNote">
@@ -823,7 +826,7 @@ try{
           <button class="expandbtn" id="batchExpandBtn" type="button" title="Show every row instead of scrolling a fixed-height box">&#10530; Expand</button>
         </div>
       </div>
-      <p class="sub">Run the same chain against a list of words, one per line. Use a row's trace button to watch that word go through the steps above.</p>
+      <p class="sub"><span class="subline">Run the same chain against a list of words, one per line.</span><span class="subline">Use a row's trace button to see that word step by step.</span></p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
            cleared and the example words never come back. -->
@@ -1063,7 +1066,7 @@ d $1$2$3"></textarea>
   def('trest',        {label:'Toggle case of every char', group:'Case', args:[], kind:'normal',
     hashcat:function(){ return 't'; }, run:function(w){ return {word: toggleAll(w)}; },
     caption:function(){ return 'Toggle the case of every character'; }});
-  def('shift_case',      {label:'Shift case (keyboard-shift)', group:'Case', args:[], kind:'normal',
+  def('shift_case',      {label:'Swap to the shifted key (1→!, a→A)', group:'Case', args:[], kind:'normal',
     hashcat:function(){ return 'S'; }, run:function(w){ return {word: shiftCaseAll(w)}; },
     caption:function(){ return 'Shift every key as if Shift were held (letters toggle case, 1→!, 2→@, …)'; }});
   def('toggle_at',      {label:'Toggle case at position N', group:'Case', args:[{n:'N',t:'pos'}], kind:'normal',
@@ -1185,31 +1188,31 @@ d $1$2$3"></textarea>
     caption:function(a){ return "Remove every '"+a.X+"'"; }});
 
   // --- Byte math ---
-  def('chr_shiftl',      {label:'Bitwise shift left at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_shiftl',      {label:'Double the character code at position N (bit shift left)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'L'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)<<1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Bitwise shift-left the byte at position '+a.N; }});
-  def('chr_shiftr',      {label:'Bitwise shift right at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_shiftr',      {label:'Halve the character code at position N (bit shift right)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'R'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)>>1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Bitwise shift-right the byte at position '+a.N; }});
-  def('chr_incr',       {label:'Increment byte at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_incr',       {label:'Replace the character at N with the next one in the ASCII table (a→b)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '+'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Increase the byte value at position '+a.N+' by 1'; }});
-  def('chr_decr',       {label:'Decrement byte at N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_decr',       {label:'Replace the character at N with the previous one in the ASCII table (b→a)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '-'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)-1+256)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Decrease the byte value at position '+a.N+' by 1'; }});
-  def('chr_add',        {label:'Add byte value of X at N', group:'Byte math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+  def('chr_add',        {label:'Add X’s character code to the character at position N', group:'Byte math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
     hashcat:function(a){ return 'B'+posChar(a.N)+a.X; },
     run:function(w,a){ if (a.N>=w.length || !a.X) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+a.X.charCodeAt(0))&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return "Add the byte value of '"+a.X+"' to position "+a.N+' (bytewise, mod 256)'; }});
-  def('replace_np1',     {label:'Copy char@N+1 into N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('replace_np1',     {label:'Copy the next character over the one at position N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '.'+posChar(a.N); },
     run:function(w,a){ if (a.N<0 || a.N+1>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N+1]; return {word:arr.join('')}; },
     caption:function(a){ return 'Copy the character at '+(a.N+1)+' into position '+a.N; }});
-  def('replace_nm1',     {label:'Copy char@N-1 into N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('replace_nm1',     {label:'Copy the previous character over the one at position N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return ','+posChar(a.N); },
     run:function(w,a){ if (a.N<1 || a.N>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N-1]; return {word:arr.join('')}; },
     caption:function(a){ return 'Copy the character at '+(a.N-1)+' into position '+a.N; }});
@@ -1244,7 +1247,7 @@ d $1$2$3"></textarea>
       return {word: w.slice(0,a.I)+sub+w.slice(a.I)};
     },
     caption:function(a){ return 'Take '+a.M+' chars from memory at '+a.N+' and insert into the word at '+a.I; }});
-  def('reject_memory',    {label:'Reject if unchanged (= memory)', group:'Memory (combo rules)', args:[], kind:'reject',
+  def('reject_memory',    {label:'Reject if the word equals the saved copy (see Memorize)', group:'Memory (combo rules)', args:[], kind:'reject',
     hashcat:function(){ return 'Q'; },
     run:function(w,a,ctx){ return {reject: w===ctx.memory}; },
     caption:function(){ return 'Reject this candidate if it equals the memorized word'; }});
@@ -1278,7 +1281,7 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return ')'+a.X; },
     run:function(w,a){ return {reject: w.slice(-1)!==a.X}; },
     caption:function(a){ return "Reject unless the last character is '"+a.X+"'"; }});
-  def('reject_equal_at',   {label:'Reject unless char@N = X', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
+  def('reject_equal_at',   {label:'Reject the word unless the character at position N is X', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
     hashcat:function(a){ return '='+posChar(a.N)+a.X; },
     run:function(w,a){ return {reject: w[a.N]!==a.X}; },
     caption:function(a){ return "Reject unless position "+a.N+" is '"+a.X+"'"; }});
@@ -1316,7 +1319,7 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return '~)?'+a.C; },
     run:function(w,a){ return {reject: !w.length || !classMatch(w.slice(-1),a.C)}; },
     caption:function(a){ return 'Reject unless the last character is a '+CLASS_LABEL[a.C]; }});
-  def('cls_reject_at',    {label:'Reject unless char@N in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
+  def('cls_reject_at',    {label:'Reject the word unless the character at position N is in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
     hashcat:function(a){ return '~='+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: a.N>=w.length || !classMatch(w[a.N],a.C)}; },
     caption:function(a){ return 'Reject unless position '+a.N+' is a '+CLASS_LABEL[a.C]; }});
@@ -1640,7 +1643,7 @@ d $1$2$3"></textarea>
   def('j_reject_utf8', {label:'Reject unless valid UTF-8', group:'Reject filters', args:[], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(){ return 'U'; },
     run:function(w){ return {reject: hasLoneSurrogate(w)}; },
-    caption:function(){ return 'Reject if the word contains an unpaired surrogate (invalid as UTF-8)'; }});
+    caption:function(){ return 'Reject if the word is not valid UTF-8 text'; }});
 
   def('j_shift_toggle_at', {label:'Shift-toggle (keyboard shift) at N', group:'Case', args:[{n:'N',t:'pos'}], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return 'W'+posChar(a.N); },
@@ -1687,7 +1690,7 @@ d $1$2$3"></textarea>
     hashcat:function(){ return null; }, john:function(a){ return ')?'+a.C; },
     run:function(w,a){ return {reject: !w.length || !johnClassMatch(w.slice(-1),a.C)}; },
     caption:function(a){ return 'Reject unless the last character is a '+JOHN_CLASS_LABEL[a.C]; }});
-  def('j_cls_reject_at', {label:'Reject unless char@N in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'johnclass'}], kind:'reject', johnOnly:true,
+  def('j_cls_reject_at', {label:'Reject the word unless the character at position N is in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'johnclass'}], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return '='+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: a.N>=w.length || !johnClassMatch(w[a.N],a.C)}; },
     caption:function(a){ return 'Reject unless position '+a.N+' is a '+JOHN_CLASS_LABEL[a.C]; }});
@@ -3248,10 +3251,10 @@ d $1$2$3"></textarea>
   function renderCheatsheet(){
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
 
-    var legend = '<span class="mono">N M I</span> = position, 0–9 then A–Z for 10–35 &middot; '+
-      '<span class="mono">X Y</span> = a literal character &middot; '+
-      '<span class="mono">C</span> = a class letter &middot; '+
-      'click an example to drop it into the rule line.';
+    var legend = '<span class="subline"><span class="mono">N M I</span> = a position: 0–9, then A–Z for 10–35</span>'+
+      '<span class="subline"><span class="mono">X Y</span> = a literal character</span>'+
+      '<span class="subline"><span class="mono">C</span> = a class letter</span>'+
+      '<span class="subline">Click an example to drop it into the rule line.</span>';
     // One color key, same meaning in every tab: a row's syntax text is
     // colored by what it's compatible with, not labeled — so a long list
     // stays scannable instead of growing a badge pill per row. The chain
@@ -3286,9 +3289,12 @@ d $1$2$3"></textarea>
       '</div>';
     } else if (TARGET === 'john_native'){
       topCallout = '<div class="callout small" style="margin-bottom:14px">'+
-        '<b>This is John’s own syntax.</b> Include it directly in <span class="mono">john.conf</span> — '+
-        '<i>don’t</i> wrap it in <span class="mono">!! hashcat logic ON</span>, since that mode changes how a '+
-        'few of these letters (<span class="mono">p R L + -</span>) are read and would break them.'+
+        '<b>This is John’s own syntax.</b>'+
+        '<ul class="calloutlist">'+
+          '<li>Include it directly in <span class="mono">john.conf</span>.</li>'+
+          '<li><i>Don’t</i> wrap it in <span class="mono">!! hashcat logic ON</span>: that mode changes how '+
+            '<span class="mono">p R L + -</span> are read and would break them.</li>'+
+        '</ul>'+
       '</div>';
     }
 
@@ -3705,10 +3711,10 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = '<span class="subline">The rule as plain text, in step with the chain.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="mono">~</span> operators (like <span class="mono">~s?CY</span>) won’t parse.</span>';
+      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="mono">~</span> operators (like <span class="mono">~s?CY</span>) won’t parse.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = '<span class="subline">The rule as plain text, in step with the chain below.</span><span class="subline">Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</span>';
+      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps below.</span><span class="subline">Paste or type a rule here to replace the steps.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }
