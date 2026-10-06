@@ -389,6 +389,14 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 #ruleParseStatus.ok{color:var(--good)}
 #ruleParseStatus.err{color:var(--danger)}
 #ruleTextInput.err{border-color:var(--danger)}
+/* Overlay that marks the slice of the rule line a hovered section 03 step
+   came from. An <input> can't highlight part of its own text, so this sits
+   on top with identical font/padding/border, transparent text, and a
+   translucent <mark>; pointer-events:none keeps the input fully usable. */
+.rulewrap{position:relative;display:block}
+.rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
+  font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
+.rulehl mark{color:transparent;background:color-mix(in srgb,var(--accent) 38%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
 
 .cheat{max-height:calc(100vh - 64px);overflow-y:auto}
 .cheat.expanded{max-height:none}
@@ -501,7 +509,10 @@ try{
       <h2 style="margin-top:4px"><span class="n">02</span>Or type a rule line</h2>
       <p class="sub" id="ruleLineSub">Paste a raw hashcat rule (your own, or a line from a <span class="mono">.rule</span> file) to load it straight into the chain below — same engine either way.</p>
       <label class="field">
-        <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
+        <span class="rulewrap">
+          <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
+          <span class="rulehl" id="ruleHl" aria-hidden="true"></span>
+        </span>
       </label>
       <div id="ruleParseStatus" class="sub" style="margin-top:-6px"></div>
 
@@ -509,7 +520,7 @@ try{
         <h2><span class="n">03</span>Step chain</h2>
         <button class="expandbtn" id="chainExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
-      <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output.</p>
+      <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output. Hover a step to see which part of the rule line above it came from.</p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
         <select id="addType"></select>
@@ -1410,7 +1421,7 @@ d $1$2$3"></textarea>
       if (i >= str.length) break;
       var startIdx = i;
       var c = str[i]; i++;
-      var ok = true;
+      var ok = true, stepsBefore = steps.length;
       try{
         switch(c){
           case ':': steps.push(mkStep('noop',{})); break;
@@ -1492,6 +1503,9 @@ d $1$2$3"></textarea>
           default: ok = false;
         }
       } catch(e){ ok = false; }
+      // remember which slice of the text produced each step (used by the
+      // section 03 hover highlight; harmless to everything else)
+      if (ok) for (var k = stepsBefore; k < steps.length; k++) steps[k].src = [startIdx, i];
 
       if (!ok){
         errors.push("'"+str.slice(startIdx, Math.min(str.length, startIdx+6)).trim()+"' near position "+startIdx);
@@ -1546,7 +1560,7 @@ d $1$2$3"></textarea>
       if (i >= str.length) break;
       var startIdx = i;
       var c = str[i]; i++;
-      var ok = true;
+      var ok = true, stepsBefore = steps.length;
       try{
         switch(c){
           case ':': steps.push(mkStep('noop',{})); break;
@@ -1671,6 +1685,9 @@ d $1$2$3"></textarea>
           default: ok = false; // includes h, H, B, 3, ~ — John never implements these
         }
       } catch(e){ ok = false; }
+      // remember which slice of the text produced each step (used by the
+      // section 03 hover highlight; harmless to everything else)
+      if (ok) for (var k = stepsBefore; k < steps.length; k++) steps[k].src = [startIdx, i];
 
       if (!ok){
         errors.push("'"+str.slice(startIdx, Math.min(str.length, startIdx+6)).trim()+"' near position "+startIdx);
@@ -2563,6 +2580,30 @@ d $1$2$3"></textarea>
       ruleTextInput.classList.remove('err');
     }
   }
+  // ---------- hover a step -> mark its token in the rule line ----------
+  var ruleHl = document.getElementById('ruleHl');
+  function argSig(a){ return Object.keys(a||{}).sort().map(function(k){ return k+'='+String(a[k]); }).join('|'); }
+  function showStepToken(stepId){
+    var idx = steps.findIndex(function(s){ return s.id == stepId; });
+    var text = ruleTextInput.value;
+    if (idx < 0 || !text.trim()) return hideStepToken();
+    var parseFn = TARGET==='john_native' ? parseRuleLineJohn : parseRuleLine;
+    var parsed = parseFn(text, function(type, args){ return {type:type, args:args}; });
+    // The rule line only describes the chain while they still agree: edits
+    // made in section 03 (or a reorder) don't rewrite the text, so a step
+    // that no longer matches what's at its position there gets no highlight.
+    var m = parsed.steps[idx], st = steps[idx];
+    if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return hideStepToken();
+    ruleHl.innerHTML = '<span style="display:inline-block;transform:translateX(-'+ruleTextInput.scrollLeft+'px)">'+
+      escapeHtml(text.slice(0, m.src[0]))+'<mark>'+escapeHtml(text.slice(m.src[0], m.src[1]))+'</mark>'+escapeHtml(text.slice(m.src[1]))+'</span>';
+  }
+  function hideStepToken(){ ruleHl.innerHTML = ''; }
+  function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
+  chainEl.addEventListener('mouseover', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); else hideStepToken(); });
+  chainEl.addEventListener('mouseleave', hideStepToken);
+  chainEl.addEventListener('focusin', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); });
+  chainEl.addEventListener('focusout', hideStepToken);
+
   ruleTextInput.addEventListener('input', function(){
     clearTimeout(ruleParseTimer);
     ruleParseTimer = setTimeout(loadRuleText, 300);
