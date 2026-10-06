@@ -55,12 +55,8 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5}
 @media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
 
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.themebtn{
-  font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
-  background:none;border:1px solid var(--rule);border-radius:6px;padding:6px 12px;
-  cursor:pointer;white-space:nowrap;flex:none;
-}
-.themebtn:hover{border-color:var(--accent);color:var(--accent)}
+.controlrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.controlrow .modetoggle{margin:10px 0 16px}
 
 .targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 .targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
@@ -447,11 +443,16 @@ try{
   <header class="page">
     <div class="titlerow">
       <h1>Rule Chain Lab</h1>
-      <button class="themebtn" id="themeToggleBtn" type="button" title="Switch color theme">&#9728; Light mode</button>
     </div>
-    <div class="modetoggle" id="modeToggle" role="tablist">
-      <button class="mbtn active" data-mode="builder" type="button">Chain builder</button>
-      <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
+    <div class="controlrow">
+      <div class="modetoggle" id="modeToggle" role="tablist">
+        <button class="mbtn active" data-mode="builder" type="button">Chain builder</button>
+        <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
+      </div>
+      <div class="modetoggle themeswitch" id="themeSwitch" role="group" aria-label="Color theme">
+        <button class="mbtn" data-theme-set="dark" type="button" title="Dark theme">&#9790; Dark</button>
+        <button class="mbtn" data-theme-set="light" type="button" title="Light theme">&#9728; Light</button>
+      </div>
     </div>
     <div id="builderIntro">
       <p class="lead">
@@ -2322,22 +2323,27 @@ d $1$2$3"></textarea>
   });
 
   // Dark is the default theme (set directly on :root in the stylesheet,
-  // not behind a prefers-color-scheme query) — this button is the only
-  // way to switch to light, and the choice is remembered per-browser via
+  // not behind a prefers-color-scheme query) — the Dark/Light switch is the
+  // only way to change it, and the choice is remembered per-browser via
   // localStorage so it survives a reload. The early inline script right
   // after </style> applies a saved "light" preference before the page
   // body renders, so there's no flash of dark-then-light on load; this
-  // just keeps the button's own label in sync and handles the click.
-  var themeToggleBtn = document.getElementById('themeToggleBtn');
+  // just keeps the switch's active side in sync and handles the click.
+  var themeSwitch = document.getElementById('themeSwitch');
   function applyThemeButtonLabel(){
-    var isLight = document.documentElement.dataset.theme === 'light';
-    themeToggleBtn.innerHTML = isLight ? '&#9790; Dark mode' : '&#9728; Light mode';
+    var cur = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    themeSwitch.querySelectorAll('.mbtn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.themeSet === cur);
+      b.setAttribute('aria-pressed', b.dataset.themeSet === cur ? 'true' : 'false');
+    });
   }
-  themeToggleBtn.addEventListener('click', function(){
-    var goingLight = document.documentElement.dataset.theme !== 'light';
+  themeSwitch.addEventListener('click', function(e){
+    var btn = e.target.closest('.mbtn');
+    if (!btn) return;
+    var goingLight = btn.dataset.themeSet === 'light';
     if (goingLight) document.documentElement.dataset.theme = 'light';
     else delete document.documentElement.dataset.theme;
-    try{ localStorage.setItem('theme', goingLight ? 'light' : 'dark'); }catch(e){}
+    try{ localStorage.setItem('theme', goingLight ? 'light' : 'dark'); }catch(err){}
     applyThemeButtonLabel();
   });
   applyThemeButtonLabel();
