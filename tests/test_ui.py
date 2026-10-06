@@ -1098,6 +1098,47 @@ def test_step_keyboard_shortcuts(driver, r):
     r.check(chain() == [before[0], before[2], before[1], before[3]], 'Alt+Down also works from the step\'s buttons', f'{chain()}')
 
 
+def test_tooltip_information_is_also_visible(driver, r):
+    """Information that used to live only in hover tooltips is also in
+    visible text (or exposed to assistive tech): the copy-rule caveat when
+    a step is disabled, the step shortcuts while a step is focused, what
+    the batch 'trace' buttons do, the 'Operators only' description, and
+    'Step N' for the trace's numbers."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.common.keys import Keys
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3', debounced=True)
+    note = lambda: driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    r.check('left out of the copy' not in note(), 'no copy caveat while every step is enabled', repr(note()))
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].click();")
+    r.check('1 disabled step is left out of the copy' in note(), 'disabling a step says it is left out of the copy', repr(note()))
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[2].click();")
+    r.check('2 disabled steps are left out of the copy' in note(), 'the caveat counts several disabled steps', repr(note()))
+    # re-enable everything (the chain re-renders after each click, so look the boxes up fresh each time)
+    for _ in range(4):
+        driver.execute_script("var off = [].filter.call(document.querySelectorAll('#chain .s-enabled'), function(c){ return !c.checked; })[0]; if (off) off.click();")
+    r.check('left out' not in note(), 'the caveat goes away once every step is enabled again', repr(note()))
+
+    driver.execute_script("document.activeElement.blur();")
+    hint = lambda: driver.execute_script("return {keys: !document.getElementById('hintKeys').hidden, hover: !document.getElementById('hintHover').hidden};")
+    r.check(hint() == {'keys': False, 'hover': True}, 'the section 03 hint starts as the hover tip', f'{hint()}')
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[0].focus();")
+    r.check(hint() == {'keys': True, 'hover': False}, 'focusing a step shows its keyboard shortcuts instead', f'{hint()}')
+    driver.execute_script("document.querySelectorAll('#chain .s-type')[0].focus();")
+    r.check(hint() == {'keys': False, 'hover': True}, 'in the step dropdown (where they do not apply) the hover tip is back', f'{hint()}')
+    driver.execute_script("document.activeElement.blur();")
+
+    sub = driver.execute_script("return document.querySelector('#col2Card .sub').textContent;")
+    r.check('trace' in sub and 'step by step' in sub, 'the batch section explains the trace buttons', repr(sub))
+    desc = driver.execute_script(
+        "var c = document.getElementById('cheatOpOnly'), d = document.getElementById(c.getAttribute('aria-describedby'));"
+        "return d ? d.textContent : null;")
+    r.check(desc and 'operator itself' in desc, "'Operators only' has a description for assistive tech", repr(desc))
+    num = driver.execute_script("return document.querySelector('#trace .num').textContent.replace(/\\s+/g, ' ').trim();")
+    r.check(num == 'Step 1', "trace numbers read as 'Step N'", repr(num))
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1129,6 +1170,7 @@ def main():
         test_click_targets_are_big_enough(driver, r)
         test_delete_can_be_undone(driver, r)
         test_step_keyboard_shortcuts(driver, r)
+        test_tooltip_information_is_also_visible(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

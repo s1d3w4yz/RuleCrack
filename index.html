@@ -680,7 +680,7 @@ try{
       <p class="sub">
         <span class="subline">Steps run top to bottom, so order changes the output.</span>
         <span class="subline">Use the arrows to move a step and watch the trace change.</span>
-        <span class="hoverhint">&#9755; Hover a step to see which part of the rule line above it came from.</span></p>
+        <span class="hoverhint"><span id="hintHover">&#9755; Hover a step to see which part of the rule line above it came from.</span><span id="hintKeys" hidden>&#9000; Step focused: Alt+&uarr;/&darr; move &middot; Delete remove &middot; Ctrl+Z undo</span></span></p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
         <select id="addType" aria-label="Step type to add"></select>
@@ -708,7 +708,7 @@ try{
       <div class="trace locked" id="trace"></div>
 
       <h2 id="h-batch" tabindex="-1" style="margin-top:4px"><span class="n">05</span> Batch test</h2>
-      <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
+      <p class="sub">Run the same chain against a list of words, one per line. <span class="mono">&uarr; trace</span> loads a row's word into section 01 so you can watch it step by step.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
            cleared and the example words never come back. -->
@@ -734,7 +734,8 @@ princess</textarea>
       <div class="cheat-legend" id="cheatLegend"></div>
       <div class="searchrow">
         <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or help" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
-        <label class="searchopt" title="Match only the operator itself, not its example or description"><input type="checkbox" id="cheatOpOnly" autocomplete="off"> Operators only</label>
+        <label class="searchopt" title="Match only the operator itself, not its example or description"><input type="checkbox" id="cheatOpOnly" autocomplete="off" aria-describedby="opOnlyHelp"> Operators only</label>
+        <span class="sr-only" id="opOnlyHelp">Match only the operator itself, not its example or description.</span>
       </div>
       <div id="cheatBody"></div>
     </div>
@@ -2360,7 +2361,7 @@ d $1$2$3"></textarea>
       var isFirst = i===0;
       var isLast = i===result.trace.length-1 && result.trace.length>1 && !row.rejected;
       var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'');
-      var marker = row.stepNum ? '<span class="num" title="Step '+row.stepNum+' in the chain below">'+row.stepNum+'</span>' : '<span class="dot"></span>';
+      var marker = row.stepNum ? '<span class="num" title="Step '+row.stepNum+' in the chain below"><span class="sr-only">Step </span>'+row.stepNum+'</span>' : '<span class="dot"></span>';
       return '<div class="'+cls+'">'+marker+
         '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
@@ -2393,6 +2394,16 @@ d $1$2$3"></textarea>
         noteEl.textContent = '✓ Portable — also runs in John’s hashcat-compat mode.';
         noteEl.className = 'sub ok';
       }
+    }
+    // The copy button copies what the rule applies, which leaves disabled
+    // steps out even though the rule line above still shows them struck
+    // through — say so in plain text whenever it makes a difference.
+    var tokenFnNote = TARGET==='john_native' ? johnToken : hashcatToken;
+    var offCount = steps.filter(function(st){ return !st.enabled && tokenFnNote(st.type, st.args) !== null; }).length;
+    if (offCount){
+      var offMsg = offCount + ' disabled step' + (offCount === 1 ? ' is' : 's are') + ' left out of the copy';
+      noteEl.textContent = noteEl.textContent ? noteEl.textContent + ' · ' + offMsg : offMsg.charAt(0).toUpperCase() + offMsg.slice(1) + '.';
+      if (!noteEl.className) noteEl.className = 'sub';
     }
   }
 
@@ -3096,6 +3107,15 @@ d $1$2$3"></textarea>
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
   ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
   ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls
+  // While a step's checkbox or buttons have focus, the hint line shows the
+  // keyboard shortcuts that work there instead of the hover tip.
+  var hintHover = document.getElementById('hintHover'), hintKeys = document.getElementById('hintKeys');
+  function showKeyHint(on){ hintKeys.hidden = !on; hintHover.hidden = on; }
+  chainEl.addEventListener('focusin', function(e){
+    var t = e.target;
+    showKeyHint(!!(t.closest && t.closest('.step')) && t.tagName !== 'SELECT' && !(t.tagName === 'INPUT' && t.type === 'text'));
+  });
+  chainEl.addEventListener('focusout', function(){ showKeyHint(false); });
   chainEl.addEventListener('mouseover', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); else hideStepToken(); });
   chainEl.addEventListener('mouseleave', hideStepToken);
   chainEl.addEventListener('focusin', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); });
