@@ -1153,7 +1153,8 @@ def test_tooltip_information_is_also_visible(driver, r):
     driver.execute_script("document.activeElement.blur();")
 
     sub = driver.execute_script("return document.querySelector('#col2Card .sub').textContent;")
-    r.check('trace' in sub and 'step by step' in sub, 'the batch section explains the trace buttons', repr(sub))
+    r.check('trace button' in sub and 'steps above' in sub, 'the batch section explains the trace buttons in plain words', repr(sub))
+    r.check('\u2191' not in sub, 'the explanation does not quote the arrow glyph', repr(sub))
     desc = driver.execute_script(
         "var c = document.getElementById('cheatOpOnly'), d = document.getElementById(c.getAttribute('aria-describedby'));"
         "return d ? d.textContent : null;")
