@@ -197,6 +197,8 @@ label.field textarea{
 }
 .step.disabled{opacity:.5}
 .step.rejecty{border-color:var(--danger)}
+.step.rejecting{background:color-mix(in srgb,var(--danger) 14%, var(--surface-2))}
+.step .taglabel.rejbadge{color:var(--danger);border-color:var(--danger);font-weight:600}
 .step.dragging{opacity:.4}
 .step.drop-above{box-shadow:0 -3px 0 -1px var(--accent)}
 .step.drop-below{box-shadow:0 3px 0 -1px var(--accent)}
@@ -2199,9 +2201,28 @@ d $1$2$3"></textarea>
     return '<span class="hl">'+escapeHtml(after)+'</span>';
   }
 
+  // Ties the red "Rejected" row in section 04 back to the section 03 card
+  // that caused it — a reject step only rejects for certain words, so
+  // without this it isn't obvious which one ended the chain.
+  function markRejectingStep(result){
+    chainEl.querySelectorAll('.step.rejecting').forEach(function(r){
+      r.classList.remove('rejecting');
+      var b = r.querySelector('.rejbadge'); if (b) b.remove();
+    });
+    if (!result.rejected) return;
+    var last = result.trace[result.trace.length-1];
+    var row = last && last.stepNum ? chainEl.children[last.stepNum-1] : null;
+    if (!row) return;
+    row.classList.add('rejecting');
+    var badge = document.createElement('span');
+    badge.className = 'taglabel rejbadge';
+    badge.textContent = '✗ rejected the word';
+    row.querySelector('.toprow').appendChild(badge);
+  }
   function renderTraceAndRule(){
     var word = wordInput.value || '';
     var result = runChain(word);
+    markRejectingStep(result);
 
     traceEl.innerHTML = result.trace.map(function(row, i){
       var isFirst = i===0;
