@@ -584,10 +584,10 @@ try{
       </label>
       <div class="inline-fields" id="lenFieldsRow" hidden>
         <label class="field">Min length (for John's aN/bN)
-          <input type="text" id="minLenInput" inputmode="numeric" value="0">
+          <input type="text" id="minLenInput" inputmode="numeric" value="0" autocomplete="off">
         </label>
         <label class="field">Max length (for John's aN/bN)
-          <input type="text" id="maxLenInput" inputmode="numeric" value="28">
+          <input type="text" id="maxLenInput" inputmode="numeric" value="28" autocomplete="off">
         </label>
       </div>
 
@@ -631,7 +631,7 @@ try{
         <h2><span class="n">04</span>Step-by-step trace</h2>
         <button class="expandbtn" id="traceExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
-      <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked> Lock start/end rows while scrolling</label>
+      <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked autocomplete="off"> Lock start/end rows while scrolling</label>
       <div class="trace locked" id="trace"></div>
 
       <h2 style="margin-top:4px"><span class="n">05</span>Export</h2>
@@ -651,8 +651,11 @@ try{
 
       <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
+      <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
+           into them on a normal reload while the rest of the app resets, so a cleared box stays
+           cleared and the example words never come back. -->
       <label class="field">
-        <textarea id="batchInput" spellcheck="false">password
+        <textarea id="batchInput" spellcheck="false" autocomplete="off">password
 dragon
 sunshine
 letmein
@@ -673,7 +676,7 @@ princess</textarea>
       <div class="cheat-legend" id="cheatLegend"></div>
       <div class="searchrow">
         <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or help" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
-        <label class="searchopt" title="Match only the operator itself, not its example or description"><input type="checkbox" id="cheatOpOnly"> Operators only</label>
+        <label class="searchopt" title="Match only the operator itself, not its example or description"><input type="checkbox" id="cheatOpOnly" autocomplete="off"> Operators only</label>
       </div>
       <div id="cheatBody"></div>
     </div>
@@ -683,7 +686,7 @@ princess</textarea>
     <div class="card" style="grid-column:1/-1">
       <h2><span class="n">V1</span>Rulefile input</h2>
       <label class="field">
-        <textarea id="validatorInput" spellcheck="false" placeholder="# example rules
+        <textarea id="validatorInput" spellcheck="false" autocomplete="off" placeholder="# example rules
 c sa4 se3 si1 so0 ss5 $! $1
 uq
 d $1$2$3"></textarea>
