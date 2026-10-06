@@ -33,7 +33,7 @@
    scrolling area, so the several nested scrollers stop competing for
    attention. Standard properties — inherited from :root. */
 :root{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--dim) 45%, transparent) transparent}
-.chain:hover,.trace:hover,.cheat:hover,.vtable-wrap:hover,textarea:hover,select:hover{
+.chain:hover,.trace:hover,#cheatBody:hover,.vtable-wrap:hover,textarea:hover,select:hover{
   scrollbar-color:var(--dim) transparent;
 }
 /* Visible keyboard focus on every control (the browser default is faint on
@@ -423,8 +423,11 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
 .rulehl mark{color:transparent;background:color-mix(in srgb,var(--accent) 38%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
 
-.cheat{max-height:calc(100vh - 64px);overflow-y:auto}
-.cheat.expanded{max-height:none}
+.cheat{max-height:calc(100vh - 64px);overflow:hidden}
+.cheat.expanded{max-height:none;overflow:visible}
+/* Only the operator list scrolls; the title, legend and search stay put. */
+#cheatBody{flex:1 1 auto;min-height:0;overflow-y:auto;padding-right:6px}
+.cheat.expanded #cheatBody{overflow:visible}
 .cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
 .cheat-legend .mono{color:var(--accent)}
 .cf-hide{display:none !important}
