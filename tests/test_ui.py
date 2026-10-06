@@ -37,6 +37,9 @@ everything cosmetic second):
       chain list instead of padding the trace box; resizing the window
       re-fits them, and the stacked narrow layout falls back to the
       stylesheet caps
+    - the page is a real document (standards mode, lang, viewport, one
+      <main>, working skip links) and every visible control in both views
+      has an accessible name
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -673,6 +676,58 @@ def test_columns_refit_on_window_resize(driver, r):
         driver.get(INDEX_URL)
 
 
+ACCESSIBLE_NAME_JS = """
+var visible = function(e){ var r = e.getBoundingClientRect(), c = getComputedStyle(e);
+  return r.width > 0 && r.height > 0 && c.visibility !== 'hidden' && c.display !== 'none' && !e.closest('[hidden]'); };
+var text = function(id){ var el = document.getElementById(id); return el ? el.textContent.trim() : ''; };
+var nameOf = function(e){
+  var lb = e.getAttribute('aria-labelledby');
+  if (lb && lb.split(/\\s+/).map(text).join('').length) return 'labelledby';
+  if ((e.getAttribute('aria-label') || '').trim()) return 'aria-label';
+  if (e.labels && e.labels.length && [].map.call(e.labels, function(l){ return l.textContent; }).join('').trim()) return 'label';
+  if (!/^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) && (e.innerText || '').trim()) return 'content';
+  return '';   // a title or placeholder alone is not accepted
+};
+return [].filter.call(document.querySelectorAll('button, input, select, textarea, a[href]'), visible)
+  .filter(function(e){ return !nameOf(e); })
+  .map(function(e){ return e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + '.' + String(e.className).split(' ')[0]; });
+"""
+
+
+def test_every_control_has_an_accessible_name(driver, r):
+    """Every visible button, field, dropdown and link in both views has a
+    real accessible name (aria-label / aria-labelledby / <label> / its own
+    text) — a title or placeholder alone doesn't count, since screen
+    readers don't reliably announce those."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 $1 x14 ~s?ds5', debounced=True)
+    unnamed = driver.execute_script(ACCESSIBLE_NAME_JS)
+    r.check(not unnamed, 'builder view: every control has an accessible name', f'unnamed: {unnamed}')
+
+    driver.find_element('css selector', '.mbtn[data-mode="validator"]').click()
+    set_value(driver, driver.find_element('id', 'validatorInput'), 'c sa4\nzzz\n# a comment\n', debounced=True)
+    unnamed = driver.execute_script(ACCESSIBLE_NAME_JS)
+    r.check(not unnamed, 'validator view: every control has an accessible name', f'unnamed: {unnamed}')
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+
+def test_document_basics(driver, r):
+    """The page is a real HTML document: standards mode, a language, a
+    viewport tag (so phones don't render it zoomed out), one <main>, and
+    working skip links."""
+    info = driver.execute_script(
+        "return {mode: document.compatMode, lang: document.documentElement.lang,"
+        "  viewport: !!document.querySelector('meta[name=viewport]'), charset: document.characterSet,"
+        "  mains: document.querySelectorAll('main').length,"
+        "  skipTargets: [].map.call(document.querySelectorAll('.skipnav a'), function(a){"
+        "    return !!document.getElementById(a.getAttribute('href').slice(1)); })};")
+    r.check(info['mode'] == 'CSS1Compat', 'the page renders in standards mode (has a doctype)', f"{info['mode']}")
+    r.check(info['lang'] == 'en', 'the page declares its language', f"lang={info['lang']!r}")
+    r.check(info['viewport'] and info['charset'] == 'UTF-8', 'viewport meta present and UTF-8 charset', f'{info}')
+    r.check(info['mains'] == 1, 'exactly one <main> landmark', f"{info['mains']}")
+    r.check(all(info['skipTargets']), 'every skip link points at a real element', f"{info['skipTargets']}")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -697,6 +752,8 @@ def main():
         test_position_arg_clamping(driver, r)
         test_rule_line_follows_chain_edits(driver, r)
         test_text_size_control(driver, r)
+        test_document_basics(driver, r)
+        test_every_control_has_an_accessible_name(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)

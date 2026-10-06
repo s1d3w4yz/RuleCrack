@@ -608,7 +608,7 @@ try{
     <div class="card" id="col1Card">
       <h2 id="h-word" tabindex="-1"><span class="n">01</span> Word to transform</h2>
       <label class="field">
-        <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false">
+        <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false" aria-labelledby="h-word">
       </label>
       <div class="inline-fields" id="lenFieldsRow" hidden>
         <label class="field">Min length (for John's aN/bN)
@@ -626,7 +626,7 @@ try{
       <p class="sub" id="ruleLineSub">The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</p>
       <label class="field">
         <span class="rulewrap">
-          <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
+          <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1" aria-labelledby="h-rule" aria-describedby="ruleLineSub ruleParseStatus portabilityNote">
           <span class="rulehl" id="ruleHl" aria-hidden="true"></span>
         </span>
       </label>
@@ -650,7 +650,7 @@ try{
         <span class="hoverhint">&#9755; Hover a step to see which part of the rule line above it came from.</span></p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
-        <select id="addType"></select>
+        <select id="addType" aria-label="Step type to add"></select>
         <button class="add" id="addBtn">+ add step</button>
       </div>
 
@@ -711,7 +711,7 @@ princess</textarea>
     <div class="card" style="grid-column:1/-1">
       <h2 id="h-vinput" tabindex="-1"><span class="n">V1</span> Rulefile input</h2>
       <label class="field">
-        <textarea id="validatorInput" spellcheck="false" autocomplete="off" placeholder="# example rules
+        <textarea id="validatorInput" spellcheck="false" autocomplete="off" aria-labelledby="h-vinput" placeholder="# example rules
 c sa4 se3 si1 so0 ss5 $! $1
 uq
 d $1$2$3"></textarea>
@@ -731,7 +731,7 @@ d $1$2$3"></textarea>
       <div class="copyrow">
         <button class="copy" id="copyValidatorBtn">Copy cleaned rulefile</button>
       </div>
-      <textarea class="rule-out mono" id="validatorOutput" readonly rows="6" style="width:100%;resize:vertical"></textarea>
+      <textarea class="rule-out mono" id="validatorOutput" readonly rows="6" aria-labelledby="h-vexport" style="width:100%;resize:vertical"></textarea>
     </div>
   </div>
   </main>
@@ -1847,15 +1847,21 @@ d $1$2$3"></textarea>
   // place instead, with the page itself scrolling. Independent per
   // section and purely a display toggle, nothing about the underlying
   // data changes.
-  function wireExpandBtn(btn, el, onToggle){
+  function wireExpandBtn(btn, el, onToggle, noun){
+    function label(expanded){
+      btn.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + noun);
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    label(false);
     btn.addEventListener('click', function(){
       var expanded = el.classList.toggle('expanded');
       btn.innerHTML = expanded ? '&#10531; Collapse' : '&#10530; Expand';
+      label(expanded);
       if (onToggle) onToggle(expanded);
     });
   }
-  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(){ syncColumnFit(); });
-  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(){ syncColumnFit(); });
+  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(){ syncColumnFit(); }, 'step chain list');
+  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(){ syncColumnFit(); }, 'trace list');
 
   // ---------- column sizing ----------
   // The three columns of the builder view end at one shared height. Two
@@ -1955,7 +1961,7 @@ d $1$2$3"></textarea>
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
     if (expanded){ cheatCard.style.maxHeight = ''; cheatCard.style.minHeight = ''; } // CSS .expanded{max-height:none} takes over
     else syncColumnFit();
-  });
+  }, 'cheat sheet list');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
   var batchInput = document.getElementById('batchInput');
@@ -2119,6 +2125,20 @@ d $1$2$3"></textarea>
           '<button class="iconbtn del" title="Delete this step" aria-label="Delete this step">'+TRASH_ICON+'</button>'+
         '</div>';
 
+      // The visible "X=", ▲/▼ and trash icon say nothing to a screen reader
+      // on their own — name each control with its step.
+      var n = i + 1;
+      row.querySelector('.s-enabled').setAttribute('aria-label', 'Enable step ' + n + ': ' + op.label);
+      row.querySelector('.s-type').setAttribute('aria-label', 'Step ' + n + ' type');
+      row.querySelector('.up').setAttribute('aria-label', 'Move step ' + n + ' up');
+      row.querySelector('.down').setAttribute('aria-label', 'Move step ' + n + ' down');
+      row.querySelector('.del').setAttribute('aria-label', 'Delete step ' + n + ': ' + op.label);
+      row.querySelectorAll('.p-arg').forEach(function(inp){
+        var spec = op.args.filter(function(a){ return a.n === inp.dataset.arg; })[0] || {};
+        var kind = spec.t === 'pos' ? 'position' : spec.t === 'char' ? 'character' :
+                   (spec.t === 'class' || spec.t === 'johnclass') ? 'character class' : spec.t === 'string' ? 'text' : 'value';
+        inp.setAttribute('aria-label', 'Step ' + n + ' ' + kind + ' ' + inp.dataset.arg);
+      });
       row.querySelector('.s-enabled').addEventListener('change', function(e){ step.enabled = e.target.checked; renderAllKeepFocus(step.id, '.s-enabled'); });
       row.querySelector('.s-type').addEventListener('change', function(e){
         step.type = e.target.value; step.args = defaultArgs(step.type); renderAllKeepFocus(step.id, '.s-type');
@@ -2360,7 +2380,7 @@ d $1$2$3"></textarea>
       var out = result.rejected ? 'rejected' : result.final;
       var cls = result.rejected ? ' rejected' : '';
       return '<tr><td>'+escapeHtml(w)+'</td><td class="arrow">&rarr;</td><td class="out'+cls+'">'+escapeHtml(out)+'</td>'+
-        '<td class="tracecol"><button class="tracebtn" data-word="'+escapeHtml(w)+'" title="Load this word into Word to transform, and jump to the step chain + trace above">&uarr; trace</button></td></tr>';
+        '<td class="tracecol"><button class="tracebtn" data-word="'+escapeHtml(w)+'" aria-label="Trace \u201c'+escapeHtml(w)+'\u201d through the chain" title="Load this word into Word to transform, and jump to the step chain + trace above">&uarr; trace</button></td></tr>';
     }).join('') || '<tr><td colspan="4" style="color:var(--dim);font-family:inherit">Add words above, one per line.</td></tr>';
   }
   // One word from the batch list, loaded back into section 01 so its own
@@ -2539,7 +2559,7 @@ d $1$2$3"></textarea>
       return '<tr class="'+(row.deleted?'v-deleted':'')+'" data-idx="'+i+'">'+
         '<td class="v-idx">'+(i+1)+'</td>'+
         '<td colspan="3" class="v-comment">'+body+'</td>'+
-        '<td class="v-actions"><button class="v-del" data-idx="'+i+'">'+delLabel+'</button></td></tr>';
+        '<td class="v-actions"><button class="v-del" data-idx="'+i+'" aria-label="'+delLabel+' line '+(i+1)+'">'+delLabel+'</button></td></tr>';
     }
     var statusHtml, previewHtml;
     if (row.errors.length){
@@ -2555,12 +2575,12 @@ d $1$2$3"></textarea>
     }
     return '<tr class="'+(row.deleted?'v-deleted':'')+'" data-idx="'+i+'">'+
       '<td class="v-idx">'+(i+1)+'</td>'+
-      '<td><input class="v-rule" data-idx="'+i+'" value="'+escapeHtml(row.raw)+'" spellcheck="false"></td>'+
+      '<td><input class="v-rule" data-idx="'+i+'" value="'+escapeHtml(row.raw)+'" spellcheck="false" aria-label="Rule line '+(i+1)+'"></td>'+
       '<td class="v-status-cell">'+statusHtml+'</td>'+
       '<td class="v-preview-cell">'+previewHtml+'</td>'+
       '<td class="v-actions">'+
-        '<button class="v-fix" data-idx="'+i+'">Fix in builder</button>'+
-        '<button class="v-del" data-idx="'+i+'">'+delLabel+'</button>'+
+        '<button class="v-fix" data-idx="'+i+'" aria-label="Fix line '+(i+1)+' in the builder">Fix in builder</button>'+
+        '<button class="v-del" data-idx="'+i+'" aria-label="'+delLabel+' line '+(i+1)+'">'+delLabel+'</button>'+
       '</td></tr>';
   }
   function updateValidatorExport(){
@@ -2737,7 +2757,7 @@ d $1$2$3"></textarea>
         var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
         html += '<div class="cheat-row">'+
           '<span class="syntax '+cc+'"'+tip+'>'+escapeHtml(cheat.syntax)+'</span>'+
-          '<button class="ex" data-token="'+escapeHtml(example)+'" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
+          '<button class="ex" data-token="'+escapeHtml(example)+'" aria-label="Add example '+escapeHtml(example)+' ('+escapeHtml(OPS[k].label)+') to the rule line" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
           '<span class="desc">'+escapeHtml(OPS[k].label)+'</span>'+
         '</div>';
       });
