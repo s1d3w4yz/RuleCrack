@@ -1316,9 +1316,13 @@ d $1$2$3"></textarea>
     cls_replace: 1, cls_purge: 1, cls_title_sep: 1,
     cls_reject_contain: 1, cls_reject_not_contain: 1,
     cls_reject_first: 1, cls_reject_last: 1,
-    cls_reject_at: 1, cls_reject_contains: 1   // '~...' — no case '~' at all;
+    cls_reject_at: 1, cls_reject_contains: 1,  // '~...' — no case '~' at all;
                                                 // John's own class ops use a
                                                 // different syntax (see below)
+    insert_every:  1    // 'v' — rules.c's only case 'v' is "assign value to numeric
+                        // variable", with no hc_logic branch, and doc/RULES-hashcat's
+                        // list of added rules has no insert-every-N. John reads v as
+                        // the variable assignment in every mode (see vVNM below).
   };
   function isJohnCompatible(key){ return !JOHN_UNSUPPORTED[key]; }
   // True for anything hashcat can express: shared ops and hashcat-only ops.
@@ -1355,7 +1359,7 @@ d $1$2$3"></textarea>
     {syntax:'V',   label:'Uppercase consonants, lowercase vowels', note:'', promoted:true},
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
     {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ + l u d s a h H b), and John never accepts the '~' prefix at all.", promoted:true},
-    {syntax:'vVNM',label:'Assign (N−M) to variable V, for later position args', note:"collides with hashcat's own 'v' (insert char every N chars) — John always reads v as this variable-assign form, even in hashcat mode."},
+    {syntax:'vVNM',label:'Assign (N−M) to variable V, for later position args', note:"collides with hashcat's own 'v' (insert char every N chars) — John always reads v as this variable-assign form, even in hashcat mode, so hashcat's vNX can't run in John at all."},
     {syntax:'#@$*-+a-k l m p z', label:'Symbolic position values (e.g. D@ = delete at min_length−1)', note:'hashcat positions are always a literal 0–9 or A–Z digit; building these would mean every op’s position fields accept a variable too, which this tool doesn’t model.'},
     {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Line-level reject flags, written before the rule', note:'hashcat has no such prefix, and these depend on the target hash format (case-sensitive? 8-bit? split at load?) which this tool has no concept of.'},
     {syntax:'1 2 +', label:'Word-pair control (single-crack mode only)', note:'only meaningful when cracking GECOS/full-name word pairs; this tool works on one word at a time.'}
@@ -2131,7 +2135,7 @@ d $1$2$3"></textarea>
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
     hashcat:     'The full hashcat operator set. Those tagged [Hashcat only] (<span class="tok-hc">red and marked HC in the cheat sheet</span>) run in hashcat but have no John equivalent.',
-    both:        'Limited to the 57 operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule behaves identically in either tool.',
+    get both(){ return 'Limited to the ' + Object.keys(OPS).filter(function(k){ return buildableInTarget(k, 'both'); }).length + ' operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule behaves identically in either tool.'; },
     john_native: 'Builds John’s own syntax instead of hashcat’s. Steps tagged [John only] (<span class="tok-john">teal and marked J in the cheat sheet</span>) have no hashcat equivalent, so the rule won’t run in hashcat.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)

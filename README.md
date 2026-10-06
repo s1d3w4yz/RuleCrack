@@ -67,19 +67,19 @@ existing `.rule` file line by line.
   check these so they don't regress.
 - **Hashcat / John the Ripper compatibility**: a three-way target switch,
   since John's rule engine and hashcat's overlap but neither is a subset of
-  the other — hashcat has 13 operators John never implements at all, and
+  the other — hashcat has 14 operators John never implements at all, and
   John has its own native grammar with commands hashcat has no concept of
   (verified against both projects' own source, not from memory):
-  - **Hashcat** — the full 70-operator set. The 13 hashcat-only ops (`3`,
-    `B`, `h`, `H`, the nine `~`-class ops) carry a `[Hashcat only]` tag
+  - **Hashcat** — the full 70-operator set. The 14 hashcat-only ops (`3`,
+    `B`, `h`, `H`, `v`, the nine `~`-class ops) carry a `[Hashcat only]` tag
     inline, everywhere, all the time — no tab-switching needed to see
     what won't port to John.
-  - **Both (hashcat-compatible)** — those 13 are dropped entirely; what's
-    left (57 ops) behaves identically in hashcat and in John's
+  - **Both (hashcat-compatible)** — those 14 are dropped entirely; what's
+    left (56 ops) behaves identically in hashcat and in John's
     hashcat-compat mode (`!! hashcat logic ON`), plus a reference box of
     John-exclusive commands this tool doesn't build in this mode. (This
     used to be two separate tabs — "Both (portable)" and "John (hashcat
-    rules)" — until it became clear they built the exact same 57-op subset
+    rules)" — until it became clear they built the exact same 56-op subset
     and differed only in that reference box, so they were merged into one.)
   - **John (native rules)** — switches to building rules in **John's own
     syntax** instead. The 20 commands John has that hashcat can't express

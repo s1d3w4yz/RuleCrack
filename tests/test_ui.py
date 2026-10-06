@@ -31,6 +31,8 @@ everything cosmetic second):
       aN reject step rejects a given word
     - an out-of-range position argument (e.g. typing 99) clamps to 35 in
       the actual exported rule, not just visually
+    - the three target views agree (Hashcat = all but John-only, Both =
+      minus hashcat-only, John = shared + John-only) and 'vNX' is hashcat-only
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -1575,6 +1577,53 @@ def test_lists_keep_their_scroll_position(driver, r):
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
 
 
+def test_target_views_are_consistent(driver, r):
+    """The three target views agree with each other and with the data:
+    Hashcat shows every non-John-only operator, Both drops the
+    hashcat-only ones, John (native) swaps them for the John-only ones;
+    'vNX' (insert every N) is hashcat-only because John always reads v as
+    assign-a-variable; the Both note's count matches its list."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def view(target):
+        driver.execute_script("document.querySelector('#targetBtns [data-target=\"' + arguments[0] + '\"]').click();", target)
+        time.sleep(0.3)
+        return driver.execute_script(
+            "var rows = [].slice.call(document.querySelectorAll('#cheatBody > .cheat-row'));"
+            "return {rows: rows.length,"
+            "  hc: rows.filter(function(x){ return x.querySelector('.mk.tok-hc'); }).length,"
+            "  john: rows.filter(function(x){ return x.querySelector('.mk.tok-john'); }).length,"
+            "  v: rows.filter(function(x){ return x.querySelector('.syntax').textContent === 'vNX'; }).length,"
+            "  vHC: rows.filter(function(x){ return x.querySelector('.syntax').textContent === 'vNX' && x.querySelector('.mk.tok-hc'); }).length,"
+            "  note: document.getElementById('targetNote').textContent};")
+
+    counts = driver.execute_script(
+        "var T = window.__test, keys = Object.keys(T.OPS);"
+        "return {total: keys.length, johnOnly: keys.filter(function(k){ return T.OPS[k].johnOnly; }).length,"
+        "        unsupported: keys.filter(function(k){ return T.JOHN_UNSUPPORTED[k]; }).length,"
+        "        vUnsupported: !!T.JOHN_UNSUPPORTED.insert_every};")
+    hc, both, jn = view('hashcat'), view('both'), view('john_native')
+    r.check(counts['vUnsupported'], "'vNX' (insert_every) is classified hashcat-only")
+    r.check(hc['rows'] == counts['total'] - counts['johnOnly'], 'Hashcat view lists every operator except the John-only ones', f"{hc['rows']} vs {counts}")
+    r.check(both['rows'] == hc['rows'] - counts['unsupported'], 'Both view = the Hashcat list minus the hashcat-only operators', f"{both['rows']} vs {hc['rows']} - {counts['unsupported']}")
+    r.check(jn['rows'] == both['rows'] + counts['johnOnly'], 'John view = the shared operators plus the John-only ones', f"{jn['rows']} vs {both['rows']} + {counts['johnOnly']}")
+    r.check(hc['hc'] == counts['unsupported'] and both['hc'] == 0 and jn['hc'] == 0, 'every hashcat-only operator is tagged HC in the Hashcat view (and nowhere else)', f'{hc} {both} {jn}')
+    r.check(hc['v'] == 1 and hc['vHC'] == 1 and both['v'] == 0 and jn['v'] == 0, "'vNX' appears, tagged HC, only in the Hashcat view", f"{hc['v']}/{hc['vHC']} {both['v']} {jn['v']}")
+    r.check(f"the {both['rows']} operators" in both['note'], "the Both note's operator count matches what the view lists", f"{both['note'][:80]!r}")
+
+    # John's own parser does not read v as insert-every
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c v4-', debounced=True)
+    types = driver.execute_script("return [].map.call(document.querySelectorAll('#chain .s-type'), function(x){ return x.value; });")
+    r.check('insert_every' not in types and driver.execute_script("return document.getElementById('ruleParseStatus').className.indexOf('err') >= 0;"),
+            'in the John (native) view, "v4-" is not loaded as insert-every-N (the v is reported as skipped)', f'{types}')
+    # in hashcat it still loads, with a warning that it will not run in John
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c v4-', debounced=True)
+    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    r.check('Won’t run in John' in note and 'vNX' in note, 'in the Hashcat view, a rule using v loads and warns that it won\'t run in John', repr(note))
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1616,6 +1665,7 @@ def main():
         test_batch_box_line_number_gutter(driver, r)
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
+        test_target_views_are_consistent(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)

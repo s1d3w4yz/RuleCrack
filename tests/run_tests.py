@@ -103,10 +103,14 @@ def run_ambiguity_checks(driver, results):
         ok = driver.execute_script(script, *args)
         results.append((bool(ok), label, None if ok else 'assertion returned false'))
 
-    # Hashcat-only ops (the 13 in JOHN_UNSUPPORTED) must have no John token.
+    # Hashcat-only ops (the 14 in JOHN_UNSUPPORTED) must have no John token.
     check(
         "hashcat-only op 'h' (to_hex_lower) has no John token",
         "return window.__test.johnToken('to_hex_lower', {}) === null;",
+    )
+    check(
+        "hashcat-only op 'v' (insert_every) has no John token — John reads v as assign-a-variable in every mode",
+        "return window.__test.johnToken('insert_every', {N:4, X:'-'}) === null;",
     )
     check(
         "hashcat-only op 'B' (chr_add) has no John token",
