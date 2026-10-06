@@ -44,6 +44,9 @@ everything cosmetic second):
       both default to off under reduce-motion unless chosen)
     - both themes meet WCAG AA: text 4.5:1 (3:1 large) in the rare-color
       states, and every control edge 3:1
+    - High contrast meets WCAG AAA (text 7:1, control edges 4.5:1) in both
+      themes, and its switch works, is remembered and follows the system's
+      'more contrast' setting unless a choice was made
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -2041,8 +2044,8 @@ def test_top_bar_stays_within_the_intro_width(driver, r):
     r.check(info['barRight'] <= info['leadRight'], 'the top bar does not stick out past the intro paragraph', f"{info['barRight']} vs {info['leadRight']}")
     first = {x['id'] for x in info['g'] if x['row'] == info['g'][0]['row']}
     second = {x['id'] for x in info['g'] if x['row'] != info['g'][0]['row']}
-    r.check(first == {'modeToggle', 'themeSwitch', 'sizeSwitch'} and second == {'linkSwitch', 'helpgroup'},
-            'views, theme and text size share the first row; link switches and Help are on the second', f'{info["g"]}')
+    r.check(first == {'modeToggle', 'themeSwitch', 'sizeSwitch'} and second == {'contrastswitch', 'linkSwitch', 'helpgroup'},
+            'views, theme and text size share the first row; high contrast, the link switches and Help are on the second', f'{info["g"]}')
 
 
 CONTRAST_JS = """
@@ -2142,6 +2145,69 @@ def test_contrast_meets_wcag_aa(driver, r):
     test_contrast(driver, r, 'normal', 4.5, 3, 3)
 
 
+def test_high_contrast_meets_wcag_aaa(driver, r):
+    """High contrast, in both themes: all text reaches 7:1 (4.5:1 large,
+    WCAG AAA) and every control edge 4.5:1."""
+    test_contrast(driver, r, 'high', 7, 4.5, 4.5)
+
+
+def test_high_contrast_switch(driver, r):
+    """The High contrast switch toggles the stronger palette on either
+    theme, reports its state, is remembered, and with no saved choice
+    follows the system's 'more contrast' setting (an explicit choice wins).
+    Runs last (changes media emulation and storage)."""
+    import time as _t
+
+    def state():
+        return driver.execute_script(
+            "var b = document.getElementById('contrastBtn');"
+            "return {attr: document.documentElement.dataset.contrast || null, pressed: b.getAttribute('aria-pressed'), active: b.classList.contains('active'),"
+            "        dim: getComputedStyle(document.documentElement).getPropertyValue('--dim').trim()};")
+
+    def system(value):
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-contrast', 'value': value}]})
+        _t.sleep(0.2)
+
+    try:
+        system('')
+        driver.execute_script("localStorage.clear();")
+        driver.get(INDEX_URL)
+        _t.sleep(0.7)
+        normal = state()
+        r.check(normal['attr'] is None and normal['pressed'] == 'false', 'high contrast is off by default', f'{normal}')
+        driver.execute_script("document.getElementById('contrastBtn').click();")
+        _t.sleep(0.2)
+        high = state()
+        r.check(high['attr'] == 'high' and high['pressed'] == 'true' and high['active'] and high['dim'] != normal['dim'],
+                'the switch turns it on, swaps the palette and reports pressed', f'{normal["dim"]} -> {high["dim"]}')
+        driver.execute_script("document.querySelector('#themeSwitch [data-theme-set=\"light\"]').click();")
+        _t.sleep(0.2)
+        light = state()
+        r.check(light['attr'] == 'high' and light['dim'] != high['dim'], 'it works together with the light theme (its own palette)', f'{light}')
+        driver.get(INDEX_URL)
+        _t.sleep(0.7)
+        r.check(state()['attr'] == 'high', 'the choice is remembered across a reload (applied before first paint)', f'{state()}')
+        driver.execute_script("document.getElementById('contrastBtn').click();")   # off, explicitly
+        _t.sleep(0.2)
+
+        # system 'more contrast' with no saved choice -> on; an explicit choice wins
+        driver.execute_script("localStorage.clear();")
+        system('more')
+        driver.get(INDEX_URL)
+        _t.sleep(0.7)
+        sysmore = state()
+        r.check(sysmore['attr'] == 'high' and sysmore['pressed'] == 'true', 'with the system asking for more contrast and no saved choice, it starts on', f'{sysmore}')
+        driver.execute_script("document.getElementById('contrastBtn').click();")   # the person turns it off
+        _t.sleep(0.2)
+        driver.get(INDEX_URL)
+        _t.sleep(0.7)
+        r.check(state()['attr'] is None, 'an explicit "off" beats the system setting (and is remembered)', f'{state()}')
+    finally:
+        system('')
+        driver.execute_script("localStorage.clear();")
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -2200,6 +2266,8 @@ def main():
         test_top_bar_buttons_are_uniform(driver, r)
         test_top_bar_stays_within_the_intro_width(driver, r)
         test_contrast_meets_wcag_aa(driver, r)
+        test_high_contrast_meets_wcag_aaa(driver, r)
+        test_high_contrast_switch(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

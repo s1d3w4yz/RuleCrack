@@ -55,6 +55,10 @@ existing `.rule` file line by line.
   rule line, for learning the syntax by typing instead of clicking through
   the chain builder. A search box filters by operator or description
   (with an "Operators only" option).
+- **Contrast**: both themes meet WCAG 2.2 AA (text 4.5:1, control edges 3:1).
+  A **High contrast** switch, which also turns on by itself when the system
+  asks for more contrast, goes further to AAA: all text 7:1 and control
+  edges 4.5:1, in either theme. The tests scan both modes in both themes.
 - **Display options**: a Dark / Light / Auto theme (Auto follows the system's
   setting live and uses dark if the system doesn't say) and three text sizes (every size in
   the page scales together). Both are remembered per browser. The default

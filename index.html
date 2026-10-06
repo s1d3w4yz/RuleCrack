@@ -33,6 +33,17 @@
   --control-border:#787058;
   color-scheme:light;
 }
+/* High contrast (a switch beside the theme; also on by default when the system asks for more
+   contrast): every text color reaches 7:1 (WCAG AAA) on all surfaces and highlight tints, and
+   control edges and dividers reach 4.5:1. */
+:root[data-contrast="high"]{
+  --dim:#C2C6CB; --accent:#E5C081; --good:#97D2B8; --danger:#EFB8B2;
+  --rule:#6B7680; --control-border:#8A949D;
+}
+:root[data-theme="light"][data-contrast="high"]{
+  --dim:#494537; --accent:#603E06; --good:#144E46; --danger:#782D28;
+  --rule:#8A8268; --control-border:#5F5A47;
+}
 
 *{box-sizing:border-box}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
@@ -608,6 +619,9 @@ try{
     // no preference, an unreadable one, or dark all give the dark default.
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) document.documentElement.dataset.theme = 'light';
   }
+  var savedContrast = localStorage.getItem('contrast');
+  if (savedContrast === 'high' || (savedContrast !== 'normal' && window.matchMedia && window.matchMedia('(prefers-contrast: more)').matches))
+    document.documentElement.dataset.contrast = 'high';
   var savedSize = localStorage.getItem('textsize');
   if (savedSize === 'lg' || savedSize === 'xl') document.documentElement.dataset.textsize = savedSize;
 }catch(e){}
@@ -647,6 +661,9 @@ try{
         <button class="mbtn" data-size-set="" type="button" title="Default text size" aria-label="Default text size" style="font-size:.8rem">A</button>
         <button class="mbtn" data-size-set="lg" type="button" title="Larger text" aria-label="Larger text" style="font-size:1rem">A</button>
         <button class="mbtn" data-size-set="xl" type="button" title="Largest text" aria-label="Largest text" style="font-size:1.25rem;line-height:1">A</button>
+      </div>
+      <div class="modetoggle contrastswitch">
+        <button class="mbtn" id="contrastBtn" type="button" aria-pressed="false" title="Use the strongest text and border contrast (7:1 text, 4.5:1 borders). Turns on by itself when your system asks for more contrast.">&#9680; High contrast</button>
       </div>
       <div class="modetoggle linkswitch" id="linkSwitch" role="group" aria-label="Link highlighting">
         <button class="mbtn" data-link="highlight" type="button" aria-pressed="true" title="Highlight the matching step, trace row and rule-line token when you hover or focus one of them">Link highlights</button>
@@ -2878,6 +2895,30 @@ d $1$2$3"></textarea>
     e.preventDefault();
     helpDialog.showModal();
   });
+
+  // ---------- high contrast ----------
+  // data-contrast="high" on <html> (set before paint by the early script) swaps in the 7:1
+  // palette. With no saved choice it follows the system's "more contrast" setting.
+  var contrastBtn = document.getElementById('contrastBtn');
+  var moreContrastQuery = window.matchMedia('(prefers-contrast: more)');
+  function savedContrastPref(){ try { return localStorage.getItem('contrast'); } catch(e){ return null; } }
+  function applyContrastButton(){
+    var on = document.documentElement.dataset.contrast === 'high';
+    contrastBtn.classList.toggle('active', on);
+    contrastBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  contrastBtn.addEventListener('click', function(){
+    var on = document.documentElement.dataset.contrast !== 'high';
+    if (on) document.documentElement.dataset.contrast = 'high'; else delete document.documentElement.dataset.contrast;
+    try { localStorage.setItem('contrast', on ? 'high' : 'normal'); } catch(err){}
+    applyContrastButton();
+  });
+  if (moreContrastQuery.addEventListener) moreContrastQuery.addEventListener('change', function(){
+    if (savedContrastPref()) return;                       // an explicit choice wins
+    if (moreContrastQuery.matches) document.documentElement.dataset.contrast = 'high'; else delete document.documentElement.dataset.contrast;
+    applyContrastButton();
+  });
+  applyContrastButton();
 
   var linkSwitch = document.getElementById('linkSwitch');
   function applyLinkButtons(){
