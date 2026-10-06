@@ -28,6 +28,7 @@
 }
 
 *{box-sizing:border-box}
+:root{--intro-w:74rem} /* shared width for the intro lead and the syntax lines under it (rem, not ch, so both match despite different font sizes) */
 /* Thin, theme-colored scrollbars everywhere (the lists, the cheat sheet,
    the textareas and the page itself): a quiet thumb until you hover a
    scrolling area, so the several nested scrollers stop competing for
@@ -64,8 +65,8 @@ header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
 header.page p strong{color:var(--ink);font-weight:600}
-header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5}
-.syntaxnotes{list-style:none;margin:10px 0 0;padding:0;max-width:110ch;display:grid;grid-template-columns:max-content max-content 1fr;column-gap:12px;row-gap:8px;align-items:baseline;font-size:.92rem;line-height:1.45;color:var(--dim)}
+header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:var(--intro-w)} /* same cap as .syntaxnotes below, so their right edges line up */
+.syntaxnotes{list-style:none;margin:10px 0 0;padding:0;max-width:var(--intro-w);display:grid;grid-template-columns:max-content max-content 1fr;column-gap:12px;row-gap:8px;align-items:baseline;font-size:.92rem;line-height:1.45;color:var(--dim)}
 .syntaxnotes li{display:contents}
 .syntaxnotes a{color:var(--accent);font-weight:600}
 .syntaxnotes .tag{justify-self:start;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
