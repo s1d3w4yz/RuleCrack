@@ -177,6 +177,9 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .inline-fields[hidden]{display:none}
 .inline-fields label.field{flex:1;min-width:160px}
 
+/* Live-region status lines that have no text yet stay in the accessibility tree (so
+   they are announced when text arrives) but take no room, not even a flex gap. */
+#ruleParseStatus:empty,#portabilityNote:empty{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0)}
 #portabilityNote.ok{color:var(--good)}
 #portabilityNote.warn{color:var(--danger)}
 
@@ -195,7 +198,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 }
 .card h2{font-size:1rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
 .card h2 .n{color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-right:4px}
-.card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin-top:-8px}
+.card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin:-8px 0 0}   /* no bottom margin: the card's own 16px gap is the spacing */
 
 .sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .expandbtn,.hdrbtn{
@@ -364,7 +367,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row.rejected .num{background:var(--danger)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
-.traceopts{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin:-8px 0 8px}
+.traceopts{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin:-8px 0 0}
 .locktoggle{display:flex;align-items:center;gap:6px;min-height:24px;font-size:.78rem;color:var(--dim);cursor:pointer;user-select:none}
 .locktoggle input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
 /* With locking on, the first row (starting word) and last row (the final

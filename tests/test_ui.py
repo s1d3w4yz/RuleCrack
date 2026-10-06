@@ -1974,6 +1974,28 @@ def test_help_dialog(driver, r):
     driver.find_element('tag name', 'body').click()
 
 
+def test_section_gaps_are_consistent(driver, r):
+    """The small description lines under the section headings are followed by
+    the same 16px gap as everything else in a card (they once kept the
+    browser's default paragraph margin and left 29px), and a status line
+    with no text takes no room at all."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    gaps = driver.execute_script(
+        "var R = function(e){ return e.getBoundingClientRect(); }, q = function(s){ return document.querySelector(s); };"
+        "var gap = function(a, b){ return Math.round(R(b).top - R(a).bottom); };"
+        "return {desc02: gap(q('#ruleLineSub'), q('.rulewrap')),"
+        "        desc03: gap(q('#h-chain').closest('.sectionhead').nextElementSibling, q('#chain')),"
+        "        row04: gap(q('.traceopts'), q('#trace')),"
+        "        desc05: gap(q('#col2Card .sub'), q('#batchBox')),"
+        "        head01: gap(q('#h-word'), q('#wordInput')),"
+        "        note: gap(q('.rulewrap'), q('#portabilityNote'))};")
+    for name in ('desc02', 'desc03', 'row04', 'desc05'):
+        r.check(abs(gaps[name] - gaps['head01']) <= 1, f'gap after the {name} text/row equals the normal 16px gap', f"{gaps}")
+    r.check(gaps['note'] < gaps['head01'], 'the portability note sits closer to the rule line it describes', f"{gaps}")
+    pos = driver.execute_script("return [getComputedStyle(document.getElementById('ruleParseStatus')).position, document.getElementById('ruleParseStatus').textContent === ''];")
+    r.check(pos == ['absolute', True], 'an empty status line takes no room (but stays in the accessibility tree)', f'{pos}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -2018,6 +2040,7 @@ def main():
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)
+        test_section_gaps_are_consistent(driver, r)
         test_both_callout_is_a_code_block(driver, r)
         test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
