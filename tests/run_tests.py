@@ -158,6 +158,30 @@ def run_ambiguity_checks(driver, results):
     )
 
 
+def run_regression_checks(driver, results):
+    """Cases found by diffing the tool against real hashcat (3NX, YN) and by
+    reading hashcat's rp_cpu.c / John's rules.c (%NX count semantics:
+    reject when fewer than N matches; hashcat also rejects when N >= length)."""
+    cases = [
+        ('hashcat', '30a', 'aaaa', 'aAaa'),             # next char may itself be X
+        ('hashcat', '32s', 'mississippi', 'missisSippi'),
+        ('hashcat', 'Y0', 'ab', 'ab'),                  # N=0 duplicates nothing
+        ('hashcat', 'Y2', 'abc', 'abcbc'),
+        ('hashcat', '%2a', 'abab', 'abab'),             # exactly N matches: kept
+        ('hashcat', '%3a', 'banana', 'banana'),
+        ('hashcat', '%4a', 'banana', None),             # only 3: rejected
+        ('hashcat', '~%2?d', 'a1b2', 'a1b2'),
+        ('hashcat', '~%3?d', 'a1b2', None),
+        ('john', '%2?v', 'aeb', 'aeb'),
+        ('john', '%3?v', 'aeb', None),
+    ]
+    for dialect, rule, word, want in cases:
+        r = run_rule(driver, dialect, rule, word)
+        got = r.get('final') if not r.get('error') and not r.get('rejected') else None
+        ok = (got == want) and not r.get('error')
+        results.append((ok, f'regression [{dialect}] {rule} on {word}', None if ok else f'got {r}, want {want}'))
+
+
 def main():
     results = []  # list of (passed: bool, label: str, detail: str|None)
     driver = make_driver()
@@ -171,6 +195,7 @@ def main():
         run_fixture_file(driver, ROOT / 'tests/fixtures/hashcat_rules_test_cases.json', 'hashcat', results)
         run_fixture_file(driver, ROOT / 'tests/fixtures/john_native_cases.json', 'john', results)
         run_ambiguity_checks(driver, results)
+        run_regression_checks(driver, results)
     finally:
         driver.quit()
 

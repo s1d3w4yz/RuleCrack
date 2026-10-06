@@ -967,13 +967,14 @@ d $1$2$3"></textarea>
   function shiftCaseAll(w){ return w.split('').map(shiftCaseChar).join(''); }
 
   function toggleAtSep(word, X, N){
-    var arr = word.split(''), toggleNext = false, occurrence = 0;
+    var arr = word.split(''), occurrence = 0;
     for (var pos = 0; pos < arr.length; pos++){
-      if (arr[pos] === X){
-        if (occurrence === N) toggleNext = true; else occurrence++;
-        continue;
+      if (arr[pos] !== X) continue;
+      if (occurrence === N){
+        if (pos + 1 < arr.length) arr[pos+1] = toggleCaseChar(arr[pos+1]);
+        break;
       }
-      if (toggleNext){ arr[pos] = toggleCaseChar(arr[pos]); break; }
+      occurrence++;
     }
     return arr.join('');
   }
@@ -1118,7 +1119,7 @@ d $1$2$3"></textarea>
     caption:function(a){ return 'Duplicate the first '+a.N+' chars, prepended as a block (no-op if word is shorter)'; }});
   def('dupeblock_last',   {label:'Duplicate last N chars as a block', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'Y'+posChar(a.N); },
-    run:function(w,a){ if (a.N>w.length) return {word:w}; var block=w.slice(-a.N); return {word: w+block}; },
+    run:function(w,a){ if (a.N>w.length) return {word:w}; var block=a.N?w.slice(-a.N):''; return {word: w+block}; },
     caption:function(a){ return 'Duplicate the last '+a.N+' chars, appended as a block (no-op if word is shorter)'; }});
   def('switch_first',     {label:'Swap first two chars', group:'Structure & duplication', args:[], kind:'normal',
     hashcat:function(){ return 'k'; },
@@ -1281,10 +1282,10 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return '='+posChar(a.N)+a.X; },
     run:function(w,a){ return {reject: w[a.N]!==a.X}; },
     caption:function(a){ return "Reject unless position "+a.N+" is '"+a.X+"'"; }});
-  def('reject_contains',   {label:'Reject if count(X) ≤ N', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
+  def('reject_contains',   {label:'Reject if X appears fewer than N times', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
     hashcat:function(a){ return '%'+posChar(a.N)+a.X; },
-    run:function(w,a){ return {reject: countChar(w,a.X)<=a.N}; },
-    caption:function(a){ return "Reject unless '"+a.X+"' appears more than "+a.N+' time(s)'; }});
+    run:function(w,a){ return {reject: countChar(w,a.X)<a.N || a.N>=w.length}; },
+    caption:function(a){ return "Reject unless '"+a.X+"' appears at least "+a.N+' time(s)'; }});
 
   // --- Class-based (advanced) ---
   def('cls_replace',     {label:'Replace class C with Y', group:'Class-based (advanced)', args:[{n:'C',t:'class'},{n:'Y',t:'char'}], kind:'normal',
@@ -1319,10 +1320,10 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return '~='+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: a.N>=w.length || !classMatch(w[a.N],a.C)}; },
     caption:function(a){ return 'Reject unless position '+a.N+' is a '+CLASS_LABEL[a.C]; }});
-  def('cls_reject_contains', {label:'Reject if count(class C) ≤ N', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
+  def('cls_reject_contains', {label:'Reject if fewer than N chars are in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
     hashcat:function(a){ return '~%'+posChar(a.N)+'?'+a.C; },
-    run:function(w,a){ return {reject: countClass(w,a.C)<=a.N}; },
-    caption:function(a){ return 'Reject unless more than '+a.N+' chars are a '+CLASS_LABEL[a.C]; }});
+    run:function(w,a){ return {reject: countClass(w,a.C)<a.N || a.N>=w.length}; },
+    caption:function(a){ return 'Reject unless at least '+a.N+' chars are a '+CLASS_LABEL[a.C]; }});
 
   var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','special'],['a','any'],['h','hex (lower)'],['H','hex (upper)'],['b','any byte']];
 
@@ -1690,10 +1691,10 @@ d $1$2$3"></textarea>
     hashcat:function(){ return null; }, john:function(a){ return '='+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: a.N>=w.length || !johnClassMatch(w[a.N],a.C)}; },
     caption:function(a){ return 'Reject unless position '+a.N+' is a '+JOHN_CLASS_LABEL[a.C]; }});
-  def('j_cls_reject_contains', {label:'Reject if count(class C) \u2264 N', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'johnclass'}], kind:'reject', johnOnly:true,
+  def('j_cls_reject_contains', {label:'Reject if fewer than N chars are in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'johnclass'}], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return '%'+posChar(a.N)+'?'+a.C; },
-    run:function(w,a){ return {reject: countJohnClass(w,a.C)<=a.N}; },
-    caption:function(a){ return 'Reject unless more than '+a.N+' chars are a '+JOHN_CLASS_LABEL[a.C]; }});
+    run:function(w,a){ return {reject: countJohnClass(w,a.C)<a.N}; },
+    caption:function(a){ return 'Reject unless at least '+a.N+' chars are a '+JOHN_CLASS_LABEL[a.C]; }});
 
   // Every op's John-syntax token: shared ops reuse hashcat() verbatim (John
   // processes them identically); johnOnly ops use their own john(); hashcat-
