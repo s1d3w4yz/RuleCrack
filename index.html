@@ -2777,7 +2777,9 @@ d $1$2$3"></textarea>
   var linkSwitch = document.getElementById('linkSwitch');
   function applyLinkButtons(){
     linkSwitch.querySelectorAll('.mbtn').forEach(function(b){
-      var on = b.dataset.link === 'highlight' ? linkHighlights : linkScroll;
+      // While highlights are off, "Scroll to match" has no effect, so it is shown (and
+      // reported) as off — but the person's choice is kept and comes back with highlights.
+      var on = b.dataset.link === 'highlight' ? linkHighlights : (linkHighlights && linkScroll);
       b.classList.toggle('active', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
       if (b.dataset.link === 'scroll') b.disabled = !linkHighlights;   // nothing to scroll to without links

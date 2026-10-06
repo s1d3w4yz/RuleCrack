@@ -1849,12 +1849,20 @@ def test_link_highlighting_switches(driver, r):
         r.check(keys, 'the step keyboard-shortcut hint still shows when a step is focused', f'{keys}')
         driver.execute_script("document.activeElement.blur();")
 
+        sc_state = driver.execute_script(
+            "var b = document.querySelector('#linkSwitch [data-link=\"scroll\"]'); return [b.classList.contains('active'), b.getAttribute('aria-pressed')];")
+        r.check(sc_state == [False, 'false'], 'while highlights are off, "Scroll to match" is drawn and reported as off, not left looking on', f'{sc_state}')
+
         # remembered across a reload
         driver.get(INDEX_URL)
         time.sleep(0.8)
         p = pressed()
         r.check(p['hl'] == 'false', 'the choice is remembered across a reload', f'{p}')
         driver.execute_script("document.querySelector('#linkSwitch [data-link=\"highlight\"]').click();")   # back on
+        time.sleep(0.2)
+        sc_back = driver.execute_script(
+            "var b = document.querySelector('#linkSwitch [data-link=\"scroll\"]'); return [b.classList.contains('active'), b.getAttribute('aria-pressed'), b.disabled];")
+        r.check(sc_back == [True, 'true', False], 'turning highlights back on brings "Scroll to match" back to the choice you had (on)', f'{sc_back}')
 
         # scrolling off: still highlights, but the lists do not move
         driver.execute_script("document.querySelector('#linkSwitch [data-link=\"scroll\"]').click();")
