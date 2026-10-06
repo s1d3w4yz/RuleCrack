@@ -1980,6 +1980,9 @@ def test_section_gaps_are_consistent(driver, r):
     browser's default paragraph margin and left 29px), and a status line
     with no text takes no room at all."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    # a chain-side edit clears the 'Loaded N operations' line left over from typing a rule earlier
+    driver.execute_script("var c = document.querySelector('#chain .s-enabled'); c.click(); document.querySelector('#chain .s-enabled').click();")
+    time.sleep(0.2)
     gaps = driver.execute_script(
         "var R = function(e){ return e.getBoundingClientRect(); }, q = function(s){ return document.querySelector(s); };"
         "var gap = function(a, b){ return Math.round(R(b).top - R(a).bottom); };"
@@ -1988,10 +1991,12 @@ def test_section_gaps_are_consistent(driver, r):
         "        row04: gap(q('.traceopts'), q('#trace')),"
         "        desc05: gap(q('#col2Card .sub'), q('#batchBox')),"
         "        head01: gap(q('#h-word'), q('#wordInput')),"
-        "        note: gap(q('.rulewrap'), q('#portabilityNote'))};")
+        "        note: gap(q('.rulewrap'), q('#portabilityNote')),"
+        "        noteToHeading: gap(q('#portabilityNote'), q('#h-chain').closest('.sectionhead'))};")
     for name in ('desc02', 'desc03', 'row04', 'desc05'):
         r.check(abs(gaps[name] - gaps['head01']) <= 1, f'gap after the {name} text/row equals the normal 16px gap', f"{gaps}")
     r.check(gaps['note'] < gaps['head01'], 'the portability note sits closer to the rule line it describes', f"{gaps}")
+    r.check(gaps['noteToHeading'] <= 14, 'the next section heading sits close under the portability note (not a big empty gap)', f"{gaps}")
     pos = driver.execute_script("return [getComputedStyle(document.getElementById('ruleParseStatus')).position, document.getElementById('ruleParseStatus').textContent === ''];")
     r.check(pos == ['absolute', True], 'an empty status line takes no room (but stays in the accessibility tree)', f'{pos}')
 

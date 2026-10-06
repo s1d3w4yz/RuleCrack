@@ -180,6 +180,10 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 /* Live-region status lines that have no text yet stay in the accessibility tree (so
    they are announced when text arrives) but take no room, not even a flex gap. */
 #ruleParseStatus:empty,#portabilityNote:empty{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* The note under the rule line is a small footnote to it: tuck the next section's heading
+   closer (26px of visible space under it felt larger than every other gap) */
+#portabilityNote{margin-bottom:-8px}
+#validatorReturnBox{margin-top:8px}
 #portabilityNote.ok{color:var(--good)}
 #portabilityNote.warn{color:var(--danger)}
 
