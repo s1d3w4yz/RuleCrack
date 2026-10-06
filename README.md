@@ -153,7 +153,10 @@ existing `.rule` file line by line.
 Hashcat operator semantics were verified against hashcat's own reference
 implementation and test suite (`docs/rules.txt`, `src/rp_cpu.c`, and
 `tools/rules-test-cases.yaml` in the [hashcat](https://github.com/hashcat/hashcat)
-repository) — positions are 0-indexed, most positional ops silently no-op
+repository) — words are run as their UTF-8 bytes, exactly as hashcat does — `é` is two
+bytes, positions and lengths count bytes, and the case operators change
+only ASCII letters (a half-deleted character shows as `\xNN`) —
+positions are 0-indexed, most positional ops silently no-op
 when a position is out of range, and a handful of ops (memory extraction,
 some reject filters) reject the whole candidate instead. John-specific
 semantics (including the hashcat-compat-mode disambiguation rules and the

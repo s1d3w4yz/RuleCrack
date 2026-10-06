@@ -174,7 +174,14 @@ def run_regression_checks(driver, results):
         ('hashcat', '~%3?d', 'a1b2', None),
         ('john', '%2?v', 'aeb', 'aeb'),
         ('john', '%3?v', 'aeb', None),
-        ('hashcat', '~@?s', 'caf\u00e9 a-b!', 'caf\u00e9ab'),   # ?s is printable-ASCII symbols (space included), not é
+        ('hashcat', '~@?s', 'caf\u00e9 a-b!', 'caf\u00e9ab'),
+        # words are run as UTF-8 bytes: case ops touch ASCII only, lengths and positions count bytes
+        ('hashcat', 'u', 'caf\u00e9', 'CAF\u00e9'),
+        ('hashcat', 'l', '\u00c9COLE', '\u00c9cole'),
+        ('hashcat', '>3', '\u00e9', None),              # \u00e9 is 2 bytes
+        ('hashcat', '>2', '\u00e9', '\u00e9'),
+        ('hashcat', 'h', '\u00e9', 'c3a9'),
+        ('hashcat', '[', '\u00e9a', '\\xA9a'),         # half a character shows as \xNN   # ?s is printable-ASCII symbols (space included), not é
     ]
     for dialect, rule, word, want in cases:
         r = run_rule(driver, dialect, rule, word)

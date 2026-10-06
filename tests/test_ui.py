@@ -35,7 +35,7 @@ everything cosmetic second):
       minus hashcat-only, John = shared + John-only) and 'vNX' is hashcat-only
     - the Both callout is a code block plus short points
     - cheat sheet search keeps the John-only box's explanation, and a
-      search with no results says where to look
+      search with no results just says so
     - the help dialog opens from the Help button or ? (not while typing),
       traps Tab, closes on Esc / Close / backdrop, returns focus, and
       documents the shortcuts that exist
@@ -1660,11 +1660,11 @@ def test_both_callout_is_a_code_block(driver, r):
 def test_cheat_search_keeps_john_only_explanation(driver, r):
     """Searching the cheat sheet keeps the John-only box's explanation
     visible (a search that lands in it still says why it isn't buildable
-    here), and a search with no results says where to look."""
+    here), and a search with no results just says so."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
     time.sleep(0.2)
-    # searching keeps the John-only box's explanation; no results points to the other target
+    # searching keeps the John-only box's explanation; no results just says so
     set_value(driver, driver.find_element('id', 'cheatSearch'), 'variable')
     st = driver.execute_script(
         "var s = document.querySelector('.john-only-section');"
@@ -1676,7 +1676,8 @@ def test_cheat_search_keeps_john_only_explanation(driver, r):
     time.sleep(0.2)
     set_value(driver, driver.find_element('id', 'cheatSearch'), 'zzzz')
     empty = driver.execute_script("return document.querySelector('.cheat-empty').textContent;")
-    r.check('John (native rules)' in empty, 'a search with no results says where John-only commands live', repr(empty))
+    r.check(empty.startswith('No operators match') and 'John' not in empty and 'Hashcat' not in empty,
+            'a search with no results just says so, without pointing at another tool', repr(empty))
     r.check(driver.execute_script("return !document.querySelector('.john-only-section');"), 'the Both view lists no John-only commands', '')
     set_value(driver, driver.find_element('id', 'cheatSearch'), '')
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")

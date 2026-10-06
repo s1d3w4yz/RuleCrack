@@ -950,9 +950,42 @@ d $1$2$3"></textarea>
     });
   }
   function posChar(n){ n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
+  // Hashcat (and John without a --encoding) work on raw bytes, not characters: a word is run
+  // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
+  // and case operators only touch the ASCII letters a-z / A-Z. Inside the engine a word is a
+  // "byte string" (every char code is 0-255); toBytes/fromBytes convert at the edges.
+  function asciiUpper(s){ return s.replace(/[a-z]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-32); }); }
+  function asciiLower(s){ return s.replace(/[A-Z]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)+32); }); }
+  function toBytes(str){
+    var b = new TextEncoder().encode(str), out = '';
+    for (var i=0;i<b.length;i++) out += String.fromCharCode(b[i]);
+    return out;
+  }
+  // Decode a byte string for display. Valid UTF-8 shows as text; a byte that isn't part of a
+  // valid sequence (e.g. half of "é" after a delete) shows as \xNN so nothing is hidden.
+  function fromBytes(bs){
+    var out = '', i = 0, n = bs.length, dec = new TextDecoder('utf-8', {fatal:true});
+    while (i < n){
+      var b = bs.charCodeAt(i);
+      if (b < 0x80){ out += bs[i]; i++; continue; }
+      var len = (b>=0xC2 && b<=0xDF) ? 2 : (b>=0xE0 && b<=0xEF) ? 3 : (b>=0xF0 && b<=0xF4) ? 4 : 0, ok = false;
+      if (len && i+len <= n){
+        var arr = new Uint8Array(len);
+        for (var k=0;k<len;k++) arr[k] = bs.charCodeAt(i+k);
+        try { out += dec.decode(arr); ok = true; i += len; } catch (e) {}
+      }
+      if (!ok){ out += '\\x' + (b<16?'0':'') + b.toString(16).toUpperCase(); i++; }
+    }
+    return out;
+  }
+  function isValidUtf8(bs){
+    var arr = new Uint8Array(bs.length);
+    for (var i=0;i<bs.length;i++) arr[i] = bs.charCodeAt(i);
+    try { new TextDecoder('utf-8', {fatal:true}).decode(arr); return true; } catch (e) { return false; }
+  }
   function toggleCaseChar(ch){
-    if (/[a-z]/.test(ch)) return ch.toUpperCase();
-    if (/[A-Z]/.test(ch)) return ch.toLowerCase();
+    if (/[a-z]/.test(ch)) return asciiUpper(ch);
+    if (/[A-Z]/.test(ch)) return asciiLower(ch);
     return ch;
   }
   function toggleAll(w){ return w.split('').map(toggleCaseChar).join(''); }
@@ -963,8 +996,8 @@ d $1$2$3"></textarea>
   var SHIFT_MAP = {};
   SHIFT_PAIRS.forEach(function(p){ SHIFT_MAP[p[0]] = p[1]; SHIFT_MAP[p[1]] = p[0]; });
   function shiftCaseChar(ch){
-    if (/[a-z]/.test(ch)) return ch.toUpperCase();
-    if (/[A-Z]/.test(ch)) return ch.toLowerCase();
+    if (/[a-z]/.test(ch)) return asciiUpper(ch);
+    if (/[A-Z]/.test(ch)) return asciiLower(ch);
     if (SHIFT_MAP.hasOwnProperty(ch)) return SHIFT_MAP[ch];
     return ch;
   }
@@ -984,11 +1017,11 @@ d $1$2$3"></textarea>
   }
 
   function titleSep(word, matchFn){
-    var baseline = word.toLowerCase();
+    var baseline = asciiLower(word);
     var result = baseline.split('');
-    if (result.length) result[0] = result[0].toUpperCase();
+    if (result.length) result[0] = asciiUpper(result[0]);
     for (var i = 0; i < word.length - 1; i++){
-      if (matchFn(word[i])) result[i+1] = baseline[i+1].toUpperCase();
+      if (matchFn(word[i])) result[i+1] = asciiUpper(baseline[i+1]);
     }
     return result.join('');
   }
@@ -1008,8 +1041,7 @@ d $1$2$3"></textarea>
   }
 
   function toHex(word, upper){
-    var bytes = new TextEncoder().encode(word);
-    var hex = Array.from(bytes).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+    var hex = word.split('').map(function(ch){ return ch.charCodeAt(0).toString(16).padStart(2,'0'); }).join('');
     return upper ? hex.toUpperCase() : hex;
   }
 
@@ -1041,7 +1073,7 @@ d $1$2$3"></textarea>
   // Semantics verified against hashcat's docs/rules.txt, src/rp_cpu.c and
   // tools/rules-test-cases.yaml (positions are 0-indexed; most positional ops
   // silently no-op when a position is out of range rather than erroring).
-  var GROUPS = ['Case','Structure & duplication','Insert / delete / replace','Byte math','Encoding','Memory (combo rules)','Reject filters','Class-based (advanced)','Grammar (John native)'];
+  var GROUPS = ['Case','Structure & duplication','Insert / delete / replace','Character-code math','Encoding','Memory (save and reuse the word)','Reject filters','Class-based (advanced)','Grammar (John native)'];
 
   var OPS = {};
   function def(key, o){ OPS[key] = o; }
@@ -1053,16 +1085,16 @@ d $1$2$3"></textarea>
 
   // --- Case ---
   def('lrest',        {label:'Lowercase everything', group:'Case', args:[], kind:'normal',
-    hashcat:function(){ return 'l'; }, run:function(w){ return {word:w.toLowerCase()}; },
+    hashcat:function(){ return 'l'; }, run:function(w){ return {word:asciiLower(w)}; },
     caption:function(){ return 'Lowercase everything'; }});
   def('urest',        {label:'Uppercase everything', group:'Case', args:[], kind:'normal',
-    hashcat:function(){ return 'u'; }, run:function(w){ return {word:w.toUpperCase()}; },
+    hashcat:function(){ return 'u'; }, run:function(w){ return {word:asciiUpper(w)}; },
     caption:function(){ return 'Uppercase everything'; }});
   def('lrest_ufirst',    {label:'Lowercase all, capitalize first', group:'Case', args:[], kind:'normal',
-    hashcat:function(){ return 'c'; }, run:function(w){ return {word: w.length ? w[0].toUpperCase()+w.slice(1).toLowerCase() : w}; },
+    hashcat:function(){ return 'c'; }, run:function(w){ return {word: w.length ? asciiUpper(w[0])+asciiLower(w.slice(1)) : w}; },
     caption:function(){ return 'Lowercase all, capitalize first letter'; }});
   def('urest_lfirst',    {label:'Uppercase all, lowercase first', group:'Case', args:[], kind:'normal',
-    hashcat:function(){ return 'C'; }, run:function(w){ return {word: w.length ? w[0].toLowerCase()+w.slice(1).toUpperCase() : w}; },
+    hashcat:function(){ return 'C'; }, run:function(w){ return {word: w.length ? asciiLower(w[0])+asciiUpper(w.slice(1)) : w}; },
     caption:function(){ return 'Uppercase all, lowercase first letter'; }});
   def('trest',        {label:'Toggle case of every char', group:'Case', args:[], kind:'normal',
     hashcat:function(){ return 't'; }, run:function(w){ return {word: toggleAll(w)}; },
@@ -1074,7 +1106,7 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return 'T'+posChar(a.N); },
     run:function(w,a){ if (a.N<w.length){ var arr=w.split(''); arr[a.N]=toggleCaseChar(arr[a.N]); return {word:arr.join('')}; } return {word:w}; },
     caption:function(a){ return 'Toggle case at position '+a.N+' (no-op if out of range)'; }});
-  def('toggle_at_sep',    {label:'Toggle case after Nth occurrence of X', group:'Case', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+  def('toggle_at_sep',    {label:'Toggle case after the Nth X (0 = the first X)', group:'Case', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
     hashcat:function(a){ return '3'+posChar(a.N)+a.X; },
     run:function(w,a){ return {word: toggleAtSep(w,a.X,a.N)}; },
     caption:function(a){ return "Toggle the letter right after occurrence "+a.N+" of '"+a.X+"'"; }});
@@ -1100,10 +1132,10 @@ d $1$2$3"></textarea>
   def('reflect',       {label:'Reflect (append reversed word)', group:'Structure & duplication', args:[], kind:'normal',
     hashcat:function(){ return 'f'; }, run:function(w){ return {word: w + w.split('').reverse().join('')}; },
     caption:function(){ return 'Append the reversed word'; }});
-  def('rotate_left',     {label:'Rotate left', group:'Structure & duplication', args:[], kind:'normal',
+  def('rotate_left',     {label:'Rotate left (first char moves to the end)', group:'Structure & duplication', args:[], kind:'normal',
     hashcat:function(){ return '{'; }, run:function(w){ return {word: w.length>1 ? w.slice(1)+w[0] : w}; },
     caption:function(){ return 'Rotate the word left by one character'; }});
-  def('rotate_right',     {label:'Rotate right', group:'Structure & duplication', args:[], kind:'normal',
+  def('rotate_right',     {label:'Rotate right (last char moves to the front)', group:'Structure & duplication', args:[], kind:'normal',
     hashcat:function(){ return '}'; }, run:function(w){ return {word: w.length>1 ? w.slice(-1)+w.slice(0,-1) : w}; },
     caption:function(){ return 'Rotate the word right by one character'; }});
   def('dupechar_first',   {label:'Duplicate first char N times', group:'Structure & duplication', args:[{n:'N',t:'pos'}], kind:'normal',
@@ -1155,11 +1187,11 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return 'D'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; return {word: w.slice(0,a.N)+w.slice(a.N+1)}; },
     caption:function(a){ return 'Delete the character at position '+a.N+' (no-op if out of range)'; }});
-  def('extract',       {label:'Extract M chars at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
+  def('extract',       {label:'Keep only M chars, starting at position N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'x'+posChar(a.N)+posChar(a.M); },
     run:function(w,a){ if (a.N>=w.length || a.N+a.M>w.length) return {word:w}; return {word: w.slice(a.N,a.N+a.M)}; },
     caption:function(a){ return 'Keep only '+a.M+' chars starting at position '+a.N+' (no-op if that range doesn’t fit)'; }});
-  def('omit',         {label:'Omit M chars at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
+  def('omit',         {label:'Delete M chars, starting at position N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'O'+posChar(a.N)+posChar(a.M); },
     run:function(w,a){ if (a.N>=w.length || a.N+a.M>w.length) return {word:w}; return {word: w.slice(0,a.N)+w.slice(a.N+a.M)}; },
     caption:function(a){ return 'Remove '+a.M+' chars starting at position '+a.N+' (no-op if that range doesn’t fit)'; }});
@@ -1171,11 +1203,11 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return 'v'+posChar(a.N)+a.X; },
     run:function(w,a){ return {word: insertEvery(w,a.N,a.X)}; },
     caption:function(a){ return "Insert '"+a.X+"' after every "+a.N+' characters'; }});
-  def('overstrike',      {label:'Overwrite char at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+  def('overstrike',      {label:'Replace the char at position N with X', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
     hashcat:function(a){ return 'o'+posChar(a.N)+a.X; },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; return {word: w.slice(0,a.N)+a.X+w.slice(a.N+1)}; },
     caption:function(a){ return "Overwrite position "+a.N+" with '"+a.X+"' (no-op if out of range)"; }});
-  def('truncate_at',     {label:'Truncate at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('truncate_at',     {label:'Keep only the first N chars', group:'Insert / delete / replace', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return "'"+posChar(a.N); },
     run:function(w,a){ return {word: w.slice(0,a.N)}; },
     caption:function(a){ return 'Cut the word down to its first '+a.N+' characters'; }});
@@ -1183,37 +1215,37 @@ d $1$2$3"></textarea>
     hashcat:function(a){ return 's'+a.X+a.Y; },
     run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += (w[i]===a.X ? a.Y : w[i]); return {word:out}; },
     caption:function(a){ return "Replace every '"+a.X+"' with '"+a.Y+"' (case-sensitive)"; }});
-  def('purgechar',      {label:'Purge all of char X', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'normal',
+  def('purgechar',      {label:'Delete every X', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'normal',
     hashcat:function(a){ return '@'+a.X; },
     run:function(w,a){ return {word: w.split('').filter(function(c){return c!==a.X;}).join('')}; },
     caption:function(a){ return "Remove every '"+a.X+"'"; }});
 
-  // --- Byte math ---
-  def('chr_shiftl',      {label:'Double the character code at position N (bit shift left)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  // --- Character-code math ---
+  def('chr_shiftl',      {label:'Double the character code at position N (bit shift left)', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'L'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)<<1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Bitwise shift-left the byte at position '+a.N; }});
-  def('chr_shiftr',      {label:'Halve the character code at position N (bit shift right)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_shiftr',      {label:'Halve the character code at position N (bit shift right)', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'R'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)>>1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Bitwise shift-right the byte at position '+a.N; }});
-  def('chr_incr',       {label:'Replace the character at N with the next one in the ASCII table (a→b)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_incr',       {label:'Replace the character at N with the next one in the ASCII table (a→b)', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '+'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+1)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Increase the byte value at position '+a.N+' by 1'; }});
-  def('chr_decr',       {label:'Replace the character at N with the previous one in the ASCII table (b→a)', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('chr_decr',       {label:'Replace the character at N with the previous one in the ASCII table (b→a)', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '-'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)-1+256)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Decrease the byte value at position '+a.N+' by 1'; }});
-  def('chr_add',        {label:'Add X’s character code to the character at position N', group:'Byte math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
+  def('chr_add',        {label:'Add X’s character code to the character at position N', group:'Character-code math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
     hashcat:function(a){ return 'B'+posChar(a.N)+a.X; },
     run:function(w,a){ if (a.N>=w.length || !a.X) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+a.X.charCodeAt(0))&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return "Add the byte value of '"+a.X+"' to position "+a.N+' (bytewise, mod 256)'; }});
-  def('replace_np1',     {label:'Copy the next character over the one at position N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('replace_np1',     {label:'Copy the next character over the one at position N', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return '.'+posChar(a.N); },
     run:function(w,a){ if (a.N<0 || a.N+1>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N+1]; return {word:arr.join('')}; },
     caption:function(a){ return 'Copy the character at '+(a.N+1)+' into position '+a.N; }});
-  def('replace_nm1',     {label:'Copy the previous character over the one at position N', group:'Byte math', args:[{n:'N',t:'pos'}], kind:'normal',
+  def('replace_nm1',     {label:'Copy the previous character over the one at position N', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return ','+posChar(a.N); },
     run:function(w,a){ if (a.N<1 || a.N>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=arr[a.N-1]; return {word:arr.join('')}; },
     caption:function(a){ return 'Copy the character at '+(a.N-1)+' into position '+a.N; }});
@@ -1227,18 +1259,18 @@ d $1$2$3"></textarea>
     caption:function(){ return 'Convert the whole word to uppercase hex bytes'; }});
 
   // --- Memory ---
-  def('memorize',       {label:'Memorize current word', group:'Memory (combo rules)', args:[], kind:'memorize',
+  def('memorize',       {label:'Memorize current word', group:'Memory (save and reuse the word)', args:[], kind:'memorize',
     hashcat:function(){ return 'M'; }, run:function(w,a,ctx){ ctx.memory=w; return {word:w}; },
-    caption:function(a,before,after,ctx){ return 'Memory now holds ‘'+ctx.memory+'’'; }});
-  def('append_memory',    {label:'Append memorized word', group:'Memory (combo rules)', args:[], kind:'append',
+    caption:function(a,before,after,ctx){ return 'Memory now holds ‘'+fromBytes(ctx.memory)+'’'; }});
+  def('append_memory',    {label:'Append memorized word', group:'Memory (save and reuse the word)', args:[], kind:'append',
     hashcat:function(){ return '4'; },
     run:function(w,a,ctx){ if (ctx.memory===null) return {reject:true}; return {word: w+ctx.memory}; },
     caption:function(){ return 'Append the memorized word'; }});
-  def('prepend_memory',   {label:'Prepend memorized word', group:'Memory (combo rules)', args:[], kind:'prepend',
+  def('prepend_memory',   {label:'Prepend memorized word', group:'Memory (save and reuse the word)', args:[], kind:'prepend',
     hashcat:function(){ return '6'; },
     run:function(w,a,ctx){ if (ctx.memory===null) return {reject:true}; return {word: ctx.memory+w}; },
     caption:function(){ return 'Prepend the memorized word'; }});
-  def('extract_memory',   {label:'Insert memory substring at I', group:'Memory (combo rules)', args:[{n:'N',t:'pos'},{n:'M',t:'pos'},{n:'I',t:'pos'}], kind:'normal',
+  def('extract_memory',   {label:'Insert M chars of the saved copy (from position N) at position I', group:'Memory (save and reuse the word)', args:[{n:'N',t:'pos'},{n:'M',t:'pos'},{n:'I',t:'pos'}], kind:'normal',
     hashcat:function(a){ return 'X'+posChar(a.N)+posChar(a.M)+posChar(a.I); },
     run:function(w,a,ctx){
       if (ctx.memory===null) return {reject:true};
@@ -1248,7 +1280,7 @@ d $1$2$3"></textarea>
       return {word: w.slice(0,a.I)+sub+w.slice(a.I)};
     },
     caption:function(a){ return 'Take '+a.M+' chars from memory at '+a.N+' and insert into the word at '+a.I; }});
-  def('reject_memory',    {label:'Reject if the word equals the saved copy (see Memorize)', group:'Memory (combo rules)', args:[], kind:'reject',
+  def('reject_memory',    {label:'Reject if the word equals the saved copy (see Memorize)', group:'Memory (save and reuse the word)', args:[], kind:'reject',
     hashcat:function(){ return 'Q'; },
     run:function(w,a,ctx){ return {reject: w===ctx.memory}; },
     caption:function(){ return 'Reject this candidate if it equals the memorized word'; }});
@@ -1505,8 +1537,8 @@ d $1$2$3"></textarea>
   // adjacency tables for the whole-word keyboard-shift R/L.
 
   function vowelConsonantSwap(ch){
-    if (/[aeiouAEIOU]/.test(ch)) return ch.toLowerCase();
-    if (/[a-zA-Z]/.test(ch)) return ch.toUpperCase();
+    if (/[aeiouAEIOU]/.test(ch)) return asciiLower(ch);
+    if (/[a-zA-Z]/.test(ch)) return asciiUpper(ch);
     return ch;
   }
 
@@ -1515,19 +1547,6 @@ d $1$2$3"></textarea>
   var KB_RIGHT = {'`':'1','1':'2','2':'3','3':'4','4':'5','5':'6','6':'7','7':'8','8':'9','9':'0','0':'-','-':'=','=':'\\','\\':'\\','q':'w','w':'e','e':'r','r':'t','t':'y','y':'u','u':'i','i':'o','o':'p','p':'[','[':']',']':']','a':'s','s':'d','d':'f','f':'g','g':'h','h':'j','j':'k','k':'l','l':';',';':"'","'":"'",'z':'x','x':'c','c':'v','v':'b','b':'n','n':'m','m':',',',':'.','.':'/','/':'\\','~':'!','!':'@','@':'#','#':'$','$':'%','%':'^','^':'&','&':'*','*':'(','(':')',')':'_','_':'+','+':'|','|':'|','Q':'W','W':'E','E':'R','R':'T','T':'Y','Y':'U','U':'I','I':'O','O':'P','P':'{','{':'}','}':'}','A':'S','S':'D','D':'F','F':'G','G':'H','H':'J','J':'K','K':'L','L':':',':':'"','"':'"','Z':'X','X':'C','C':'V','V':'B','B':'N','N':'M','M':'<','<':'>','>':'?','?':'|'};
   var KB_LEFT = {'`':'`','1':'`','2':'1','3':'2','4':'3','5':'4','6':'5','7':'6','8':'7','9':'8','0':'9','-':'0','=':'-','\\':'=','q':'q','w':'q','e':'w','r':'e','t':'r','y':'t','u':'y','i':'u','o':'i','p':'o','[':'p',']':'[','a':'a','s':'a','d':'s','f':'d','g':'f','h':'g','j':'h','k':'j','l':'k',';':'l',"'":';','z':'z','x':'z','c':'x','v':'c','b':'v','n':'b','m':'n',',':'m','.':',','/':'.','~':'~','!':'~','@':'!','#':'@','$':'#','%':'$','^':'%','&':'^','*':'&','(':'*',')':'(','_':')','+':'_','|':'+','Q':'Q','W':'Q','E':'W','R':'E','T':'R','Y':'T','U':'Y','I':'U','O':'I','P':'O','{':'P','}':'{','A':'A','S':'A','D':'S','F':'D','G':'F','H':'G','J':'H','K':'J','L':'K',':':'L','"':':','Z':'Z','X':'Z','C':'X','V':'C','B':'V','N':'B','M':'N','<':'M','>':'<','?':'>'};
 
-  function hasLoneSurrogate(s){
-    for (var i=0;i<s.length;i++){
-      var c = s.charCodeAt(i);
-      if (c>=0xD800 && c<=0xDBFF){
-        var next = s.charCodeAt(i+1);
-        if (!(next>=0xDC00 && next<=0xDFFF)) return true;
-        i++;
-      } else if (c>=0xDC00 && c<=0xDFFF){
-        return true;
-      }
-    }
-    return false;
-  }
 
   // Ported directly from the non-hc_logic branch of case 'p' in rules.c.
   function pluralize(w){
@@ -1631,22 +1650,22 @@ d $1$2$3"></textarea>
     run:function(w){ return {word: ingForm(w)}; },
     caption:function(){ return '-ing form (English heuristic, lowercase only)'; }});
 
-  def('j_reject_length', {label:'Reject unless length limits hold after adding N', group:'Reject filters',
+  def('j_reject_length', {label:'Reject if adding N chars would break the length limits', group:'Reject filters',
     args:[{n:'N',t:'pos'}], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return 'a'+posChar(a.N); },
     run:function(w,a){ var L=w.length+a.N; return {reject: L<MIN_LEN || L>MAX_LEN}; },
-    caption:function(a){ return 'Reject unless length+'+a.N+' is within ['+MIN_LEN+','+MAX_LEN+']'; }});
-  def('j_reject_length_rm', {label:'Reject unless length limits hold after removing N', group:'Reject filters',
+    caption:function(a){ return 'Reject unless the length after adding '+a.N+' chars is between '+MIN_LEN+' and '+MAX_LEN; }});
+  def('j_reject_length_rm', {label:'Reject if removing N chars would break the length limits', group:'Reject filters',
     args:[{n:'N',t:'pos'}], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return 'b'+posChar(a.N); },
     run:function(w,a){ var L=w.length-a.N; return {reject: L<MIN_LEN || L>MAX_LEN}; },
-    caption:function(a){ return 'Reject unless length\u2212'+a.N+' is within ['+MIN_LEN+','+MAX_LEN+']'; }});
+    caption:function(a){ return 'Reject unless the length after removing '+a.N+' chars is between '+MIN_LEN+' and '+MAX_LEN; }});
   def('j_reject_utf8', {label:'Reject unless valid UTF-8', group:'Reject filters', args:[], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(){ return 'U'; },
-    run:function(w){ return {reject: hasLoneSurrogate(w)}; },
+    run:function(w){ return {reject: !isValidUtf8(w)}; },
     caption:function(){ return 'Reject if the word is not valid UTF-8 text'; }});
 
-  def('j_shift_toggle_at', {label:'Shift-toggle (keyboard shift) at N', group:'Case', args:[{n:'N',t:'pos'}], kind:'normal', johnOnly:true,
+  def('j_shift_toggle_at', {label:'Swap the char at position N to its shifted key (a→A, 1→!)', group:'Case', args:[{n:'N',t:'pos'}], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return 'W'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=shiftCaseChar(arr[a.N]); return {word:arr.join('')}; },
     caption:function(a){ return 'Shift-toggle the key at position '+a.N+' (like Shift held: a\u2194A, 1\u2194!)'; }});
@@ -1654,11 +1673,11 @@ d $1$2$3"></textarea>
     hashcat:function(){ return null; }, john:function(){ return 'V'; },
     run:function(w){ return {word: w.split('').map(vowelConsonantSwap).join('')}; },
     caption:function(){ return 'Uppercase every consonant, lowercase every vowel'; }});
-  def('j_keyboard_right', {label:'Keyboard-shift the whole word right', group:'Case', args:[], kind:'normal', johnOnly:true,
+  def('j_keyboard_right', {label:'Replace each char with the key to its right on a QWERTY keyboard', group:'Case', args:[], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; }, john:function(){ return 'R'; },
     run:function(w){ return {word: w.split('').map(function(c){return KB_RIGHT[c]!==undefined?KB_RIGHT[c]:c;}).join('')}; },
     caption:function(){ return 'Shift every character one key right on a US QWERTY keyboard'; }});
-  def('j_keyboard_left', {label:'Keyboard-shift the whole word left', group:'Case', args:[], kind:'normal', johnOnly:true,
+  def('j_keyboard_left', {label:'Replace each char with the key to its left on a QWERTY keyboard', group:'Case', args:[], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; }, john:function(){ return 'L'; },
     run:function(w){ return {word: w.split('').map(function(c){return KB_LEFT[c]!==undefined?KB_LEFT[c]:c;}).join('')}; },
     caption:function(){ return 'Shift every character one key left on a US QWERTY keyboard'; }});
@@ -2446,7 +2465,7 @@ d $1$2$3"></textarea>
           '<div class="toprow">'+
             '<select class="s-type" title="'+escapeHtml(opLabel(step.type))+'">'+typeOptionsHtml(step.type, TARGET)+'</select>'+
             (op.kind==='reject' ? '<span class="taglabel">reject</span>' : '')+
-            (op.kind==='memorize' || op.group==='Memory (combo rules)' ? '<span class="taglabel">memory</span>' : '')+
+            (op.kind==='memorize' || op.group==='Memory (save and reuse the word)' ? '<span class="taglabel">memory</span>' : '')+
             (JOHN_UNSUPPORTED[step.type] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
             (op.johnOnly ? '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>' : '')+
             (argsHtml ? '<span class="argrow">'+argsHtml+'</span>' : '')+
@@ -2569,11 +2588,25 @@ d $1$2$3"></textarea>
   // independent list (e.g. a parsed rulefile line's steps) to run it
   // without touching whatever the chain builder currently has loaded —
   // used by the rulefile validator to preview each line's own output.
+  // A rule file is read byte by byte, so a one-character argument (X, Y) is one byte: a typed
+  // non-ASCII character contributes only its first UTF-8 byte (hashcat would then read the rest
+  // as further rule letters). Whole-string arguments become their UTF-8 bytes.
+  function byteArgs(op, args){
+    var out = {};
+    Object.keys(args).forEach(function(k){ out[k] = args[k]; });
+    (op.args || []).forEach(function(spec){
+      var v = out[spec.n];
+      if (typeof v !== 'string') return;
+      if (spec.t === 'char') out[spec.n] = v.length && v.charCodeAt(0) > 127 ? toBytes(v).charAt(0) : v;
+      else if (spec.t === 'string') out[spec.n] = toBytes(v);
+    });
+    return out;
+  }
   function runChain(word, stepList){
     stepList = stepList || steps;
     var ctx = {memory: null};
-    var current = word;
-    var trace = [{word: current, caption:'Starting word', changedHtml: escapeHtml(current), rejected:false}];
+    var current = toBytes(word);
+    var trace = [{word: word, caption:'Starting word', changedHtml: escapeHtml(word), rejected:false}];
     var rejected = false, rejectCaption = '';
 
     for (var s=0; s<stepList.length; s++){
@@ -2581,47 +2614,50 @@ d $1$2$3"></textarea>
       if (!step.enabled) continue;
       var op = OPS[step.type];
       var before = current;
-      var res = op.run(before, step.args, ctx);
+      var res = op.run(before, byteArgs(op, step.args), ctx);
 
       if (res.reject){
         rejected = true;
         rejectCaption = op.caption(step.args, before, before, ctx) || 'Rejected';
-        trace.push({word: before, caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(before), rejected:true, stepNum: s+1});
+        trace.push({word: fromBytes(before), caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(fromBytes(before)), rejected:true, stepNum: s+1});
         break;
       }
 
       var after = (res.word!==undefined) ? res.word : before;
       var caption = op.caption(step.args, before, after, ctx);
       var changedHtml = highlightAfter(op, before, after);
-      trace.push({word: after, caption: caption, changedHtml: changedHtml, rejected:false, stepNum: s+1});
+      trace.push({word: fromBytes(after), caption: caption, changedHtml: changedHtml, rejected:false, stepNum: s+1});
       current = after;
     }
 
-    return {final: rejected ? null : current, trace: trace, rejected: rejected};
+    return {final: rejected ? null : fromBytes(current), trace: trace, rejected: rejected};
   }
 
+  // `before` and `after` are byte strings; each highlighted / plain run is decoded for display.
   function highlightAfter(op, before, after){
+    function esc(bs){ return escapeHtml(fromBytes(bs)); }
+    function hl(bs){ return bs ? '<span class="hl">'+esc(bs)+'</span>' : ''; }
     if (op.kind==='append'){
       var addLen = after.length - before.length;
-      if (addLen <= 0) return escapeHtml(after);
-      var head = after.slice(0, after.length-addLen), tail = after.slice(after.length-addLen);
-      return escapeHtml(head) + '<span class="hl">'+escapeHtml(tail)+'</span>';
+      if (addLen <= 0) return esc(after);
+      return esc(after.slice(0, after.length-addLen)) + hl(after.slice(after.length-addLen));
     }
     if (op.kind==='prepend'){
       var pLen = after.length - before.length;
-      if (pLen <= 0) return escapeHtml(after);
-      var pHead = after.slice(0,pLen), pTail = after.slice(pLen);
-      return '<span class="hl">'+escapeHtml(pHead)+'</span>' + escapeHtml(pTail);
+      if (pLen <= 0) return esc(after);
+      return hl(after.slice(0,pLen)) + esc(after.slice(pLen));
     }
-    if (op.kind==='memorize') return escapeHtml(after);
+    if (op.kind==='memorize') return esc(after);
     if (before.length === after.length){
-      var html = '';
+      var html = '', run = '', runHl = false;
       for (var i=0;i<after.length;i++){
-        html += (before[i]!==after[i]) ? '<span class="hl">'+escapeHtml(after[i])+'</span>' : escapeHtml(after[i]);
+        var changed = before[i]!==after[i];
+        if (i && changed!==runHl){ html += runHl ? hl(run) : esc(run); run = ''; }
+        runHl = changed; run += after[i];
       }
-      return html;
+      return html + (runHl ? hl(run) : esc(run));
     }
-    return '<span class="hl">'+escapeHtml(after)+'</span>';
+    return hl(after);
   }
 
   // Ties the red "Rejected" row in section 04 back to the section 03 card
@@ -3254,7 +3290,9 @@ d $1$2$3"></textarea>
 
     var legend = '<span class="subline"><span class="mono">N M I</span> = a position: 0–9, then A–Z for 10–35</span>'+
       '<span class="subline"><span class="mono">X Y</span> = a literal character</span>'+
-      '<span class="subline"><span class="mono">C</span> = a class letter</span>'+
+      (TARGET==='both' ? '' : '<span class="subline"><span class="mono">C</span> = a class: '+(TARGET==='john_native'
+        ? 'v vowel, c consonant, d digit, l lowercase, u uppercase, s symbol, p punctuation, w whitespace, a letter, x letter or digit (more in John’s docs)'
+        : 'l lowercase, u uppercase, d digit, s symbol, h / H hex digit')+'</span>')+
       '<span class="subline">Click an example to drop it into the rule line.</span>';
     // One color key, same meaning in every tab: a row's syntax text is
     // colored by what it's compatible with, not labeled — so a long list
@@ -3388,10 +3426,7 @@ d $1$2$3"></textarea>
     var empty = cheatBody.querySelector('.cheat-empty');
     if (terms.length && !shown){
       if (!empty){ empty = document.createElement('div'); empty.className = 'cheat-empty'; cheatBody.appendChild(empty); }
-      empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”. ' +
-        (TARGET === 'john_native' ? 'Hashcat-only operators (like ~s?CY) are listed under the Hashcat target.'
-        : TARGET === 'both' ? 'This view lists only what hashcat and John share. Hashcat-only operators are under the Hashcat target, John’s own commands (pluralize, string insert…) under John (native rules).'
-                            : 'John’s own commands (pluralize, string insert…) are built under the John (native rules) target.');
+      empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”.';
     } else if (empty){ empty.remove(); }
     if (terms.length) announceSoon('search', shown + (shown === 1 ? ' operator matches' : ' operators match'), 600);
   }
