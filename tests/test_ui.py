@@ -45,6 +45,9 @@ everything cosmetic second):
     - a deleted step can be undone (Undo button, Ctrl+Z), and keyboard
       shortcuts (Alt+Up/Down to move, Delete to remove) work from a step's
       checkbox and buttons but not inside its dropdown or text boxes
+    - hovering a token in the rule line (real mouse) links its step card
+      and trace row, gaps link nothing, and it still works when the line
+      has scrolled sideways
     - hovering a trace row lights up its step card and rule-line token
       (the link works from either side)
     - hovering or focusing a step also highlights its row in the trace
@@ -1225,8 +1228,12 @@ def test_step_hover_links_to_its_trace_row(driver, r):
     driver.execute_script("document.getElementById('trace').scrollTop = 0;")
     hover(7)
     inview = driver.execute_script(
-        "var t = document.getElementById('trace').getBoundingClientRect(), row = document.querySelector('#trace .trace-row.linked');"
-        "if (!row) return null; var b = row.getBoundingClientRect(); return b.top >= t.top - 1 && b.bottom <= t.bottom + 1;")
+        "var t = document.getElementById('trace'), row = t.querySelector('.trace-row.linked'); if (!row) return null;"
+        "var box = t.getBoundingClientRect(), b = row.getBoundingClientRect(), top = box.top, bot = box.bottom;"
+        "if (t.classList.contains('locked')){"   # the pinned first/last rows cover part of the box
+        "  if (row !== t.firstElementChild) top = Math.max(top, t.firstElementChild.getBoundingClientRect().bottom);"
+        "  if (row !== t.lastElementChild) bot = Math.min(bot, t.lastElementChild.getBoundingClientRect().top); }"
+        "return b.top >= top - 1 && b.bottom <= bot + 1;")
     r.check(inview is True, 'hovering a step whose trace row is out of view scrolls the trace to show it', f'in view: {inview}')
 
     # editing while hovered keeps the link (the trace re-renders)
@@ -1290,6 +1297,77 @@ def test_trace_row_hover_links_back_to_its_step(driver, r):
     driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
 
 
+def test_rule_line_hover_links_its_step(driver, r):
+    """Hovering a token in the rule line (a real mouse) links its step: the
+    card in section 03, the row in section 04 and the token itself. Gaps
+    between tokens and the area past the text link nothing, it also works
+    when a long line has scrolled sideways, and the linked trace row is
+    brought into the visible part of the list (not under a pinned row)."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    import re
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    rule = 'c sa4 se3 si1 so0 ss5 $! $1'
+    box = driver.find_element('id', 'ruleTextInput')
+    set_value(driver, box, rule, debounced=True)
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", box)
+    time.sleep(0.2)
+
+    metrics = driver.execute_script(
+        "var i = document.getElementById('ruleTextInput'), cs = getComputedStyle(i), c = document.createElement('canvas').getContext('2d');"
+        "c.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;"
+        "return {cw: c.measureText('0').width, left: parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft)};")
+
+    def over(char_pos):
+        """move the real mouse to the middle of the character at char_pos"""
+        w = box.rect['width']
+        x = metrics['left'] + (char_pos + 0.5) * metrics['cw'] - box.scroll_offset if False else metrics['left'] + (char_pos + 0.5) * metrics['cw']
+        ActionChains(driver).move_to_element_with_offset(box, int(x - w / 2), 0).perform()
+        time.sleep(0.15)
+
+    def linked():
+        return driver.execute_script(
+            "var t = document.querySelector('#ruleHl .hl-on'), c = document.querySelector('#chain .step.linked'), w = document.querySelector('#trace .trace-row.linked');"
+            "return [t && t.textContent, c && [].indexOf.call(document.querySelectorAll('#chain .step'), c) + 1, w && w.dataset.step];")
+
+    tokens = [(m.group(), m.start()) for m in re.finditer(r'\S+', rule)]
+    for n, (tok, start) in enumerate(tokens, 1):
+        over(start + len(tok) // 2)
+        r.check(linked() == [tok, n, str(n)], f'hovering "{tok}" in the rule line links step {n}, its card and its trace row', f'{linked()}')
+    over(1)   # the space after 'c'
+    r.check(linked() == [None, None, None], 'hovering the gap between two tokens links nothing', f'{linked()}')
+    over(len(rule) + 4)
+    r.check(linked() == [None, None, None], 'hovering past the end of the text links nothing', f'{linked()}')
+
+    # the linked trace row is really visible (not behind the pinned start/end rows)
+    driver.execute_script("document.getElementById('trace').scrollTop = 0;")
+    over(2)
+    vis = driver.execute_script(
+        "var t = document.getElementById('trace'), row = t.querySelector('.trace-row.linked'); if (!row) return null;"
+        "var b0 = t.getBoundingClientRect(), b = row.getBoundingClientRect(), top = b0.top, bot = b0.bottom;"
+        "if (t.classList.contains('locked')){"
+        "  if (row !== t.firstElementChild) top = Math.max(top, t.firstElementChild.getBoundingClientRect().bottom);"
+        "  if (row !== t.lastElementChild) bot = Math.min(bot, t.lastElementChild.getBoundingClientRect().top); }"
+        "return b.top >= top - 1 && b.bottom <= bot + 1;")
+    r.check(vis is True, 'the linked trace row is brought fully into view, not hidden under a pinned row', f'visible: {vis}')
+
+    # a long line that scrolls sideways still maps correctly
+    long_rule = ' '.join(['c', 'sa4', 'se3', 'si1', 'so0', 'ss5', '$!', '$1'] * 4)
+    set_value(driver, box, long_rule, debounced=True)
+    driver.execute_script("var i = document.getElementById('ruleTextInput'); i.scrollLeft = i.scrollWidth;")
+    time.sleep(0.2)
+    sl = driver.execute_script("return document.getElementById('ruleTextInput').scrollLeft;")
+    last_start = len(long_rule) - 2           # the final '$1'
+    w = box.rect['width']
+    x = metrics['left'] + (last_start + 1) * metrics['cw'] - sl
+    ActionChains(driver).move_to_element_with_offset(box, int(x - w / 2), 0).perform()
+    time.sleep(0.2)
+    got = linked()
+    r.check(sl > 0 and got[0] == '$1' and got[1] is not None, 'with the line scrolled sideways, the token under the mouse is still the one linked', f'scrollLeft {sl}, {got}')
+    ActionChains(driver).move_to_element(driver.find_element('id', 'wordInput')).perform()
+    set_value(driver, box, rule, debounced=True)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1324,6 +1402,7 @@ def main():
         test_tooltip_information_is_also_visible(driver, r)
         test_step_hover_links_to_its_trace_row(driver, r)
         test_trace_row_hover_links_back_to_its_step(driver, r)
+        test_rule_line_hover_links_its_step(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

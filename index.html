@@ -3103,21 +3103,29 @@ d $1$2$3"></textarea>
   var ruleHl = document.getElementById('ruleHl');
   var hoverStepId = null;
   function argSig(a){ return Object.keys(a||{}).sort().map(function(k){ return k+'='+String(a[k]); }).join('|'); }
-  function paintRuleHl(){
+  // Which slice of the rule line belongs to which step. The line only
+  // describes the chain while they still agree: edits made in section 03 (a
+  // changed argument, a reorder, an add or delete) don't rewrite the text
+  // until it is regenerated, so a step that no longer matches what's at its
+  // position there is simply left out. Each step is checked on its own.
+  function ruleMatches(){
     var text = ruleTextInput.value;
     var parseFn = TARGET==='john_native' ? parseRuleLineJohn : parseRuleLine;
     var parsed = text.trim() ? parseFn(text, function(type, args){ return {type:type, args:args}; }) : {steps: []};
-    // The rule line only describes the chain while they still agree: edits
-    // made in section 03 (a changed argument, a reorder, an add or delete)
-    // don't rewrite the text, so a step that no longer matches what's at its
-    // position there is simply left unmarked. Each step is checked alone.
-    var marks = [];
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
+    var out = [];
     steps.filter(function(st){ return tokenFn(st.type, st.args) !== null; }).forEach(function(st, idx){
       var m = parsed.steps[idx];
       if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return;
-      var hover = st.id == hoverStepId, off = !st.enabled;
-      if (hover || off) marks.push({from: m.src[0], to: m.src[1], hover: hover, off: off});
+      out.push({step: st, from: m.src[0], to: m.src[1]});
+    });
+    return out;
+  }
+  function paintRuleHl(){
+    var text = ruleTextInput.value, marks = [];
+    ruleMatches().forEach(function(m){
+      var hover = m.step.id == hoverStepId, off = !m.step.enabled;
+      if (hover || off) marks.push({from: m.from, to: m.to, hover: hover, off: off});
     });
     if (!marks.length){ ruleHl.innerHTML = ''; return; }
     marks.sort(function(a, b){ return a.from - b.from; });
@@ -3139,8 +3147,15 @@ d $1$2$3"></textarea>
   // A step that didn't run (disabled, or after a rejecting step) has no row.
   function scrollToShow(box, el){
     var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
-    if (r.top < b.top) box.scrollTop -= (b.top - r.top) + 4;
-    else if (r.bottom > b.bottom) box.scrollTop += (r.bottom - b.bottom) + 4;
+    var top = b.top, bottom = b.bottom;
+    // with the trace's start/end rows locked, those two sit on top of the
+    // scroll area, so the part where a row can actually be seen is smaller
+    if (box.classList.contains('locked') && box.children.length > 2){
+      if (el !== box.firstElementChild) top = Math.max(top, box.firstElementChild.getBoundingClientRect().bottom);
+      if (el !== box.lastElementChild) bottom = Math.min(bottom, box.lastElementChild.getBoundingClientRect().top);
+    }
+    if (r.top < top) box.scrollTop -= (top - r.top) + 4;
+    else if (r.bottom > bottom) box.scrollTop += (r.bottom - bottom) + 4;
   }
   function linkTraceRow(scroll){
     traceEl.querySelectorAll('.trace-row.linked').forEach(function(r){ r.classList.remove('linked'); });
@@ -3159,12 +3174,15 @@ d $1$2$3"></textarea>
     card.classList.add('linked');
     if (scroll) scrollToShow(chainEl, card);
   }
-  // fromTrace: the link started on a trace row, so bring the step card into view
-  function showStepToken(stepId, fromTrace){
-    hoverStepId = stepId; paintRuleHl();
-    linkTraceRow(!fromTrace); linkChainCard(!!fromTrace);
+  // source: where the hover started — 'chain' (default), 'trace' or 'rule'.
+  // Lists other than the source are scrolled to show their linked item.
+  var linkSource = null;
+  function showStepToken(stepId, source){
+    source = source || 'chain';
+    hoverStepId = stepId; linkSource = source; paintRuleHl();
+    linkTraceRow(source !== 'trace'); linkChainCard(source !== 'chain');
   }
-  function hideStepToken(){ hoverStepId = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
+  function hideStepToken(){ hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
   ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
   ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls
@@ -3184,9 +3202,34 @@ d $1$2$3"></textarea>
   traceEl.addEventListener('mouseover', function(e){
     var row = e.target.closest && e.target.closest('.trace-row[data-step]');
     var st = row && steps[parseInt(row.dataset.step, 10) - 1];
-    if (st) showStepToken(st.id, true); else hideStepToken();
+    if (st) showStepToken(st.id, 'trace'); else hideStepToken();
   });
   traceEl.addEventListener('mouseleave', hideStepToken);
+  // Hovering a token in the rule line links its step too. A text box can't
+  // report which character is under the mouse, but the rule line is
+  // monospace, so the character index is the mouse's offset into the text
+  // (past the border and padding, plus any horizontal scroll) divided by the
+  // width of one character in the box's own font.
+  var measureCtx = document.createElement('canvas').getContext('2d');
+  function ruleStepAt(clientX){
+    var text = ruleTextInput.value;
+    if (!text) return null;
+    var cs = getComputedStyle(ruleTextInput);
+    measureCtx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    var charW = measureCtx.measureText('0').width;
+    var x = clientX - ruleTextInput.getBoundingClientRect().left - parseFloat(cs.borderLeftWidth) -
+            parseFloat(cs.paddingLeft) + ruleTextInput.scrollLeft;
+    if (x < 0 || !charW) return null;
+    var i = Math.floor(x / charW);
+    var hit = ruleMatches().filter(function(m){ return i >= m.from && i < m.to; })[0];
+    return hit ? hit.step : null;
+  }
+  ruleTextInput.addEventListener('mousemove', function(e){
+    var st = ruleStepAt(e.clientX);
+    if (st){ if (st.id != hoverStepId || linkSource !== 'rule') showStepToken(st.id, 'rule'); }
+    else if (linkSource === 'rule') hideStepToken();   // over a gap or past the end of the text
+  });
+  ruleTextInput.addEventListener('mouseleave', function(){ if (linkSource === 'rule') hideStepToken(); });
 
   ruleTextInput.addEventListener('input', function(){
     clearTimeout(ruleParseTimer);
