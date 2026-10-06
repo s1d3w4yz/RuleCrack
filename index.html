@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rule Chain Lab</title>
 <style>
 /* Layout: ledger/logbook — a reorderable chain of steps on the left,
@@ -28,6 +33,14 @@
 }
 
 *{box-sizing:border-box}
+/* Skip links: invisible until keyboard focus lands on one, then they show at
+   the top-left (the first Tab stop on the page). */
+.skipnav{position:fixed;top:8px;left:8px;z-index:1000;display:flex;flex-wrap:wrap;gap:6px}
+.skipnav a{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.skipnav a:focus{position:static;width:auto;height:auto;overflow:visible;padding:8px 12px;border-radius:6px;
+  background:var(--surface);color:var(--accent);border:1px solid var(--accent);font-size:.85rem;text-decoration:none}
+/* programmatic-focus targets (skip links, headings): no ring unless focus came from the keyboard */
+h2[tabindex="-1"]:focus:not(:focus-visible),#main:focus{outline:none}
 /* Text size control: every font size in the page is in rem, so scaling the
    root scales everything. Default stays dense (it's what lets the three
    columns fit one screen); larger sizes are opt-in and remembered. */
@@ -175,7 +188,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
   min-width:0;
 }
 .card h2{font-size:1rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
-.card h2 .n{color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-right:8px}
+.card h2 .n{color:var(--accent);font-family:'IBM Plex Mono',monospace;margin-right:4px}
 .card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin-top:-8px}
 
 .sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -505,6 +518,16 @@ try{
 }catch(e){}
 </script>
 
+</head>
+<body>
+<nav class="skipnav" aria-label="Skip links">
+  <a href="#main">Skip to main content</a>
+  <a href="#h-rule" class="skip-builder">Skip to rule line</a>
+  <a href="#h-chain" class="skip-builder">Skip to step chain</a>
+  <a href="#h-trace" class="skip-builder">Skip to trace</a>
+  <a href="#h-batch" class="skip-builder">Skip to batch test</a>
+  <a href="#h-cheat" class="skip-builder">Skip to cheat sheet</a>
+</nav>
 <div class="wrap">
   <header class="page">
     <div class="titlerow">
@@ -579,10 +602,11 @@ try{
     </div>
   </header>
 
+  <main id="main" tabindex="-1">
   <div class="grid" id="builderView">
     <!-- LEFT: chain builder -->
     <div class="card" id="col1Card">
-      <h2><span class="n">01</span>Word to transform</h2>
+      <h2 id="h-word" tabindex="-1"><span class="n">01</span> Word to transform</h2>
       <label class="field">
         <input type="text" id="wordInput" value="password" autocomplete="off" spellcheck="false">
       </label>
@@ -596,7 +620,7 @@ try{
       </div>
 
       <div class="sectionhead" style="margin-top:4px">
-        <h2><span class="n">02</span>Rule line</h2>
+        <h2 id="h-rule" tabindex="-1"><span class="n">02</span> Rule line</h2>
         <button class="hdrbtn" id="copyRuleBtn" type="button" title="Copy the rule the chain applies — disabled steps are left out, even though the line above still shows them struck through">Copy Hashcat rule</button>
       </div>
       <p class="sub" id="ruleLineSub">The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</p>
@@ -617,7 +641,7 @@ try{
       </div>
 
       <div class="sectionhead" style="margin-top:4px">
-        <h2><span class="n">03</span>Step chain</h2>
+        <h2 id="h-chain" tabindex="-1"><span class="n">03</span> Step chain</h2>
         <button class="expandbtn" id="chainExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <p class="sub">
@@ -641,7 +665,7 @@ try{
     <!-- RIGHT: trace + export + batch -->
     <div class="card" id="col2Card">
       <div class="sectionhead">
-        <h2><span class="n">04</span>Step-by-step trace</h2>
+        <h2 id="h-trace" tabindex="-1"><span class="n">04</span> Step-by-step trace</h2>
         <button class="expandbtn" id="traceExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="traceopts">
@@ -650,7 +674,7 @@ try{
       </div>
       <div class="trace locked" id="trace"></div>
 
-      <h2 style="margin-top:4px"><span class="n">05</span>Batch test</h2>
+      <h2 id="h-batch" tabindex="-1" style="margin-top:4px"><span class="n">05</span> Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
@@ -671,7 +695,7 @@ princess</textarea>
     <!-- FAR RIGHT: cheat sheet -->
     <div class="card cheat" id="cheatCard">
       <div class="sectionhead">
-        <h2><span class="n">06</span>Rule syntax cheat sheet</h2>
+        <h2 id="h-cheat" tabindex="-1"><span class="n">06</span> Rule syntax cheat sheet</h2>
         <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="cheat-legend" id="cheatLegend"></div>
@@ -685,7 +709,7 @@ princess</textarea>
 
   <div class="grid" id="validatorView" hidden>
     <div class="card" style="grid-column:1/-1">
-      <h2><span class="n">V1</span>Rulefile input</h2>
+      <h2 id="h-vinput" tabindex="-1"><span class="n">V1</span> Rulefile input</h2>
       <label class="field">
         <textarea id="validatorInput" spellcheck="false" autocomplete="off" placeholder="# example rules
 c sa4 se3 si1 so0 ss5 $! $1
@@ -694,7 +718,7 @@ d $1$2$3"></textarea>
       </label>
       <p class="sub" id="validatorSummary"></p>
 
-      <h2 style="margin-top:4px"><span class="n">V2</span>Diagnostics</h2>
+      <h2 id="h-vdiag" tabindex="-1" style="margin-top:4px"><span class="n">V2</span> Diagnostics</h2>
       <div class="vtable-wrap">
         <table class="vtable">
           <thead><tr><th>#</th><th>Rule</th><th>Status</th><th>Preview<br><span style="font-weight:400;text-transform:none;letter-spacing:0">(word: <span id="validatorSampleWordLabel" class="mono"></span>)</span></th><th></th></tr></thead>
@@ -702,7 +726,7 @@ d $1$2$3"></textarea>
         </table>
       </div>
 
-      <h2 style="margin-top:14px"><span class="n">V3</span>Export cleaned rulefile</h2>
+      <h2 id="h-vexport" tabindex="-1" style="margin-top:14px"><span class="n">V3</span> Export cleaned rulefile</h2>
       <p class="sub">Deleted lines are dropped. Everything else — fixed or untouched — keeps its original order and any comments/blank lines.</p>
       <div class="copyrow">
         <button class="copy" id="copyValidatorBtn">Copy cleaned rulefile</button>
@@ -710,6 +734,7 @@ d $1$2$3"></textarea>
       <textarea class="rule-out mono" id="validatorOutput" readonly rows="6" style="width:100%;resize:vertical"></textarea>
     </div>
   </div>
+  </main>
 </div>
 
 <script>
@@ -2386,6 +2411,7 @@ d $1$2$3"></textarea>
     builderIntro.hidden = mode !== 'builder';
     validatorIntro.hidden = mode !== 'validator';
     builderView.hidden = mode !== 'builder';
+    document.querySelectorAll('.skip-builder').forEach(function(a){ a.hidden = mode !== 'builder'; });
     validatorView.hidden = mode !== 'validator';
     // Everything renders at height 0 while builderView is display:none,
     // so columns 1/2's fit and column 3's synced height both need
@@ -3023,3 +3049,5 @@ d $1$2$3"></textarea>
   };
 })();
 </script>
+</body>
+</html>
