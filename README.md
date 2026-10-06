@@ -88,8 +88,9 @@ existing `.rule` file line by line.
   type dropdown is filtered by the current target the same way the "+ add
   step" menu is — except the step's own current type always stays in the
   list even if it fails that filter, so switching target never silently
-  breaks or changes a step you already built. The Export panel always
-  shows a one-line portability verdict for whichever direction is relevant.
+  breaks or changes a step you already built. The note under the
+  rule line always gives a one-line portability verdict for whichever
+  direction is relevant.
   The cheat sheet itself uses color instead of a badge per row — a
   hashcat-only syntax token is always red, a John-only one always teal,
   and a shared one stays the default color — so a dense reference list of
