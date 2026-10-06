@@ -247,6 +247,7 @@ label.field textarea{
 .step.rejecty{border-color:var(--danger)}
 .step.rejecting{background:color-mix(in srgb,var(--danger) 14%, var(--surface-2))}
 .step .taglabel.rejbadge{color:var(--danger);border-color:var(--danger);font-weight:600}
+.step.linked{background:color-mix(in srgb,var(--accent) 13%, var(--surface-2));border-color:var(--accent)}
 .step.dragging{opacity:.4}
 .step.drop-above{box-shadow:0 -3px 0 -1px var(--accent)}
 .step.drop-below{box-shadow:0 3px 0 -1px var(--accent)}
@@ -2856,6 +2857,7 @@ d $1$2$3"></textarea>
     renderBatch();
     if (!syncingFromText) syncRuleLine(); // chain-side change -> rewrite the rule line
     if (ruleHl) paintRuleHl(); // disabled steps are struck through in the rule line
+    if (typeof linkChainCard === 'function') linkChainCard(false); // keep a hover link across a re-render
     syncColumnFit(); // last, so lines that appear/disappear above are counted
   }
 
@@ -3128,24 +3130,41 @@ d $1$2$3"></textarea>
     html += escapeHtml(text.slice(pos));
     ruleHl.innerHTML = '<span style="display:inline-block;transform:translateX(-'+ruleTextInput.scrollLeft+'px)">'+html+'</span>';
   }
-  // The same hover/focus also lights up the step's row in the section 04
-  // trace (rows carry data-step = the step's 1-based position), and scrolls
-  // the trace box just enough to show it if it's out of view. A step that
-  // didn't run (disabled, or after a rejecting step) has no row.
-  function linkTraceRow(scrollIntoBox){
+  // One step can be "linked" from either side, and everything that belongs to
+  // it lights up together: its card in section 03, its token in the rule line
+  // (section 02, the overlay above), and its row in the section 04 trace (rows
+  // carry data-step = the step's 1-based position). Hovering or focusing a
+  // step links it; hovering a trace row links the step it came from. A list
+  // that holds a linked item out of view is scrolled just enough to show it.
+  // A step that didn't run (disabled, or after a rejecting step) has no row.
+  function scrollToShow(box, el){
+    var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+    if (r.top < b.top) box.scrollTop -= (b.top - r.top) + 4;
+    else if (r.bottom > b.bottom) box.scrollTop += (r.bottom - b.bottom) + 4;
+  }
+  function linkTraceRow(scroll){
     traceEl.querySelectorAll('.trace-row.linked').forEach(function(r){ r.classList.remove('linked'); });
     if (hoverStepId === null) return;
     var idx = steps.findIndex(function(st){ return st.id == hoverStepId; });
     var row = idx < 0 ? null : traceEl.querySelector('.trace-row[data-step="' + (idx + 1) + '"]');
     if (!row) return;
     row.classList.add('linked');
-    if (!scrollIntoBox) return;
-    var box = traceEl.getBoundingClientRect(), r = row.getBoundingClientRect();
-    if (r.top < box.top) traceEl.scrollTop -= (box.top - r.top) + 4;
-    else if (r.bottom > box.bottom) traceEl.scrollTop += (r.bottom - box.bottom) + 4;
+    if (scroll) scrollToShow(traceEl, row);
   }
-  function showStepToken(stepId){ hoverStepId = stepId; paintRuleHl(); linkTraceRow(true); }
-  function hideStepToken(){ hoverStepId = null; paintRuleHl(); linkTraceRow(false); }
+  function linkChainCard(scroll){
+    chainEl.querySelectorAll('.step.linked').forEach(function(r){ r.classList.remove('linked'); });
+    if (hoverStepId === null) return;
+    var card = chainEl.querySelector('.step[data-id="' + hoverStepId + '"]');
+    if (!card) return;
+    card.classList.add('linked');
+    if (scroll) scrollToShow(chainEl, card);
+  }
+  // fromTrace: the link started on a trace row, so bring the step card into view
+  function showStepToken(stepId, fromTrace){
+    hoverStepId = stepId; paintRuleHl();
+    linkTraceRow(!fromTrace); linkChainCard(!!fromTrace);
+  }
+  function hideStepToken(){ hoverStepId = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
   ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
   ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls
@@ -3162,6 +3181,12 @@ d $1$2$3"></textarea>
   chainEl.addEventListener('mouseleave', hideStepToken);
   chainEl.addEventListener('focusin', function(e){ var id = stepIdOf(e); if (id!==null) showStepToken(id); });
   chainEl.addEventListener('focusout', hideStepToken);
+  traceEl.addEventListener('mouseover', function(e){
+    var row = e.target.closest && e.target.closest('.trace-row[data-step]');
+    var st = row && steps[parseInt(row.dataset.step, 10) - 1];
+    if (st) showStepToken(st.id, true); else hideStepToken();
+  });
+  traceEl.addEventListener('mouseleave', hideStepToken);
 
   ruleTextInput.addEventListener('input', function(){
     clearTimeout(ruleParseTimer);

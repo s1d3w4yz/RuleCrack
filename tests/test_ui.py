@@ -45,6 +45,8 @@ everything cosmetic second):
     - a deleted step can be undone (Undo button, Ctrl+Z), and keyboard
       shortcuts (Alt+Up/Down to move, Delete to remove) work from a step's
       checkbox and buttons but not inside its dropdown or text boxes
+    - hovering a trace row lights up its step card and rule-line token
+      (the link works from either side)
     - hovering or focusing a step also highlights its row in the trace
       (scrolling it into view), and what changed in the trace is
       underlined as well as colored
@@ -1242,6 +1244,52 @@ def test_step_hover_links_to_its_trace_row(driver, r):
     r.check(deco == 'underline', 'changed characters in the trace are underlined, not only colored', f'{deco!r}')
 
 
+def test_trace_row_hover_links_back_to_its_step(driver, r):
+    """The link works from the other side too: hovering a row in the
+    section 04 trace lights up the step card in section 03 and that step's
+    token in the rule line (scrolling the chain list if the card is out of
+    view). The 'starting word' row belongs to no step, and a step hovered
+    from the chain gets the same card highlight."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+    def state():
+        return driver.execute_script(
+            "var card = document.querySelector('#chain .step.linked'), tok = document.querySelector('#ruleHl .hl-on');"
+            "return {card: card ? [].indexOf.call(document.querySelectorAll('#chain .step'), card) + 1 : null,"
+            "        token: tok ? tok.textContent : null,"
+            "        row: (document.querySelector('#trace .trace-row.linked') || {dataset: {}}).dataset.step || null};")
+
+    def hover_row(n):
+        driver.execute_script("document.querySelector('#trace .trace-row[data-step=\"' + arguments[0] + '\"]').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));", n)
+
+    r.check(state() == {'card': None, 'token': None, 'row': None}, 'nothing is linked to start with', f'{state()}')
+    hover_row(2)
+    r.check(state() == {'card': 2, 'token': 'sa4', 'row': '2'}, 'hovering trace row 2 lights up step 2 and its token in the rule line', f'{state()}')
+    hover_row(5)
+    r.check(state() == {'card': 5, 'token': 'so0', 'row': '5'}, 'moving to trace row 5 moves the link to step 5 and its token', f'{state()}')
+    driver.execute_script("document.getElementById('trace').dispatchEvent(new MouseEvent('mouseleave'));")
+    r.check(state() == {'card': None, 'token': None, 'row': None}, 'leaving the trace clears every highlight', f'{state()}')
+
+    driver.execute_script("document.querySelector('#trace .trace-row.start').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));")
+    r.check(state() == {'card': None, 'token': None, 'row': None}, 'the starting-word row belongs to no step, so it links nothing', f'{state()}')
+
+    # a card hidden below the chain list's fold is scrolled into view
+    driver.execute_script("document.getElementById('chain').scrollTop = 0; document.getElementById('trace').scrollTop = 9999;")
+    hover_row(8)
+    inview = driver.execute_script(
+        "var c = document.getElementById('chain').getBoundingClientRect(), card = document.querySelector('#chain .step.linked');"
+        "if (!card) return null; var b = card.getBoundingClientRect(); return b.top >= c.top - 1 && b.bottom <= c.bottom + 1;")
+    r.check(inview is True, 'hovering a trace row whose step card is out of view scrolls the chain list to it', f'in view: {inview}')
+
+    # the card highlight survives a chain re-render, and a chain-side hover shows it too
+    driver.execute_script("var i = document.querySelectorAll('#chain .step')[7].querySelector('.p-arg'); i.value = '2'; i.dispatchEvent(new Event('input', {bubbles: true}));")
+    driver.execute_script("document.getElementById('trace').dispatchEvent(new MouseEvent('mouseleave'));")
+    driver.execute_script("document.querySelectorAll('#chain .step')[2].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));")
+    r.check(state()['card'] == 3 and state()['row'] == '3', 'hovering a step card highlights the card itself as well as its row and token', f'{state()}')
+    driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1275,6 +1323,7 @@ def main():
         test_step_keyboard_shortcuts(driver, r)
         test_tooltip_information_is_also_visible(driver, r)
         test_step_hover_links_to_its_trace_row(driver, r)
+        test_trace_row_hover_links_back_to_its_step(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

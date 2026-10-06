@@ -34,7 +34,8 @@ existing `.rule` file line by line.
 - **Step-by-step trace**: see the word after each individual step, with the
   part that changed highlighted (colored, bold and underlined, so it doesn't
   rely on color alone). Hovering or focusing a step in the chain also
-  highlights its row here and its token in the rule line. Reject steps stop the chain and mark the
+  highlights its row here and its token in the rule line, and hovering a
+  row here highlights its step and token the same way. Reject steps stop the chain and mark the
   candidate as discarded, matching real hashcat behavior.
 - **Copying**: the rule line (section 02) is a standard Hashcat rule line
   (e.g. `c sa4 se3 si1 so0 ss5 $! $1`) — its button copies it, ready to drop
