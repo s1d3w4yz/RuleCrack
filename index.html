@@ -576,8 +576,8 @@ try{
         </label>
       </div>
 
-      <h2 style="margin-top:4px"><span class="n">02</span>Or type a rule line</h2>
-      <p class="sub" id="ruleLineSub">Paste a raw hashcat rule (your own, or a line from a <span class="mono">.rule</span> file) to load it straight into the chain below — same engine either way.</p>
+      <h2 style="margin-top:4px"><span class="n">02</span>Rule line</h2>
+      <p class="sub" id="ruleLineSub">The rule as plain text. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to load it into the chain below.</p>
       <label class="field">
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
@@ -2883,10 +2883,10 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = 'Paste a raw <b>John-native</b> rule to load it into the chain below — hashcat-syntax tokens like <span class="mono">~</span>-class ops won’t parse here.';
+      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax. Paste or type one to load it into the chain below — hashcat-only tokens like <span class="mono">~</span>-class ops won’t parse here.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = 'Paste a raw hashcat rule (your own, or a line from a <span class="mono">.rule</span> file) to load it straight into the chain below — same engine either way.';
+      ruleLineSub.innerHTML = 'The rule as plain text. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to load it into the chain below.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }

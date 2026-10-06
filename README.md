@@ -19,10 +19,10 @@ existing `.rule` file line by line.
   substitution and purging, bitwise/byte-arithmetic ops, hex encoding,
   memory ops (`M 4 6 X Q`), length/content reject filters, and the
   class-based (`~`) variants. Grouped by category in the add-step menu.
-- **Step chain**: steps run top to bottom. Reorder them with the arrow
-  buttons and watch the output change — this is the core lesson: rule order
+- **Step chain**: steps run top to bottom. Reorder them by dragging or with
+  the arrow buttons and watch the output change — this is the core lesson: rule order
   changes the result.
-- **Type a rule line**: paste or type a raw hashcat rule (your own, or a
+- **Rule line**: the rule as plain text. Paste or type one (your own, or a
   line from an existing `.rule` file) and it's parsed straight into the
   step chain below, using the same engine as the visual builder — no
   separate "mode" or view, just another way to drive the same chain.
