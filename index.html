@@ -411,6 +411,14 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .cheat.expanded{max-height:none}
 .cheat-legend{font-size:.78rem;color:var(--dim);line-height:1.6;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 12px}
 .cheat-legend .mono{color:var(--accent)}
+.cf-hide{display:none !important}
+.cheatsearch{
+  font-family:'Source Sans 3',system-ui,sans-serif;font-size:.9rem;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  padding:7px 10px;width:100%;
+}
+.cheatsearch:focus{outline:2px solid var(--accent);outline-offset:1px}
+.cheat-empty{color:var(--dim);font-size:.9rem;padding:12px 0}
 .cheat-group{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:600;margin:14px 0 6px;padding-top:10px;border-top:1px dashed var(--rule)}
 .cheat-group:first-child{margin-top:0;padding-top:0;border-top:none}
 .cheat-row{display:flex;align-items:baseline;gap:8px;padding:4px 0;flex-wrap:wrap}
@@ -595,6 +603,7 @@ princess</textarea>
         <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="cheat-legend" id="cheatLegend"></div>
+      <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or descriptions…" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
       <div id="cheatBody"></div>
     </div>
   </div>
@@ -1835,6 +1844,9 @@ d $1$2$3"></textarea>
   }
   var lastColumnTarget = null; // last target height measured with neither chain nor trace expanded
   var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
+  // min-height as well as max-height: a search that leaves only a few rows
+  // would otherwise let the card collapse to its content and jump the layout.
+  function setCheatHeight(h){ cheatCard.style.maxHeight = h + 'px'; cheatCard.style.minHeight = h + 'px'; }
   function syncCheatHeight(){
     if (cheatCard.classList.contains('expanded')) return;
     if (document.getElementById('builderView').hidden) return;
@@ -1848,11 +1860,11 @@ d $1$2$3"></textarea>
     // column 3 with no inline max-height at all, so it fell all the way
     // back to the generic CSS cap instead of the synced height).
     if (chainEl.classList.contains('expanded') || traceEl.classList.contains('expanded')){
-      if (lastCheatHeight != null) cheatCard.style.maxHeight = lastCheatHeight + 'px';
+      if (lastCheatHeight != null) setCheatHeight(lastCheatHeight);
       return;
     }
     var h = Math.max(col1Card.getBoundingClientRect().height, col2Card.getBoundingClientRect().height);
-    if (h > 0){ lastCheatHeight = h; cheatCard.style.maxHeight = h + 'px'; }
+    if (h > 0){ lastCheatHeight = h; setCheatHeight(h); }
   }
   if (window.ResizeObserver){
     var cheatHeightObserver = new ResizeObserver(syncCheatHeight);
@@ -1860,7 +1872,7 @@ d $1$2$3"></textarea>
     cheatHeightObserver.observe(col2Card);
   }
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
-    if (expanded){ cheatCard.style.maxHeight = ''; } // CSS .expanded{max-height:none} takes over
+    if (expanded){ cheatCard.style.maxHeight = ''; cheatCard.style.minHeight = ''; } // CSS .expanded{max-height:none} takes over
     else { syncCheatHeight(); }
   });
   var hashcatOutput = document.getElementById('hashcatOutput');
@@ -2603,7 +2615,48 @@ d $1$2$3"></textarea>
     }
 
     cheatBody.innerHTML = html;
+    filterCheatsheet();
   }
+  // Filters the rendered list by a search box: every space-separated term
+  // must appear in the row's syntax, example or description (so "x" finds
+  // the operator and "reverse" finds it by what it does). Re-applied after
+  // every render, so switching target keeps the current search.
+  var cheatSearch = document.getElementById('cheatSearch');
+  function filterCheatsheet(){
+    var terms = cheatSearch.value.toLowerCase().split(/\s+/).filter(Boolean);
+    var shown = 0, rows = cheatBody.querySelectorAll('.cheat-row');
+    rows.forEach(function(row){
+      var hay = row.textContent.toLowerCase() + ' ' + ((row.querySelector('button.ex')||{dataset:{}}).dataset.token||'').toLowerCase();
+      var hit = terms.every(function(t){ return hay.indexOf(t) !== -1; });
+      row.classList.toggle('cf-hide', !hit);
+      if (hit) shown++;
+    });
+    // group headings, the setup callout and the John-only intro only make
+    // sense with the full list — while searching, keep a heading only if
+    // something under it matched
+    var groups = cheatBody.querySelectorAll('.cheat-group');
+    groups.forEach(function(g){
+      var any = false, n = g.nextElementSibling;
+      while (n && !n.classList.contains('cheat-group') && !n.classList.contains('john-only-section')){
+        if (n.classList.contains('cheat-row') && !n.classList.contains('cf-hide')) any = true;
+        n = n.nextElementSibling;
+      }
+      g.classList.toggle('cf-hide', terms.length>0 && !any);
+    });
+    cheatBody.querySelectorAll(':scope > .callout, .john-only-section .jhead').forEach(function(el){ el.classList.toggle('cf-hide', terms.length>0); });
+    cheatBody.querySelectorAll('.john-only-section').forEach(function(sec){
+      sec.classList.toggle('cf-hide', terms.length>0 && !sec.querySelector('.cheat-row:not(.cf-hide)'));
+    });
+    var empty = cheatBody.querySelector('.cheat-empty');
+    if (terms.length && !shown){
+      if (!empty){ empty = document.createElement('div'); empty.className = 'cheat-empty'; cheatBody.appendChild(empty); }
+      empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”.';
+    } else if (empty){ empty.remove(); }
+  }
+  cheatSearch.addEventListener('input', filterCheatsheet);
+  cheatSearch.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && cheatSearch.value){ cheatSearch.value = ''; filterCheatsheet(); e.stopPropagation(); }
+  });
   // Event delegation on the stable container — registered once, so
   // re-rendering the cheat sheet (e.g. on target change) never stacks
   // duplicate click handlers.
