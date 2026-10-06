@@ -94,8 +94,8 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 @media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
 
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.controlrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
-.controlrow .modetoggle{margin:10px 0 16px}
+.controlrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;max-width:var(--intro-w);margin:10px 0 16px}   /* no wider than the intro text below: the later groups wrap to a second row */
+.controlrow .modetoggle{margin:0}
 
 .targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 .targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}

@@ -2026,6 +2026,23 @@ def test_top_bar_buttons_are_uniform(driver, r):
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
 
 
+def test_top_bar_stays_within_the_intro_width(driver, r):
+    """The top bar is no wider than the intro text below it, so the display
+    switches (views, theme, text size) fill the first row and the link
+    switches and Help wrap to a second row."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    info = driver.execute_script(
+        "var row = document.querySelector('.controlrow'), top0 = row.getBoundingClientRect().top;"
+        "var lead = document.querySelector('#builderIntro .lead').getBoundingClientRect();"
+        "var g = [].map.call(row.children, function(x){ var b = x.getBoundingClientRect(); return {id: x.id || x.className.split(' ').pop(), row: Math.round(b.top - top0), right: Math.round(b.right)}; });"
+        "return {leadRight: Math.round(lead.right), barRight: Math.max.apply(null, g.map(function(x){ return x.right; })), g: g};")
+    r.check(info['barRight'] <= info['leadRight'], 'the top bar does not stick out past the intro paragraph', f"{info['barRight']} vs {info['leadRight']}")
+    first = {x['id'] for x in info['g'] if x['row'] == info['g'][0]['row']}
+    second = {x['id'] for x in info['g'] if x['row'] != info['g'][0]['row']}
+    r.check(first == {'modeToggle', 'themeSwitch', 'sizeSwitch'} and second == {'linkSwitch', 'helpgroup'},
+            'views, theme and text size share the first row; link switches and Help are on the second', f'{info["g"]}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -2082,6 +2099,7 @@ def main():
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)
+        test_top_bar_stays_within_the_intro_width(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
