@@ -215,9 +215,26 @@ label.field textarea{
 .step.dragging{opacity:.4}
 .step.drop-above{box-shadow:0 -3px 0 -1px var(--accent)}
 .step.drop-below{box-shadow:0 3px 0 -1px var(--accent)}
-.step .idx{cursor:grab;display:flex;flex-direction:column;align-items:center;line-height:1.1;user-select:none;
-  font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
-  width:20px;flex:none;text-align:center;padding-top:3px;
+.step .grip{
+  align-self:stretch;flex:none;width:18px;margin:-8px 0 -8px -10px;
+  display:flex;align-items:center;justify-content:center;cursor:grab;
+  color:var(--dim);border-right:1px solid var(--rule);border-radius:8px 0 0 8px;
+  background:color-mix(in srgb,var(--surface) 70%, transparent);
+}
+/* 2x3 grid of dots drawn in CSS (a glyph rendered too faint/uneven) */
+.step .grip::before{
+  content:'';width:10px;height:15px;opacity:.7;
+  background-image:radial-gradient(circle,currentColor 1.3px,transparent 1.7px);background-size:5px 5px;
+}
+.step .grip:hover{color:var(--accent);background:var(--surface)}
+.step .grip:hover::before{opacity:1}
+/* same filled accent circle the trace uses for a step's number, so step N
+   here visibly matches row N in section 04 */
+.step .idx{
+  flex:none;width:18px;height:18px;margin-top:7px;border-radius:50%;
+  background:var(--accent);color:var(--bg);
+  font-family:'IBM Plex Mono',monospace;font-size:.68rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;user-select:none;
 }
 .step .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .step .body .toprow{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
@@ -261,8 +278,6 @@ label.field textarea{
 .step button.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
 .step button.iconbtn:disabled{opacity:.35;cursor:default}
 .step button.iconbtn.del:hover{border-color:var(--danger);color:var(--danger)}
-.step .idx .grip{font-size:.85rem;letter-spacing:-2px}
-.step .idx:hover{color:var(--accent)}
 .step input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin-top:8px}
 
 .addrow{display:flex;gap:8px;flex-wrap:wrap}
@@ -2056,7 +2071,8 @@ d $1$2$3"></textarea>
       var argsHtml = op.args.map(function(spec){ return renderArgInput(step, spec); }).join('');
 
       row.innerHTML =
-        '<span class="idx mono" title="Drag to reorder"><span class="grip" aria-hidden="true">&#8942;&#8942;</span>'+(i+1)+'</span>'+
+        '<span class="grip" title="Drag to reorder" aria-hidden="true"></span>'+
+        '<span class="idx mono">'+(i+1)+'</span>'+
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
@@ -2104,7 +2120,7 @@ d $1$2$3"></textarea>
   // every one of them. Now that line only appears for the steps whose
   // label really doesn't fit in the dropdown, so most cards are one row.
   // ---------- drag to reorder ----------
-  // Only the number/grip cell starts a drag (the row is made draggable on
+  // Only the grip strip starts a drag (the row is made draggable on
   // mousedown there), so text selection in the dropdowns and inputs keeps
   // working. The drop position comes from which half of the hovered row
   // the pointer is in; the up/down buttons stay as the keyboard- and
@@ -2114,8 +2130,8 @@ d $1$2$3"></textarea>
     chainEl.querySelectorAll('.drop-above,.drop-below').forEach(function(r){ r.classList.remove('drop-above','drop-below'); });
   }
   function wireStepDrag(row, i){
-    var idx = row.querySelector('.idx');
-    idx.addEventListener('mousedown', function(){
+    var grip = row.querySelector('.grip');
+    grip.addEventListener('mousedown', function(){
       row.draggable = true;
       // a plain click on the handle must not leave the row draggable
       document.addEventListener('mouseup', function(){ row.draggable = false; }, {once:true});
