@@ -802,8 +802,9 @@ try{
       <div class="callout small">
         <b>Reject steps</b> don't transform the word — they decide whether it
         survives (e.g. "reject unless length ≥ 8"); once one rejects, the chain stops.
-        <br><b>Memory steps</b> (<span class="mono">M 4 6 X Q</span>) matter in
-        attack modes that keep a memory slot between rules; here they demonstrate it.
+        <br><b>Memory steps</b> (<span class="mono">M 4 6 X Q</span>) save a copy of the word and use it
+        again later in the same rule. For example, <span class="mono">M u 4</span> turns <span class="mono">abc</span>
+        into <span class="mono">ABCabc</span>. <span class="mono">Q</span> rejects the word if it equals the saved copy.
       </div>
     </div>
 
@@ -1487,10 +1488,10 @@ d $1$2$3"></textarea>
     {syntax:'V',   label:'Uppercase consonants, lowercase vowels', note:'', promoted:true},
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
     {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ + l u d s a h H b), and John never accepts the '~' prefix at all.", promoted:true},
-    {syntax:'vVNM',label:'Assign (N−M) to variable V, for later position args', note:"collides with hashcat's own 'v' (insert char every N chars) — John always reads v as this variable-assign form, even in hashcat mode, so hashcat's vNX can't run in John at all."},
-    {syntax:'#@$*-+a-k l m p z', label:'Symbolic position values (e.g. D@ = delete at min_length−1)', note:'hashcat positions are always a literal 0–9 or A–Z digit; building these would mean every op’s position fields accept a variable too, which this tool doesn’t model.'},
-    {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Line-level reject flags, written before the rule', note:'hashcat has no such prefix, and these depend on the target hash format (case-sensitive? 8-bit? split at load?) which this tool has no concept of.'},
-    {syntax:'1 2 +', label:'Word-pair control (single-crack mode only)', note:'only meaningful when cracking GECOS/full-name word pairs; this tool works on one word at a time.'}
+    {syntax:'vVNM',label:'Set a variable V to N − M, to use as a position in later steps', note:''},
+    {syntax:'# @ $ * - + a-k l m p z', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:''},
+    {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Flags written before a rule that skip it depending on the hash type', note:''},
+    {syntax:'1 2 +', label:'Combine the words of a full-name entry (single-crack mode only)', note:''}
   ];
   var JOHN_ONLY_PROMOTED = JOHN_ONLY.filter(function(j){ return j.promoted; });
   var JOHN_ONLY_IRREDUCIBLE = JOHN_ONLY.filter(function(j){ return !j.promoted; });
@@ -3324,14 +3325,12 @@ d $1$2$3"></textarea>
       });
     });
 
-    var refList = TARGET==='both' ? JOHN_ONLY : (TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null);
+    // Only the John view lists John-only commands; "Both" shows just what hashcat and John share.
+    var refList = TARGET==='john_native' ? JOHN_ONLY_IRREDUCIBLE : null;
     if (refList && refList.length){
       html += '<div class="john-only-section">'+
-        '<div class="jhead"><span class="jtitle">✓ John-only — not hashcat syntax</span>'+
-        '<span class="jsub">'+(TARGET==='both'
-          ? 'These use John’s own, separate rule grammar — none of this is hashcat syntax, so none of it can appear in the rule line above or run via "!! hashcat logic ON". It’s listed here only so you know it exists. To actually type and build these, switch to the "John (native rules)" tab, which implements most of them for real.'
-          : 'The few John-native commands still out of scope for this tool’s chain engine even here — reference only, nothing below is buildable.')+
-        '</span></div>';
+        '<div class="jhead"><span class="jtitle">✓ John-only — reference only</span>'+
+        '<span class="jsub">These exist in John, but this tool can’t build them.</span></div>';
       refList.forEach(function(j){
         html += '<div class="cheat-row">'+
           '<span class="syntax tok-john" title="John’s own syntax — not hashcat syntax, has no hashcat equivalent at all">'+escapeHtml(j.syntax)+'</span>'+

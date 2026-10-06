@@ -1662,17 +1662,22 @@ def test_cheat_search_keeps_john_only_explanation(driver, r):
     visible (a search that lands in it still says why it isn't buildable
     here), and a search with no results says where to look."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
-    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
     time.sleep(0.2)
     # searching keeps the John-only box's explanation; no results points to the other target
-    set_value(driver, driver.find_element('id', 'cheatSearch'), 'plural')
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'variable')
     st = driver.execute_script(
         "var s = document.querySelector('.john-only-section');"
         "return {head: !s.querySelector('.jhead').classList.contains('cf-hide'), rows: s.querySelectorAll('.cheat-row:not(.cf-hide)').length};")
     r.check(st['head'] and st['rows'] >= 1, 'searching for a John-only command keeps the explanation of why it isn\'t buildable', f'{st}')
     set_value(driver, driver.find_element('id', 'cheatSearch'), 'zzzz')
     empty = driver.execute_script("return document.querySelector('.cheat-empty').textContent;")
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    time.sleep(0.2)
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'zzzz')
+    empty = driver.execute_script("return document.querySelector('.cheat-empty').textContent;")
     r.check('John (native rules)' in empty, 'a search with no results says where John-only commands live', repr(empty))
+    r.check(driver.execute_script("return !document.querySelector('.john-only-section');"), 'the Both view lists no John-only commands', '')
     set_value(driver, driver.find_element('id', 'cheatSearch'), '')
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)

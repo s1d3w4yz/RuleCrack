@@ -94,11 +94,8 @@ existing `.rule` file line by line.
     what won't port to John.
   - **Both (hashcat-compatible)** — those 14 are dropped entirely; what's
     left (56 ops) behaves identically in hashcat and in John's
-    hashcat-compat mode (`!! hashcat logic ON`), plus a reference box of
-    John-exclusive commands this tool doesn't build in this mode. (This
-    used to be two separate tabs — "Both (portable)" and "John (hashcat
-    rules)" — until it became clear they built the exact same 56-op subset
-    and differed only in that reference box, so they were merged into one.)
+    hashcat-compat mode (`!! hashcat logic ON`). The cheat sheet lists only
+    those shared operators; John-only commands appear under the John target.
   - **John (native rules)** — switches to building rules in **John's own
     syntax** instead. The 20 commands John has that hashcat can't express
     at all — pluralization/past-tense/-ing-form, whole-string insert,
