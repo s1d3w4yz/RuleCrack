@@ -2060,6 +2060,10 @@ d $1$2$3"></textarea>
     return '';
   }
 
+  // Inline SVG (not an emoji) so it renders identically everywhere and
+  // follows the button's text color, including the red hover state.
+  var TRASH_ICON = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+    '<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9h6.8L12 4M6.8 6.5v4.5M9.2 6.5v4.5"/></svg>';
   function renderChain(){
     chainEl.innerHTML = '';
     steps.forEach(function(step, i){
@@ -2088,7 +2092,7 @@ d $1$2$3"></textarea>
         '<div class="btns">'+
           '<button class="iconbtn up" '+(i===0?'disabled':'')+' title="move up">&uarr;</button>'+
           '<button class="iconbtn down" '+(i===steps.length-1?'disabled':'')+' title="move down">&darr;</button>'+
-          '<button class="iconbtn del" title="remove step">&times;</button>'+
+          '<button class="iconbtn del" title="Delete this step" aria-label="Delete this step">'+TRASH_ICON+'</button>'+
         '</div>';
 
       row.querySelector('.s-enabled').addEventListener('change', function(e){ step.enabled = e.target.checked; renderAllKeepFocus(step.id, '.s-enabled'); });
