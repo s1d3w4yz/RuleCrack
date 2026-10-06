@@ -1662,6 +1662,68 @@ def test_cheat_search_keeps_john_only_explanation(driver, r):
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
 
 
+def test_batch_table_is_a_capped_scroll_box(driver, r):
+    """The batch results table is a fixed-height scroll box (about 5 rows)
+    with its header pinned, so adding words no longer squeezes the trace or
+    grows the columns; Expand lifts the cap (that column grows on purpose,
+    the others keep their baseline) and collapsing restores it."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def words(n):
+        set_value(driver, driver.find_element('id', 'batchInput'), '\n'.join('password%d' % i for i in range(1, n + 1)))
+        time.sleep(0.4)
+
+    def state():
+        return driver.execute_script(
+            "var h = function(id){ return Math.round(document.getElementById(id).getBoundingClientRect().height); }, sc = document.querySelector('.batch-scroll');"
+            "return {cols: [h('col1Card'), h('col2Card'), h('cheatCard')], trace: h('trace'), box: Math.round(sc.getBoundingClientRect().height),"
+            "        scrolls: sc.scrollHeight > sc.clientHeight + 1};")
+
+    words(5)
+    base = state()
+    words(40)
+    many = state()
+    r.check(many['cols'] == base['cols'] and abs(many['trace'] - base['trace']) <= 2,
+            'going from 5 to 40 words changes neither the column heights nor the trace list (to within rounding)', f'{base} -> {many}')
+    r.check(many['scrolls'] and many['box'] <= 240, 'with 40 words the table is a short box that scrolls', f"{many['box']}px, scrolls: {many['scrolls']}")
+
+    # header stays pinned while the rows scroll under it
+    driver.execute_script("document.querySelector('.batch-scroll').scrollTop = 150;")
+    time.sleep(0.15)
+    pinned = driver.execute_script(
+        "var sc = document.querySelector('.batch-scroll').getBoundingClientRect(), th = document.querySelector('table.batch thead th').getBoundingClientRect();"
+        "return Math.abs(th.top - sc.top) <= 1;")
+    r.check(pinned, 'the table header stays pinned at the top while scrolling')
+    driver.execute_script("document.querySelector('.batch-scroll').scrollTop = 0;")
+
+    # Expand: the table shows everything, its column grows, the others keep the baseline
+    driver.execute_script("document.getElementById('batchExpandBtn').click();")
+    time.sleep(0.4)
+    ex = state()
+    r.check(not ex['scrolls'] and ex['box'] > 600, 'Expand shows every row (no scrolling)', f'{ex}')
+    r.check(ex['cols'][1] > many['cols'][1] and ex['cols'][0] == many['cols'][0] and ex['cols'][2] == many['cols'][2],
+            'expanding grows only column 2; the other columns keep their baseline height', f"{many['cols']} -> {ex['cols']}")
+    aria = driver.execute_script("var b = document.getElementById('batchExpandBtn'); return [b.getAttribute('aria-expanded'), b.getAttribute('aria-label')];")
+    r.check(aria == ['true', 'Collapse batch results table'], 'the button reports its state to assistive tech', f'{aria}')
+    driver.execute_script("document.getElementById('batchExpandBtn').click();")
+    time.sleep(0.4)
+    back = state()
+    r.check(back['cols'] == many['cols'] and abs(back['trace'] - many['trace']) <= 2 and abs(back['box'] - many['box']) <= 2,
+            'collapsing restores the capped table and the original layout', f'{back} vs {many}')
+
+    # wrap off: the corner cell is pinned to the top AND the right edge
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    driver.execute_script("var sc = document.querySelector('.batch-scroll'); sc.scrollTop = 120; sc.scrollLeft = 0;")
+    time.sleep(0.15)
+    corner = driver.execute_script(
+        "var sc = document.querySelector('.batch-scroll').getBoundingClientRect(), th = document.querySelector('table.batch thead th:last-child').getBoundingClientRect();"
+        "return {top: Math.abs(th.top - sc.top) <= 1, right: Math.abs(th.right - sc.right) <= 18};")
+    r.check(corner['top'] and corner['right'], 'with wrapping off, the header and the trace column stay pinned while scrolling', f'{corner}')
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    words(5)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1701,6 +1763,7 @@ def main():
         test_batch_rows_keep_their_line_numbers(driver, r)
         test_batch_wrap_toggle(driver, r)
         test_batch_box_line_number_gutter(driver, r)
+        test_batch_table_is_a_capped_scroll_box(driver, r)
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)

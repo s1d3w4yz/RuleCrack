@@ -44,7 +44,11 @@ existing `.rule` file line by line.
   into a `.rule` file, and a note under it says whether it also runs in John
   the Ripper. Section 04 has a button for the final word.
 - **Batch test**: run the whole chain against a list of words (one per line)
-  to see how it generalizes beyond a single example.
+  to see how it generalizes beyond a single example. The box has line numbers,
+  the results table numbers each row by its line, long entries can wrap or
+  scroll sideways (one "Wrap long lines" toggle for both), and the table is a
+  fixed-height scroll box (about 5 rows, header pinned, with an Expand button)
+  so a long word list can't stretch the layout.
 - **Cheat sheet**: every operator listed with its abstract syntax
   (`sXY`, `TN`, `~s?CY`, …) and a concrete, clickable example built from the
   same engine that runs the chain — click one to drop it straight into the

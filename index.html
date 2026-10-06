@@ -424,10 +424,16 @@ table.batch tr+tr td{border-top:1px solid var(--rule)}
 .batch-mirror{position:absolute;left:0;top:0;visibility:hidden;pointer-events:none;box-sizing:content-box;padding:0;border:0;
   font-family:'IBM Plex Mono',monospace;font-size:.95rem;line-height:1.4;white-space:pre-wrap;overflow-wrap:break-word}
 .batch-mirror.nowrap{white-space:pre;overflow-wrap:normal}
-.batch-nowrap .batch-scroll{overflow-x:auto}
+/* The results table is a fixed-height scroll box like the other lists (so adding words
+   can't grow column 2 without limit). JS sets --batch-cap to whole rows, up to 5. */
+.batch-scroll{overflow:auto;max-height:var(--batch-cap, 14rem)}
+.batch-scroll.expanded{max-height:none}
+.headtools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+table.batch thead th{position:sticky;top:0;z-index:2;background:var(--surface);box-shadow:0 1px 0 var(--rule)}
 .batch-nowrap table.batch{width:max-content;min-width:100%}
 .batch-nowrap table.batch td.b-in,.batch-nowrap table.batch td.out{white-space:nowrap;word-break:normal}
 .batch-nowrap table.batch td.tracecol,.batch-nowrap table.batch th:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-6px 0 6px -6px rgba(0,0,0,.4)}
+.batch-nowrap table.batch th:last-child{z-index:3}
 table.batch th.b-n,table.batch td.b-n{width:1%;padding-right:2px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
 table.batch td.b-n{font-size:.78rem;padding-top:8px}
 table.batch td.arrow{color:var(--dim);font-family:inherit;text-align:center;padding-top:7px}
@@ -746,7 +752,10 @@ try{
 
       <div class="sectionhead" style="margin-top:4px">
         <h2 id="h-batch" tabindex="-1"><span class="n">05</span> Batch test</h2>
-        <label class="locktoggle" title="On: long entries wrap onto several lines in the box and the table. Off: each entry stays on one line and you scroll sideways."><input type="checkbox" id="batchWrap" checked autocomplete="off"> Wrap long lines</label>
+        <div class="headtools">
+          <label class="locktoggle" title="On: long entries wrap onto several lines in the box and the table. Off: each entry stays on one line and you scroll sideways."><input type="checkbox" id="batchWrap" checked autocomplete="off"> Wrap long lines</label>
+          <button class="expandbtn" id="batchExpandBtn" type="button" title="Show every row instead of scrolling a fixed-height box">&#10530; Expand</button>
+        </div>
       </div>
       <p class="sub">Run the same chain against a list of words, one per line. <span class="mono" style="white-space:nowrap">&uarr; trace</span> loads a row's word into section 01 so you can watch it step by step.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
@@ -1945,6 +1954,7 @@ d $1$2$3"></textarea>
   }
   wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(){ syncColumnFit(); }, 'step chain list');
   wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(){ syncColumnFit(); }, 'trace list');
+  wireExpandBtn(document.getElementById('batchExpandBtn'), document.querySelector('.batch-scroll'), function(){ syncColumnFit(); }, 'batch results table');
 
   // ---------- column sizing ----------
   // The three columns of the builder view end at one shared height. Two
@@ -2003,13 +2013,20 @@ d $1$2$3"></textarea>
     if (builderView.hidden) return;
     if (!threeColumns.matches){
       [chainEl, traceEl, cheatCard].forEach(function(el){ el.style.maxHeight = ''; el.style.minHeight = ''; });
+      fitBatchCap();
       return;
     }
     // Measuring lifts each list's height cap for a moment, and a list with
     // nothing to scroll snaps back to scrollTop 0 — so remember where each
     // one was and put it back afterwards (otherwise any re-fit, even editing
     // an argument, would throw a scrolled list to the top).
-    var scrolled = [chainEl.scrollTop, traceEl.scrollTop];
+    var scrolled = [chainEl.scrollTop, traceEl.scrollTop, batchScroll.scrollTop];
+    // An expanded batch table is a one-off "show everything" that makes its column
+    // taller on purpose, so measure with it capped (then put it back) — otherwise it
+    // would count as ordinary fixed content and stretch every column with it.
+    var batchWasExpanded = batchScroll.classList.contains('expanded');
+    batchScroll.classList.remove('expanded');
+    fitBatchCap();
     var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
     var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN, cols);
     cols.forEach(function(c){
@@ -2021,6 +2038,8 @@ d $1$2$3"></textarea>
       c.list.style.minHeight = (box > c.content) ? box + 'px' : '';
     });
     chainEl.scrollTop = scrolled[0]; traceEl.scrollTop = scrolled[1];
+    if (batchWasExpanded) batchScroll.classList.add('expanded');
+    batchScroll.scrollTop = scrolled[2];
     if (!cheatCard.classList.contains('expanded')){
       // min-height too: a search leaving only a few rows must not collapse the card
       cheatCard.style.maxHeight = total + 'px'; cheatCard.style.minHeight = total + 'px';
@@ -2064,6 +2083,23 @@ d $1$2$3"></textarea>
     syncColumnFit();   // row heights change, so column 2's height does
   }
   batchWrap.addEventListener('change', function(){ applyBatchWrap(); updateBatchGutter(); });
+
+  // ---------- batch results table: capped scroll box ----------
+  // Shows up to BATCH_CAP_ROWS whole rows (fewer if wrapped entries make them
+  // tall), so the box ends on a row boundary instead of cutting one in half;
+  // the rest scrolls under the pinned header. Expand lifts the cap.
+  var BATCH_CAP_ROWS = 5;
+  var batchScroll = document.querySelector('.batch-scroll');
+  function fitBatchCap(){
+    var textScale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
+    var budget = 14 * 16 * textScale;                 // never taller than ~14rem
+    var cap = batchScroll.querySelector('thead').getBoundingClientRect().height, n = 0;
+    [].forEach.call(batchBody.children, function(tr){
+      var h = tr.getBoundingClientRect().height;
+      if (n < BATCH_CAP_ROWS && (n === 0 || cap + h <= budget)){ cap += h; n++; } else { n = BATCH_CAP_ROWS; }
+    });
+    batchScroll.style.setProperty('--batch-cap', Math.ceil(cap) + 'px');
+  }
 
   // ---------- line-number gutter for the batch box ----------
   // For each line of the box, a hidden mirror (same font, line-height and
@@ -3139,7 +3175,9 @@ d $1$2$3"></textarea>
     // keep it in sync so switching views never shows a stale preview.
     if (VALIDATOR_LINES.length) renderValidator();
   });
-  batchInput.addEventListener('input', renderBatch);
+  // adding or removing words changes how tall the results table is, which changes
+  // the room left for the trace, so re-fit as well
+  batchInput.addEventListener('input', function(){ renderBatch(); syncColumnFit(); });
   addBtn.addEventListener('click', function(){
     steps.push(newStep(addType.value || Object.keys(OPS)[0]));
     announce('Added step ' + steps.length + ': ' + OPS[steps[steps.length-1].type].label);
