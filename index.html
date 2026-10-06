@@ -509,6 +509,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
    on top with identical font/padding/border, transparent text, and a
    translucent <mark>; pointer-events:none keeps the input fully usable. */
 .subline{display:block}
+.linkswitch .mbtn:disabled{opacity:.45;cursor:default}
 .hinticon{vertical-align:-2px;margin-right:4px}
 .hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
@@ -616,6 +617,10 @@ try{
         <button class="mbtn" data-size-set="" type="button" title="Default text size" aria-label="Default text size" style="font-size:.8rem">A</button>
         <button class="mbtn" data-size-set="lg" type="button" title="Larger text" aria-label="Larger text" style="font-size:1rem">A</button>
         <button class="mbtn" data-size-set="xl" type="button" title="Largest text" aria-label="Largest text" style="font-size:1.25rem;line-height:1">A</button>
+      </div>
+      <div class="modetoggle linkswitch" id="linkSwitch" role="group" aria-label="Link highlighting">
+        <button class="mbtn" data-link="highlight" type="button" aria-pressed="true" title="Highlight the matching step, trace row and rule-line token when you hover or focus one of them">Link highlights</button>
+        <button class="mbtn" data-link="scroll" type="button" aria-pressed="true" title="Scroll a list to show the matching item when it is out of view">Scroll to match</button>
       </div>
     </div>
     <div id="builderIntro">
@@ -2753,6 +2758,46 @@ d $1$2$3"></textarea>
   });
   applySizeButtons();
 
+  // ---------- link highlighting preferences ----------
+  // 'Link highlights' turns the hover/focus/caret linking between the step list,
+  // the trace and the rule line on or off; 'Scroll to match' separately controls
+  // whether a list is scrolled to show the linked item (the part that can move
+  // things while you read). Remembered per browser. With no saved choice both
+  // default to ON, except when the system asks to reduce motion, when they
+  // default to OFF — an explicit choice always wins.
+  var linkHighlights = true, linkScroll = true;
+  var reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+  function savedLinkPref(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
+  function loadLinkPrefs(){
+    var hl = savedLinkPref('linkhl'), sc = savedLinkPref('linkscroll');
+    linkHighlights = hl ? hl === 'on' : !reduceMotionQuery.matches;
+    linkScroll = sc ? sc === 'on' : !reduceMotionQuery.matches;
+  }
+
+  var linkSwitch = document.getElementById('linkSwitch');
+  function applyLinkButtons(){
+    linkSwitch.querySelectorAll('.mbtn').forEach(function(b){
+      var on = b.dataset.link === 'highlight' ? linkHighlights : linkScroll;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (b.dataset.link === 'scroll') b.disabled = !linkHighlights;   // nothing to scroll to without links
+    });
+    refreshHint();
+    if (!linkHighlights && hoverStepId != null) hideStepToken();   // switching off while a link is showing
+  }
+  linkSwitch.addEventListener('click', function(e){
+    var btn = e.target.closest('.mbtn');
+    if (!btn || btn.disabled) return;
+    if (btn.dataset.link === 'highlight'){ linkHighlights = !linkHighlights; try { localStorage.setItem('linkhl', linkHighlights ? 'on' : 'off'); } catch(err){} }
+    else { linkScroll = !linkScroll; try { localStorage.setItem('linkscroll', linkScroll ? 'on' : 'off'); } catch(err){} }
+    applyLinkButtons();
+  });
+  loadLinkPrefs();
+  applyLinkButtons();
+  // follow the system's reduce-motion setting while there is no saved choice
+  var onReduceMotionChange = function(){ if (!savedLinkPref('linkhl') && !savedLinkPref('linkscroll')){ loadLinkPrefs(); applyLinkButtons(); } };
+  if (reduceMotionQuery.addEventListener) reduceMotionQuery.addEventListener('change', onReduceMotionChange);
+
   function classifyLine(raw){
     var trimmed = raw.trim();
     if (trimmed==='') return 'blank';
@@ -3343,7 +3388,7 @@ d $1$2$3"></textarea>
     var row = idx < 0 ? null : traceEl.querySelector('.trace-row[data-step="' + (idx + 1) + '"]');
     if (!row) return;
     row.classList.add('linked');
-    if (scroll) scrollToShow(traceEl, row);
+    if (scroll && linkScroll) scrollToShow(traceEl, row);
   }
   function linkChainCard(scroll){
     chainEl.querySelectorAll('.step.linked').forEach(function(r){ r.classList.remove('linked'); });
@@ -3351,12 +3396,13 @@ d $1$2$3"></textarea>
     var card = chainEl.querySelector('.step[data-id="' + hoverStepId + '"]');
     if (!card) return;
     card.classList.add('linked');
-    if (scroll) scrollToShow(chainEl, card);
+    if (scroll && linkScroll) scrollToShow(chainEl, card);
   }
   // source: where the hover started — 'chain' (default), 'trace' or 'rule'.
   // Lists other than the source are scrolled to show their linked item.
   var linkSource = null;
   function showStepToken(stepId, source){
+    if (!linkHighlights) return;
     source = source || 'chain';
     hoverStepId = stepId; linkSource = source; paintRuleHl();
     linkTraceRow(source !== 'trace'); linkChainCard(source !== 'chain');
@@ -3371,7 +3417,15 @@ d $1$2$3"></textarea>
   // While a step's checkbox or buttons have focus, the hint line shows the
   // keyboard shortcuts that work there instead of the hover tip.
   var hintHover = document.getElementById('hintHover'), hintKeys = document.getElementById('hintKeys');
-  function showKeyHint(on){ hintKeys.hidden = !on; hintHover.hidden = on; }
+  var keysHintOn = false;
+  function refreshHint(){
+    if (!hintHover || !hintKeys) return;   // called early (from the switch) before these exist
+    hintKeys.hidden = !keysHintOn;
+    hintHover.hidden = keysHintOn || !linkHighlights;                       // don't promise a hover link that is switched off
+    hintHover.parentNode.hidden = hintKeys.hidden && hintHover.hidden;      // nothing to say: hide the line itself
+  }
+  function showKeyHint(on){ keysHintOn = on; refreshHint(); }
+  refreshHint();   // apply the saved link preference to the hint line at load
   chainEl.addEventListener('focusin', function(e){
     var t = e.target;
     showKeyHint(!!(t.closest && t.closest('.step')) && t.tagName !== 'SELECT' && !(t.tagName === 'INPUT' && t.type === 'text'));

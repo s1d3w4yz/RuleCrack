@@ -36,6 +36,9 @@ everything cosmetic second):
     - the Both callout is a code block plus short points
     - cheat sheet search keeps the John-only box's explanation, and a
       search with no results says where to look
+    - the Link highlights / Scroll to match switches (off stops all
+      linking, scrolling can be stopped on its own, both remembered, and
+      both default to off under reduce-motion unless chosen)
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -1794,6 +1797,97 @@ def test_batch_box_shows_whole_lines_only(driver, r):
     set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
 
 
+def test_link_highlighting_switches(driver, r):
+    """'Link highlights' turns the hover/focus/caret linking between the
+    steps, the trace and the rule line on or off, 'Scroll to match'
+    separately stops lists from being scrolled to the linked item; both are
+    remembered, 'Scroll to match' is unavailable while highlights are off,
+    and with the system set to reduce motion both default to off unless the
+    person has chosen. Runs last (changes media emulation and storage)."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def reset():
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-reduced-motion', 'value': ''}]})
+        driver.execute_script("localStorage.removeItem('linkhl'); localStorage.removeItem('linkscroll');")
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1 $2 $3', debounced=True)
+
+    def pressed():
+        return driver.execute_script(
+            "return {hl: document.querySelector('#linkSwitch [data-link=\"highlight\"]').getAttribute('aria-pressed'),"
+            "  sc: document.querySelector('#linkSwitch [data-link=\"scroll\"]').getAttribute('aria-pressed'),"
+            "  scDisabled: document.querySelector('#linkSwitch [data-link=\"scroll\"]').disabled};")
+
+    def hover_step(n):
+        driver.execute_script("document.querySelectorAll('#chain .step')[arguments[0] - 1].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));", n)
+
+    def linked():
+        return driver.execute_script(
+            "return {card: document.querySelectorAll('#chain .step.linked').length, row: document.querySelectorAll('#trace .trace-row.linked').length,"
+            "  token: document.querySelectorAll('#ruleHl .hl-on').length};")
+
+    try:
+        reset()
+        p = pressed()
+        r.check(p == {'hl': 'true', 'sc': 'true', 'scDisabled': False}, 'by default both switches are on', f'{p}')
+        hover_step(2)
+        r.check(linked() == {'card': 1, 'row': 1, 'token': 1}, 'with highlights on, hovering a step links all three places', f'{linked()}')
+
+        # highlights off: nothing links, 'Scroll to match' becomes unavailable
+        driver.execute_script("document.querySelector('#linkSwitch [data-link=\"highlight\"]').click();")
+        time.sleep(0.2)
+        p = pressed()
+        r.check(p['hl'] == 'false' and p['scDisabled'], 'turning highlights off also makes "Scroll to match" unavailable', f'{p}')
+        r.check(linked() == {'card': 0, 'row': 0, 'token': 0}, 'an active link is cleared when highlights are turned off', f'{linked()}')
+        hover_step(3)
+        r.check(linked() == {'card': 0, 'row': 0, 'token': 0}, 'with highlights off, hovering a step links nothing', f'{linked()}')
+        hint = driver.execute_script("return {hover: document.getElementById('hintHover').hidden, line: document.querySelector('.hoverhint').hidden};")
+        r.check(hint == {'hover': True, 'line': True}, 'the "hover over a step" hint is hidden while highlights are off', f'{hint}')
+        driver.execute_script("document.querySelectorAll('#chain .s-enabled')[0].focus();")
+        keys = driver.execute_script("return !document.getElementById('hintKeys').hidden;")
+        r.check(keys, 'the step keyboard-shortcut hint still shows when a step is focused', f'{keys}')
+        driver.execute_script("document.activeElement.blur();")
+
+        # remembered across a reload
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        p = pressed()
+        r.check(p['hl'] == 'false', 'the choice is remembered across a reload', f'{p}')
+        driver.execute_script("document.querySelector('#linkSwitch [data-link=\"highlight\"]').click();")   # back on
+
+        # scrolling off: still highlights, but the lists do not move
+        driver.execute_script("document.querySelector('#linkSwitch [data-link=\"scroll\"]').click();")
+        time.sleep(0.2)
+        set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1 $2 $3', debounced=True)
+        driver.execute_script("document.getElementById('chain').scrollTop = 0; document.getElementById('trace').scrollTop = 0;")
+        hover_step(1)
+        driver.execute_script("document.querySelector('#trace .trace-row[data-step=\"9\"]').dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));")
+        pos = driver.execute_script("return [document.getElementById('chain').scrollTop, document.getElementById('trace').scrollTop];")
+        lk = linked()
+        r.check(lk['card'] == 1 and lk['token'] == 1, 'with scrolling off the highlights still work', f'{lk}')
+        r.check(pos == [0, 0], 'with scrolling off, hovering a trace row far down does not scroll the chain list', f'{pos}')
+        driver.execute_script("document.getElementById('trace').dispatchEvent(new MouseEvent('mouseleave'));")
+
+        # system 'reduce motion' with no saved choice: both default off; a saved choice wins
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-reduced-motion', 'value': 'reduce'}]})
+        driver.execute_script("localStorage.removeItem('linkhl'); localStorage.removeItem('linkscroll');")
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        p = pressed()
+        r.check(p['hl'] == 'false' and p['sc'] == 'false', 'with the system set to reduce motion, both default to off', f'{p}')
+        driver.execute_script("document.querySelector('#linkSwitch [data-link=\"highlight\"]').click();")
+        time.sleep(0.2)
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        p = pressed()
+        r.check(p['hl'] == 'true', 'an explicit choice beats the reduce-motion default (and is remembered)', f'{p}')
+    finally:
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'prefers-reduced-motion', 'value': ''}]})
+        driver.execute_script("localStorage.removeItem('linkhl'); localStorage.removeItem('linkscroll');")
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1846,6 +1940,7 @@ def main():
         test_columns_refit_on_window_resize(driver, r)
         test_reduced_motion_is_respected(driver, r)
         test_auto_theme_follows_the_system(driver, r)
+        test_link_highlighting_switches(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

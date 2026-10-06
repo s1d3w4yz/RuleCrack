@@ -60,6 +60,11 @@ existing `.rule` file line by line.
   the page scales together). Both are remembered per browser. The default
   size is compact enough for the three columns to fit one screen; the
   larger sizes are there when you need more readable text.
+  Two switches control the hover/focus/cursor linking between the steps, the
+  trace and the rule line: "Link highlights" turns it off entirely and
+  "Scroll to match" stops lists from scrolling to the linked item. Both are
+  remembered, and both default to off when the system asks to reduce motion
+  (an explicit choice always wins).
   The three columns are sized to end together within the window and
   re-fit when you resize it (devtools opening, maximizing, zooming); below
   1150px wide they stack and the lists use fixed heights instead.
