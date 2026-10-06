@@ -1501,6 +1501,53 @@ def test_batch_wrap_toggle(driver, r):
     set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
 
 
+def test_batch_box_line_number_gutter(driver, r):
+    """The batch box has a line-number gutter in both wrap modes: one cell
+    per line, each as tall as that entry really is (a wrapped entry spans
+    several visual lines), so the cells add up to the box's real scroll
+    height; it scrolls with the text, and widens for 100+ lines."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    long1 = 'correcthorsebatterystaple' * 3
+    set_value(driver, driver.find_element('id', 'batchInput'), f'password\n\n{long1}\nsunshine')
+
+    def gutter():
+        return driver.execute_script(
+            "var t = document.getElementById('batchInput'), cs = getComputedStyle(t), lh = parseFloat(cs.lineHeight),"
+            "    cells = [].slice.call(document.querySelectorAll('#batchGutterInner > div'));"
+            "var sum = cells.reduce(function(a, c){ return a + c.getBoundingClientRect().height; }, 0);"
+            "return {nums: cells.map(function(c){ return c.textContent; }),"
+            "        lines: cells.map(function(c){ return Math.round(c.getBoundingClientRect().height / lh); }),"
+            "        diff: Math.abs(sum + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) - t.scrollHeight),"
+            "        width: parseFloat(getComputedStyle(document.getElementById('batchGutter')).width),"
+            "        padLeft: parseFloat(cs.paddingLeft)};")
+
+    g = gutter()
+    r.check(g['nums'] == ['1', '2', '3', '4'], 'one number per line of the box, blank lines included', f"{g['nums']}")
+    r.check(g['lines'][2] >= 2 and g['lines'][0] == 1, 'wrap on: a long entry gets a cell as tall as its wrapped lines', f"{g['lines']}")
+    r.check(g['diff'] <= 1.5, 'wrap on: the cells add up to the box\'s real scroll height (they match the real wrapping)', f"off by {g['diff']}px")
+
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    g = gutter()
+    r.check(g['lines'] == [1, 1, 1, 1], 'wrap off: every number gets exactly one line', f"{g['lines']}")
+    r.check(g['diff'] <= 1.5, 'wrap off: the cells still add up to the real scroll height', f"off by {g['diff']}px")
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+
+    many = '\n'.join('word%d' % i for i in range(1, 31))
+    set_value(driver, driver.find_element('id', 'batchInput'), many)
+    driver.execute_script("document.getElementById('batchInput').scrollTop = 40;")
+    time.sleep(0.2)
+    tr = driver.execute_script("return document.getElementById('batchGutterInner').style.transform;")
+    r.check(tr == 'translateY(-40px)', 'the gutter scrolls with the text', f'{tr!r}')
+
+    narrow = gutter()
+    set_value(driver, driver.find_element('id', 'batchInput'), '\n'.join('w%d' % i for i in range(1, 130)))
+    wide = gutter()
+    r.check(wide['width'] > narrow['width'] and wide['padLeft'] > narrow['padLeft'], 'the gutter (and the box\'s left padding) widen once there are 100+ lines', f"{narrow['width']} -> {wide['width']}")
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1539,6 +1586,7 @@ def main():
         test_rule_line_caret_links_its_step(driver, r)
         test_batch_rows_keep_their_line_numbers(driver, r)
         test_batch_wrap_toggle(driver, r)
+        test_batch_box_line_number_gutter(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
