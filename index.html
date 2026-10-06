@@ -510,6 +510,24 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
    translucent <mark>; pointer-events:none keeps the input fully usable. */
 .subline{display:block}
 .linkswitch .mbtn:disabled{opacity:.45;cursor:default}
+.helpgroup .mbtn{font-weight:600}
+dialog#helpDialog{width:min(92vw,680px);max-height:85vh;padding:0;overflow:hidden;color:var(--ink);background:var(--surface);
+  border:1px solid var(--accent);border-radius:10px;box-shadow:0 12px 48px rgba(0,0,0,.5)}
+dialog#helpDialog::backdrop{background:rgba(0,0,0,.6)}
+.helpbody{display:flex;flex-direction:column;max-height:85vh;padding:18px 0 0}
+.helpscroll{overflow:auto;padding:0 24px 22px}
+.helpscroll:focus-visible{outline-offset:-3px}
+.helphead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px 8px}
+.helphead h2{font-size:1.15rem;margin:0}
+.helplead{color:var(--dim);margin:0;font-size:.9rem}
+dialog#helpDialog h3{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:18px 0 8px;padding-top:12px;border-top:1px dashed var(--rule)}
+.helplist{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;font-size:.88rem;line-height:1.45}
+.helplist dt{font-weight:600;white-space:nowrap}
+.helplist dd{margin:0;color:var(--dim)}
+.helplist b{color:var(--ink)}
+dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margin:0 1px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:.78rem;
+  color:var(--ink);background:var(--surface-2);border:1px solid var(--dim);border-bottom-width:2px;border-radius:5px}
+@media (max-width:640px){ .helplist{grid-template-columns:1fr;gap:2px 0} .helplist dd{margin-bottom:8px} .helplist dt{white-space:normal} }
 .hinticon{vertical-align:-2px;margin-right:4px}
 .hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
@@ -621,6 +639,9 @@ try{
       <div class="modetoggle linkswitch" id="linkSwitch" role="group" aria-label="Link highlighting">
         <button class="mbtn" data-link="highlight" type="button" aria-pressed="true" title="Highlight the matching step, trace row and rule-line token when you hover or focus one of them">Link highlights</button>
         <button class="mbtn" data-link="scroll" type="button" aria-pressed="true" title="Scroll a list to show the matching item when it is out of view">Scroll to match</button>
+      </div>
+      <div class="modetoggle helpgroup">
+        <button class="mbtn" id="helpBtn" type="button" aria-haspopup="dialog" aria-keyshortcuts="Shift+/" title="Keyboard shortcuts and accessibility features (press ? anywhere)">? Help</button>
       </div>
     </div>
     <div id="builderIntro">
@@ -829,6 +850,52 @@ d $1$2$3"></textarea>
   </div>
   </main>
 </div>
+
+<dialog id="helpDialog" aria-labelledby="helpTitle">
+  <div class="helpbody">
+    <div class="helphead">
+      <h2 id="helpTitle">Keyboard shortcuts &amp; accessibility</h2>
+      <button type="button" class="expandbtn" id="helpClose" autofocus aria-label="Close help">Close &times;</button>
+    </div>
+    <div class="helpscroll" tabindex="0" role="region" aria-label="Help contents (scrollable)">
+    <p class="helplead">Press <kbd>?</kbd> anywhere outside a text box to open this, and <kbd>Esc</kbd> to close it.</p>
+
+    <h3>Keyboard</h3>
+    <dl class="helplist">
+      <dt><kbd>Tab</kbd> <kbd>Shift</kbd>+<kbd>Tab</kbd></dt><dd>Move between controls. The first <kbd>Tab</kbd> on the page shows skip links (to the rule line, step chain, trace, batch test and cheat sheet).</dd>
+      <dt><kbd>Space</kbd></dt><dd>On a step's checkbox: turn that step on or off. Its token in the rule line is struck through while it is off.</dd>
+      <dt><kbd>Alt</kbd>+<kbd>&uarr;</kbd> <kbd>Alt</kbd>+<kbd>&darr;</kbd></dt><dd>With a step's checkbox or buttons focused: move that step up or down. Focus stays on it.</dd>
+      <dt><kbd>Delete</kbd></dt><dd>With a step's checkbox or buttons focused: remove the step. Focus moves to the next one.</dd>
+      <dt><kbd>Ctrl</kbd>+<kbd>Z</kbd> <kbd>&#8984;</kbd>+<kbd>Z</kbd></dt><dd>Undo the last deleted step (also the Undo button in the notice). Inside a text box, it undoes your typing instead.</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Clear the cheat sheet search box, or close this window.</dd>
+    </dl>
+
+    <h3>Mouse &amp; touch</h3>
+    <dl class="helplist">
+      <dt>Drag</dt><dd>Reorder steps by dragging the dotted handle on a step's left edge. The &uarr; &darr; buttons do the same without dragging.</dd>
+      <dt>Hover or focus</dt><dd>On a step, a trace row, or a token in the rule line: the matching step card, trace row and token light up together. Putting the text cursor inside a token does the same, which also works on touch screens.</dd>
+      <dt>Click</dt><dd>An example in the cheat sheet adds it to the rule line. A &uarr; trace button in the batch test loads that word into section 01.</dd>
+      <dt>Expand</dt><dd>Each list is a fixed-height box so the page stays on one screen. <b>Expand</b> shows all of it.</dd>
+    </dl>
+
+    <h3>Display &amp; accessibility settings</h3>
+    <dl class="helplist">
+      <dt>Dark &middot; Light &middot; Auto</dt><dd><b>Auto</b> follows your system's light or dark setting (dark if it doesn't say). Remembered in this browser.</dd>
+      <dt>A &nbsp;A &nbsp;A</dt><dd>Three text sizes; the whole page scales. Remembered.</dd>
+      <dt>Link highlights</dt><dd>Turn off the hover, focus and cursor linking between steps, trace and rule line.</dd>
+      <dt>Scroll to match</dt><dd>Stop lists from scrolling to the linked item while keeping the highlights. Needs Link highlights on.</dd>
+      <dt>Wrap long lines</dt><dd>In the batch test: wrap long entries (default) or keep each on one line and scroll sideways.</dd>
+      <dt>Reduced motion</dt><dd>If your system asks to reduce motion, animations are off, scrolling is instant, and the two link switches start off (you can turn them on).</dd>
+    </dl>
+
+    <h3>Screen readers &amp; colour</h3>
+    <dl class="helplist">
+      <dt>Announcements</dt><dd>Moves, deletes, copies, the chain's result and the cheat sheet's match count are spoken. Every control has a name, and the toggle buttons report whether they are on.</dd>
+      <dt>Not colour alone</dt><dd>Changed characters in the trace are underlined as well as coloured. Hashcat-only operators carry an <b>HC</b> tag and John-only ones a <b>J</b> tag.</dd>
+    </dl>
+    </div>
+  </div>
+</dialog>
 
 <script>
 (function(){
@@ -2773,6 +2840,32 @@ d $1$2$3"></textarea>
     linkHighlights = hl ? hl === 'on' : !reduceMotionQuery.matches;
     linkScroll = sc ? sc === 'on' : !reduceMotionQuery.matches;
   }
+
+  // ---------- help dialog ----------
+  // A native <dialog> opened with showModal(): the browser traps focus inside,
+  // dims and disables the page behind it, closes on Esc and puts focus back
+  // where it was. '?' opens it from anywhere outside a text field.
+  var helpDialog = document.getElementById('helpDialog');
+  document.getElementById('helpBtn').addEventListener('click', function(){ helpDialog.showModal(); });
+  document.getElementById('helpClose').addEventListener('click', function(){ helpDialog.close(); });
+  helpDialog.addEventListener('click', function(e){ if (e.target === helpDialog) helpDialog.close(); });   // a click on the dimmed backdrop
+  // keep Tab cycling inside the dialog (otherwise it can leave to the browser's own UI)
+  helpDialog.addEventListener('keydown', function(e){
+    if (e.key !== 'Tab') return;
+    var items = [].filter.call(helpDialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+                               function(el){ return !el.disabled && el.offsetParent !== null; });
+    if (!items.length) return;
+    var first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open) return;
+    var t = e.target;
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable || (t.tagName === 'INPUT' && t.type !== 'checkbox' && t.type !== 'button'))) return;
+    e.preventDefault();
+    helpDialog.showModal();
+  });
 
   var linkSwitch = document.getElementById('linkSwitch');
   function applyLinkButtons(){

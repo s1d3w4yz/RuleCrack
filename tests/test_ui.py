@@ -36,6 +36,9 @@ everything cosmetic second):
     - the Both callout is a code block plus short points
     - cheat sheet search keeps the John-only box's explanation, and a
       search with no results says where to look
+    - the help dialog opens from the Help button or ? (not while typing),
+      traps Tab, closes on Esc / Close / backdrop, returns focus, and
+      documents the shortcuts that exist
     - the Link highlights / Scroll to match switches (off stops all
       linking, scrolling can be stopped on its own, both remembered, and
       both default to off under reduce-motion unless chosen)
@@ -1896,6 +1899,81 @@ def test_link_highlighting_switches(driver, r):
         driver.get(INDEX_URL)
 
 
+def test_help_dialog(driver, r):
+    """The help dialog (a native modal <dialog>) opens from the Help button
+    or from '?' outside a text field, traps Tab inside, closes on Esc, the
+    Close button or a click on the backdrop, returns focus to where it was,
+    and documents the shortcuts that really exist. Real key presses."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.common.keys import Keys
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def info():
+        return driver.execute_script(
+            "var d = document.getElementById('helpDialog'), a = document.activeElement;"
+            "return {open: d.open, inside: d.contains(a), active: a.id || a.tagName.toLowerCase()};")
+
+    r.check(not info()['open'], 'the help dialog starts closed')
+    btn = driver.find_element('id', 'helpBtn')
+    r.check(driver.execute_script("var b = document.getElementById('helpBtn'); return [b.getAttribute('aria-haspopup'), b.textContent.trim()];") == ['dialog', '? Help'],
+            'the Help button is labelled and says it opens a dialog')
+    btn.click()
+    time.sleep(0.3)
+    i = info()
+    r.check(i['open'] and i['inside'], 'the Help button opens the dialog and moves focus into it', f'{i}')
+    name = driver.execute_script("var d = document.getElementById('helpDialog'); return document.getElementById(d.getAttribute('aria-labelledby')).textContent;")
+    r.check('shortcuts' in name.lower(), 'the dialog is labelled by its title', repr(name))
+
+    stayed = True
+    for _ in range(40):
+        ActionChains(driver).send_keys(Keys.TAB).perform()
+        stayed = stayed and info()['inside']
+    r.check(stayed, 'Tab never leaves the dialog while it is open (focus is trapped)')
+    ActionChains(driver).key_down(Keys.SHIFT).send_keys(Keys.TAB).key_up(Keys.SHIFT).perform()
+    r.check(info()['inside'], 'Shift+Tab stays inside too')
+
+    # what it documents
+    text = driver.execute_script("return document.getElementById('helpDialog').textContent;")
+    keys = driver.execute_script("return [].map.call(document.querySelectorAll('#helpDialog kbd'), function(k){ return k.textContent; });")
+    for needle in ('Alt', 'Delete', 'Esc', 'Tab', 'Space'):
+        r.check(needle in keys, f'the dialog documents the {needle} key', f'{keys}')
+    shortcuts = driver.execute_script("return document.querySelector('#chain .s-enabled').getAttribute('aria-keyshortcuts');")
+    r.check(all(k in shortcuts for k in ('Alt+ArrowUp', 'Alt+ArrowDown', 'Delete')) and 'Alt' in keys and '\u2191' in text and '\u2193' in text,
+            "the shortcuts in the dialog match the ones a step's checkbox advertises", f'{shortcuts!r}')
+
+    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+    time.sleep(0.3)
+    r.check(not info()['open'] and info()['active'] == 'helpBtn', 'Esc closes the dialog and focus returns to the Help button', f'{info()}')
+
+    # '?' from the page
+    driver.find_element('tag name', 'body').click()
+    ActionChains(driver).send_keys('?').perform()
+    time.sleep(0.3)
+    r.check(info()['open'], 'pressing ? opens the dialog', f'{info()}')
+    driver.execute_script("document.getElementById('helpClose').click();")
+    time.sleep(0.2)
+    r.check(not info()['open'], 'the Close button closes it')
+
+    # '?' inside a text box must just type a question mark
+    box = driver.find_element('id', 'cheatSearch')
+    box.click()
+    ActionChains(driver).send_keys('?').perform()
+    time.sleep(0.2)
+    r.check(not info()['open'] and box.get_attribute('value') == '?', "typing ? in a text box types a question mark and does not open the dialog", f"{info()}, value {box.get_attribute('value')!r}")
+    ActionChains(driver).send_keys(Keys.ESCAPE).perform()
+    time.sleep(0.2)
+    r.check(box.get_attribute('value') == '' and not info()['open'], 'Esc in the cheat sheet search clears it (as the dialog says), without opening anything', f"{box.get_attribute('value')!r}")
+
+    # a click on the dimmed backdrop closes it
+    driver.execute_script("document.getElementById('helpBtn').click();")
+    time.sleep(0.3)
+    driver.execute_script("document.getElementById('helpDialog').dispatchEvent(new MouseEvent('click', {bubbles: true}));")   # target is the dialog itself = the backdrop
+    time.sleep(0.2)
+    r.check(not info()['open'], 'clicking the backdrop closes it')
+    driver.find_element('tag name', 'body').click()
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1949,6 +2027,7 @@ def main():
         test_reduced_motion_is_respected(driver, r)
         test_auto_theme_follows_the_system(driver, r)
         test_link_highlighting_switches(driver, r)
+        test_help_dialog(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

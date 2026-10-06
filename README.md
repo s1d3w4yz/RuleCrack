@@ -68,6 +68,9 @@ existing `.rule` file line by line.
   The three columns are sized to end together within the window and
   re-fit when you resize it (devtools opening, maximizing, zooming); below
   1150px wide they stack and the lists use fixed heights instead.
+- **Help**: a "? Help" button (or the `?` key outside a text box) opens a
+  dialog listing the keyboard shortcuts, mouse and touch behavior, display and
+  accessibility settings and screen-reader notes.
 - **Accessibility**: a real HTML document (language, viewport, one `<main>`),
   skip links, an accessible name on every control (each step's checkbox,
   arguments and buttons say which step they belong to), toggle buttons that
