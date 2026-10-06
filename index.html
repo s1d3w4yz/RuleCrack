@@ -28,6 +28,14 @@
 }
 
 *{box-sizing:border-box}
+/* Thin, theme-colored scrollbars everywhere (the lists, the cheat sheet,
+   the textareas and the page itself): a quiet thumb until you hover a
+   scrolling area, so the several nested scrollers stop competing for
+   attention. Standard properties — inherited from :root. */
+:root{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--dim) 45%, transparent) transparent}
+.chain:hover,.trace:hover,.cheat:hover,.vtable-wrap:hover,textarea:hover,select:hover{
+  scrollbar-color:var(--dim) transparent;
+}
 /* Visible keyboard focus on every control (the browser default is faint on
    the dark theme). :focus-visible keeps it off for mouse clicks on
    buttons, links and checkboxes. Dropdowns use plain :focus, like the
