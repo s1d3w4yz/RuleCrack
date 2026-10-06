@@ -235,6 +235,7 @@ label.field textarea{
   background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
   padding:8px 10px;
 }
+.chain-empty{margin:auto;padding:14px 12px;text-align:center;font-size:.85rem;line-height:1.45;color:var(--dim)}
 .step.disabled{opacity:.5}
 .step.rejecty{border-color:var(--danger)}
 .step.rejecting{background:color-mix(in srgb,var(--danger) 14%, var(--surface-2))}
@@ -2114,6 +2115,12 @@ d $1$2$3"></textarea>
     '<path d="M2.5 4h11M6 4V2.5h4V4M4 4l.6 9h6.8L12 4M6.8 6.5v4.5M9.2 6.5v4.5"/></svg>';
   function renderChain(){
     chainEl.innerHTML = '';
+    if (!steps.length){
+      var empty = document.createElement('div');
+      empty.className = 'chain-empty';
+      empty.textContent = 'No steps yet. Pick a step type below and press “+ add step”, or paste a rule into the rule line above.';
+      chainEl.appendChild(empty);
+    }
     steps.forEach(function(step, i){
       var op = OPS[step.type];
       var row = document.createElement('div');

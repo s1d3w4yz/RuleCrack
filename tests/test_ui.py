@@ -595,6 +595,13 @@ def test_columns_stay_equal_height(driver, r):
     time.sleep(0.2)
     h = heights()
     r.check(len(set(h)) == 1, 'columns are equal height with an empty chain', f'{h}')
+    shown = driver.execute_script("return !!document.querySelector('#chain .chain-empty');")
+    r.check(shown, 'an empty chain shows a hint instead of a blank box')
+    add_step(driver, 'lrest')
+    gone = driver.execute_script("return !document.querySelector('#chain .chain-empty') && document.querySelectorAll('#chain .step').length === 1;")
+    r.check(gone, 'the hint disappears as soon as a step is added')
+    clear_chain(driver)
+    time.sleep(0.2)
 
     driver.execute_script("document.getElementById('traceExpandBtn').click();")
     h = heights()
