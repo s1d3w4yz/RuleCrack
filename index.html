@@ -580,7 +580,7 @@ try{
       </div>
 
       <h2 style="margin-top:4px"><span class="n">02</span>Rule line</h2>
-      <p class="sub" id="ruleLineSub">The rule as plain text. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to load it into the chain below.</p>
+      <p class="sub" id="ruleLineSub">The rule as plain text, kept in step with the chain below. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to replace the chain.</p>
       <label class="field">
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
@@ -2111,6 +2111,7 @@ d $1$2$3"></textarea>
           else if (spec.t==='char'){ v = v.slice(0,1); }
           step.args[argName] = v;
           renderTraceAndRule(); renderBatch();
+          syncRuleLine(); paintRuleHl();
         });
       });
 
@@ -2628,6 +2629,7 @@ d $1$2$3"></textarea>
     renderTraceAndRule();
     renderBatch();
     syncColumnFit();
+    if (!syncingFromText) syncRuleLine(); // chain-side change -> rewrite the rule line
     if (ruleHl) paintRuleHl(); // disabled steps are struck through in the rule line
   }
 
@@ -2799,7 +2801,31 @@ d $1$2$3"></textarea>
     renderAll();
   });
 
-  // ---------- rule-line input wiring ----------
+  // ---------- rule line <-> chain sync ----------
+  // The rule line (section 02) is the text form of the chain. A change made
+  // in section 03 rewrites it; typing or pasting in it rebuilds the chain
+  // instead (loadRuleText), and that path must NOT rewrite the text back —
+  // it would reformat what you typed and move your cursor — hence the flag.
+  // Disabled steps keep their token in the text (drawn struck through), so
+  // switching a step off and then typing never silently deletes it.
+  var syncingFromText = false;
+  function buildRuleLineText(){
+    var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
+    var parts = [];
+    steps.forEach(function(step){
+      var tok = tokenFn(step.type, step.args);
+      if (tok!==null) parts.push(tok);
+    });
+    return parts.join(' ');
+  }
+  function syncRuleLine(){
+    clearTimeout(ruleParseTimer); // a pending re-parse of older text must not overwrite this
+    var text = buildRuleLineText();
+    if (ruleTextInput.value !== text) ruleTextInput.value = text;
+    ruleParseStatus.textContent = '';
+    ruleParseStatus.className = 'sub';
+    ruleTextInput.classList.remove('err');
+  }
   var ruleParseTimer = null;
   function loadRuleText(){
     var text = ruleTextInput.value;
@@ -2813,7 +2839,8 @@ d $1$2$3"></textarea>
     var parsed = parseFn(text, mkStep);
     steps.length = 0;
     parsed.steps.forEach(function(s){ steps.push(s); });
-    renderAll();
+    syncingFromText = true;
+    try { renderAll(); } finally { syncingFromText = false; }
 
     if (parsed.errors.length){
       ruleParseStatus.textContent = 'Loaded ' + parsed.steps.length + ' operation(s). Skipped ' +
@@ -2843,7 +2870,8 @@ d $1$2$3"></textarea>
     // don't rewrite the text, so a step that no longer matches what's at its
     // position there is simply left unmarked. Each step is checked alone.
     var marks = [];
-    steps.forEach(function(st, idx){
+    var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
+    steps.filter(function(st){ return tokenFn(st.type, st.args) !== null; }).forEach(function(st, idx){
       var m = parsed.steps[idx];
       if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return;
       var hover = st.id == hoverStepId, off = !st.enabled;
@@ -2907,10 +2935,10 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax. Paste or type one to load it into the chain below — hashcat-only tokens like <span class="mono">~</span>-class ops won’t parse here.';
+      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax, kept in step with the chain below. Paste or type one to replace the chain — hashcat-only tokens like <span class="mono">~</span>-class ops won’t parse here.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = 'The rule as plain text. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to load it into the chain below.';
+      ruleLineSub.innerHTML = 'The rule as plain text, kept in step with the chain below. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to replace the chain.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }
@@ -2944,7 +2972,6 @@ d $1$2$3"></textarea>
   });
 
   renderAll();
-  ruleTextInput.value = buildRuleString();
   renderCheatsheet();
   renderValidator();
   syncColumnFit();

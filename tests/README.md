@@ -84,7 +84,9 @@ forms.
   John-native dialects; a reject step actually marks the candidate
   rejected in the trace; **reordering two steps actually changes the
   result** in the direction the engine predicts (the tool's core
-  pedagogical claim, otherwise untested); disabling a step excludes it
+  pedagogical claim, otherwise untested); the rule line follows
+  chain edits (add, reorder, edit an argument, disable, delete) while
+  text typed into it is left as typed; disabling a step excludes it
   from both the trace and the export; a chain's export correctly reacts
   to the active target (a hashcat-only step stays in the export on
   "Both" since only the add-step menu restricts what's buildable fresh,

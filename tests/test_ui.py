@@ -31,6 +31,9 @@ everything cosmetic second):
       aN reject step rejects a given word
     - an out-of-range position argument (e.g. typing 99) clamps to 35 in
       the actual exported rule, not just visually
+    - the rule line (section 02) follows chain edits — add, reorder, edit
+      an argument, disable (token kept, struck through), delete — while
+      text typed into it is left as typed
 
   Rulefile validator view
     - a pasted multi-line file is classified (comment/blank/rule) and
@@ -478,6 +481,68 @@ def test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r):
     driver.find_element('css selector', '#validatorDialectBtns .tbtn[data-dialect="hashcat"]').click()
 
 
+def rule_line(driver):
+    return driver.execute_script("return document.getElementById('ruleTextInput').value;")
+
+
+def test_rule_line_follows_chain_edits(driver, r):
+    """Section 02 is the text form of the chain: edits made in section 03
+    (add, reorder, edit an argument, disable, delete) rewrite it, disabled
+    steps keep their token (drawn struck through), and typing in it is
+    NOT rewritten back under the user's cursor. Expected text is built
+    independently from the engine's own tokenizer."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    clear_chain(driver)
+    r.check(rule_line(driver) == '', 'an empty chain gives an empty rule line', repr(rule_line(driver)))
+
+    steps = [('urest', {}), ('replace', {'X': 'a', 'Y': '4'}), ('append', {'X': '!'})]
+    for key, args in steps:
+        add_step(driver, key, args)
+
+    def expected(specs):
+        return ' '.join(engine_token(driver, 'hashcat', k, a) for k, a in specs)
+
+    r.check(rule_line(driver) == expected(steps), 'adding steps writes them to the rule line',
+            f"got {rule_line(driver)!r}, expected {expected(steps)!r}")
+
+    driver.execute_script("document.querySelector('.step .down').click();")  # swap step 1 and 2
+    swapped = [steps[1], steps[0], steps[2]]
+    r.check(rule_line(driver) == expected(swapped), 'reordering steps reorders the rule line',
+            f"got {rule_line(driver)!r}, expected {expected(swapped)!r}")
+
+    # edit step 1's (replace) Y argument through its real input
+    driver.execute_script(
+        "var i = document.querySelectorAll('.step')[0].querySelector('[data-arg=\"Y\"]');"
+        "i.value = '9'; i.dispatchEvent(new Event('input', {bubbles: true}));")
+    edited = [('replace', {'X': 'a', 'Y': '9'}), steps[0], steps[2]]
+    r.check(rule_line(driver) == expected(edited), "editing a step's argument updates the rule line",
+            f"got {rule_line(driver)!r}, expected {expected(edited)!r}")
+
+    # disable the 2nd step (urest): token stays in the text, drawn struck through
+    driver.execute_script("document.querySelectorAll('.step .s-enabled')[1].click();")
+    r.check(rule_line(driver) == expected(edited), 'a disabled step keeps its token in the rule line',
+            f"got {rule_line(driver)!r}")
+    struck = driver.execute_script("return [].map.call(document.querySelectorAll('#ruleHl .hl-off'), function(e){return e.textContent;});")
+    r.check(struck == [engine_token(driver, 'hashcat', 'urest', {})],
+            "the disabled step's token is the one drawn struck through",
+            f"struck: {struck!r}")
+    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    r.check(export == expected([edited[0], edited[2]]),
+            'the export still omits the disabled step even though the rule line shows it', f"export {export!r}")
+
+    driver.execute_script("document.querySelectorAll('.step .del')[0].click();")  # delete the replace step
+    remaining = [edited[1], edited[2]]
+    r.check(rule_line(driver) == expected(remaining), 'deleting a step removes its token from the rule line',
+            f"got {rule_line(driver)!r}, expected {expected(remaining)!r}")
+
+    # typing is the other direction: it rebuilds the chain and must not be reformatted
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c   sa4  $1', debounced=True)
+    r.check(rule_line(driver) == 'c   sa4  $1', 'typed text is left exactly as typed (not rewritten from the chain)',
+            repr(rule_line(driver)))
+    n = driver.execute_script("return document.querySelectorAll('.step').length;")
+    r.check(n == 3, 'typed text still rebuilds the chain (3 steps)', f"{n} steps")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -500,6 +565,7 @@ def main():
         test_batch_test_produces_correct_outputs(driver, r)
         test_min_max_length_fields_affect_john_native_reject(driver, r)
         test_position_arg_clamping(driver, r)
+        test_rule_line_follows_chain_edits(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

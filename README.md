@@ -25,7 +25,10 @@ existing `.rule` file line by line.
 - **Rule line**: the rule as plain text. Paste or type one (your own, or a
   line from an existing `.rule` file) and it's parsed straight into the
   step chain below, using the same engine as the visual builder — no
-  separate "mode" or view, just another way to drive the same chain.
+  separate "mode" or view, just another way to drive the same chain. It
+  works both ways: changes you make to the chain (adding, reordering,
+  editing, deleting) rewrite the line, and a disabled step keeps its token
+  in the line, struck through.
 - **Step-by-step trace**: see the word after each individual step, with the
   part that changed highlighted. Reject steps stop the chain and mark the
   candidate as discarded, matching real hashcat behavior.
