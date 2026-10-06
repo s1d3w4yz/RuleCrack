@@ -698,7 +698,7 @@ try{
           <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">Hashcat syntax</a>
           <span class="tag">default</span>
           <span><strong>Unambiguous and the de facto standard.</strong> Most published rule lists use it, and
-          John the Ripper runs it byte-for-byte identically in its hashcat-compat mode, so it's portable.</span>
+          John the Ripper can run it in its hashcat-compat mode, so it's portable.</span>
         </li>
         <li>
           <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's native syntax</a>
@@ -1024,10 +1024,10 @@ d $1$2$3"></textarea>
       case 'l': return /[a-z]/.test(ch);
       case 'u': return /[A-Z]/.test(ch);
       case 'd': return /[0-9]/.test(ch);
-      case 's': return ch.length>0 && !/[a-zA-Z0-9]/.test(ch);
+      case 's': return /^[ -\/:-@\[-`{-~]$/.test(ch);   // hashcat's class_sym: printable ASCII that isn't a letter or digit
       case 'h': return /[0-9a-f]/.test(ch);
       case 'H': return /[0-9A-F]/.test(ch);
-      case 'a': case 'b': default: return true;
+      default: return false;
     }
   }
   function countClass(word, cls){
@@ -1035,7 +1035,7 @@ d $1$2$3"></textarea>
     for (var i=0;i<word.length;i++) if (classMatch(word[i],cls)) c++;
     return c;
   }
-  var CLASS_LABEL = {l:'lowercase letter',u:'uppercase letter',d:'digit',s:'special',a:'any char',h:'hex digit (lower)',H:'hex digit (upper)',b:'any byte'};
+  var CLASS_LABEL = {l:'lowercase letter',u:'uppercase letter',d:'digit',s:'symbol',h:'hex digit (lower)',H:'hex digit (upper)'};
 
   // ---------- op registry ----------
   // Semantics verified against hashcat's docs/rules.txt, src/rp_cpu.c and
@@ -1327,9 +1327,9 @@ d $1$2$3"></textarea>
   def('cls_reject_contains', {label:'Reject if fewer than N chars are in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'class'}], kind:'reject',
     hashcat:function(a){ return '~%'+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: countClass(w,a.C)<a.N || a.N>=w.length}; },
-    caption:function(a){ return 'Reject unless at least '+a.N+' chars are a '+CLASS_LABEL[a.C]; }});
+    caption:function(a){ return 'Reject unless the word has at least '+a.N+' characters of this kind: '+CLASS_LABEL[a.C]; }});
 
-  var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','special'],['a','any'],['h','hex (lower)'],['H','hex (upper)'],['b','any byte']];
+  var CLASS_OPTIONS = [['l','lowercase'],['u','uppercase'],['d','digit'],['s','symbol'],['h','hex (lower)'],['H','hex (upper)']];
 
   // ---------- cheat sheet data ----------
   // Abstract syntax shape (for pattern-matching real rules) plus a concrete,
@@ -1487,7 +1487,7 @@ d $1$2$3"></textarea>
     {syntax:'R / L',label:'Keyboard-adjacent shift of the WHOLE word, right / left', note:"different from hashcat's RN/LN (bitwise shift one byte at position N) — John picks whichever meaning based on whether a digit follows.", promoted:true},
     {syntax:'V',   label:'Uppercase consonants, lowercase vowels', note:'', promoted:true},
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
-    {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ + l u d s a h H b), and John never accepts the '~' prefix at all.", promoted:true},
+    {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ followed by ?l ?u ?d ?s ?h ?H), and John never accepts the '~' prefix at all.", promoted:true},
     {syntax:'vVNM',label:'Set a variable V to N − M, to use as a position in later steps', note:''},
     {syntax:'# @ $ * - + a-k l m p z', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:''},
     {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Flags written before a rule that skip it depending on the hash type', note:''},
@@ -1698,7 +1698,7 @@ d $1$2$3"></textarea>
   def('j_cls_reject_contains', {label:'Reject if fewer than N chars are in class C', group:'Class-based (advanced)', args:[{n:'N',t:'pos'},{n:'C',t:'johnclass'}], kind:'reject', johnOnly:true,
     hashcat:function(){ return null; }, john:function(a){ return '%'+posChar(a.N)+'?'+a.C; },
     run:function(w,a){ return {reject: countJohnClass(w,a.C)<a.N}; },
-    caption:function(a){ return 'Reject unless at least '+a.N+' chars are a '+JOHN_CLASS_LABEL[a.C]; }});
+    caption:function(a){ return 'Reject unless the word has at least '+a.N+' characters of this kind: '+JOHN_CLASS_LABEL[a.C]; }});
 
   // Every op's John-syntax token: shared ops reuse hashcat() verbatim (John
   // processes them identically); johnOnly ops use their own john(); hashcat-
@@ -1743,7 +1743,7 @@ d $1$2$3"></textarea>
       i++;
       if (i >= str.length) return null;
       var c = str[i]; i++;
-      return c;
+      return 'ludhHs'.indexOf(c) >= 0 ? c : null;   // the only class letters hashcat accepts
     }
 
     while (true){
@@ -2323,7 +2323,7 @@ d $1$2$3"></textarea>
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
     hashcat:     'The full hashcat operator set. Those tagged [Hashcat only] (<span class="tok-hc">red and marked HC in the cheat sheet</span>) run in hashcat but have no John equivalent.',
-    get both(){ return 'Limited to the ' + Object.keys(OPS).filter(function(k){ return buildableInTarget(k, 'both'); }).length + ' operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule behaves identically in either tool.'; },
+    get both(){ return 'Limited to the ' + Object.keys(OPS).filter(function(k){ return buildableInTarget(k, 'both'); }).length + ' operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule gives the same results in either tool (apart from rare edge cases).'; },
     john_native: 'Builds John’s own syntax instead of hashcat’s. Steps tagged [John only] (<span class="tok-john">teal and marked J in the cheat sheet</span>) have no hashcat equivalent, so the rule won’t run in hashcat.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
@@ -3390,7 +3390,8 @@ d $1$2$3"></textarea>
       if (!empty){ empty = document.createElement('div'); empty.className = 'cheat-empty'; cheatBody.appendChild(empty); }
       empty.textContent = 'No operators match “' + cheatSearch.value.trim() + '”. ' +
         (TARGET === 'john_native' ? 'Hashcat-only operators (like ~s?CY) are listed under the Hashcat target.'
-                                  : 'John’s own commands (pluralize, string insert…) are built under the John (native rules) target.');
+        : TARGET === 'both' ? 'This view lists only what hashcat and John share. Hashcat-only operators are under the Hashcat target, John’s own commands (pluralize, string insert…) under John (native rules).'
+                            : 'John’s own commands (pluralize, string insert…) are built under the John (native rules) target.');
     } else if (empty){ empty.remove(); }
     if (terms.length) announceSoon('search', shown + (shown === 1 ? ' operator matches' : ' operators match'), 600);
   }

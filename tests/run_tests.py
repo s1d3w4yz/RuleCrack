@@ -174,12 +174,17 @@ def run_regression_checks(driver, results):
         ('hashcat', '~%3?d', 'a1b2', None),
         ('john', '%2?v', 'aeb', 'aeb'),
         ('john', '%3?v', 'aeb', None),
+        ('hashcat', '~@?s', 'caf\u00e9 a-b!', 'caf\u00e9ab'),   # ?s is printable-ASCII symbols (space included), not é
     ]
     for dialect, rule, word, want in cases:
         r = run_rule(driver, dialect, rule, word)
         got = r.get('final') if not r.get('error') and not r.get('rejected') else None
         ok = (got == want) and not r.get('error')
         results.append((ok, f'regression [{dialect}] {rule} on {word}', None if ok else f'got {r}, want {want}'))
+    # hashcat's class ops accept only ?l ?u ?d ?s ?h ?H; real hashcat refuses ?a / ?b
+    for rule in ('~s?a4', '~@?b', '~!?a'):
+        r = run_rule(driver, 'hashcat', rule, 'ab1')
+        results.append((bool(r.get('error')), f'regression [hashcat] {rule} is a syntax error', None if r.get('error') else f'parsed: {r}'))
 
 
 def main():

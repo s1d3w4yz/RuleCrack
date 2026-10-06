@@ -4,7 +4,7 @@ A single-page tool for learning how password-cracking rules work: build an
 ordered chain of transformation steps, watch each step apply one at a time,
 and see how reordering the chain changes the result. Covers both hashcat's
 and John the Ripper's rule syntax — hashcat is the recommended default
-(unambiguous, what most public rule lists use, and John runs it identically
+(unambiguous, what most public rule lists use, and John can run it
 in its own hashcat-compat mode), with John's native syntax available for the
 handful of things hashcat genuinely can't express. Export the chain as a
 real `.rule` line, batch-test it against a list of words, or switch to the
@@ -93,7 +93,7 @@ existing `.rule` file line by line.
     inline, everywhere, all the time — no tab-switching needed to see
     what won't port to John.
   - **Both (hashcat-compatible)** — those 14 are dropped entirely; what's
-    left (56 ops) behaves identically in hashcat and in John's
+    left (56 ops) behaves the same in hashcat and in John's
     hashcat-compat mode (`!! hashcat logic ON`). The cheat sheet lists only
     those shared operators; John-only commands appear under the John target.
   - **John (native rules)** — switches to building rules in **John's own
