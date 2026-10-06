@@ -3094,6 +3094,8 @@ d $1$2$3"></textarea>
       ruleTextInput.classList.remove('err'); ruleTextInput.removeAttribute('aria-invalid');
     }
     syncColumnFit(); // the status line just changed column 1's height
+    if (linkSource === 'caret') linkSource = null;
+    linkFromCaret();   // the chain was rebuilt: link the token under the cursor to the new step
   }
   // ---------- rule-line overlay: hover highlight + disabled steps ----------
   // Two things are drawn over the rule line, both by finding which slice of
@@ -3182,7 +3184,10 @@ d $1$2$3"></textarea>
     hoverStepId = stepId; linkSource = source; paintRuleHl();
     linkTraceRow(source !== 'trace'); linkChainCard(source !== 'chain');
   }
-  function hideStepToken(){ hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
+  function hideStepToken(){
+    hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false);
+    if (document.activeElement === ruleTextInput) linkFromCaret();   // nothing hovered: follow the text cursor instead
+  }
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
   ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
   ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls
@@ -3230,6 +3235,30 @@ d $1$2$3"></textarea>
     else if (linkSource === 'rule') hideStepToken();   // over a gap or past the end of the text
   });
   ruleTextInput.addEventListener('mouseleave', function(){ if (linkSource === 'rule') hideStepToken(); });
+  // The text cursor links a step too, whenever the mouse isn't pointing at one
+  // (and it's the keyboard route to the same link): the token the caret is
+  // inside or at the end of — or at the start of, if it isn't at the end of
+  // one. A selection that spans several tokens links nothing.
+  function linkFromCaret(){
+    if (document.activeElement !== ruleTextInput) return;
+    if (linkSource === 'rule') return;                  // the mouse is pointing at a token right now
+    var a = ruleTextInput.selectionStart, b = ruleTextInput.selectionEnd, ms = ruleMatches(), hit = null;
+    if (a == null) return;
+    if (a === b){
+      hit = ms.filter(function(m){ return m.from < a && a <= m.to; })[0] ||
+            ms.filter(function(m){ return m.from === a; })[0] || null;
+    } else {
+      hit = ms.filter(function(m){ return m.from <= a && b <= m.to; })[0] || null;   // selection inside one token
+    }
+    if (hit){ if (hit.step.id != hoverStepId || linkSource !== 'caret') showStepToken(hit.step.id, 'caret'); }
+    else if (linkSource === 'caret'){
+      hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false);
+    }
+  }
+  ['keyup', 'mouseup', 'focus', 'select', 'input'].forEach(function(ev){ ruleTextInput.addEventListener(ev, linkFromCaret); });
+  ruleTextInput.addEventListener('blur', function(){
+    if (linkSource === 'caret'){ hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
+  });
 
   ruleTextInput.addEventListener('input', function(){
     clearTimeout(ruleParseTimer);

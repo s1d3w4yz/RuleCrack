@@ -35,8 +35,9 @@ existing `.rule` file line by line.
   part that changed highlighted (colored, bold and underlined, so it doesn't
   rely on color alone). Hovering or focusing a step in the chain also
   highlights its row here and its token in the rule line, and hovering a
-  row here (or a token in the rule line itself) highlights the same step,
-  its card, its row and its token. Reject steps stop the chain and mark the
+  row here (or a token in the rule line itself — by hovering it, or just by
+  putting the text cursor in it) highlights the same step, its card, its
+  row and its token. Reject steps stop the chain and mark the
   candidate as discarded, matching real hashcat behavior.
 - **Copying**: the rule line (section 02) is a standard Hashcat rule line
   (e.g. `c sa4 se3 si1 so0 ss5 $! $1`) — its button copies it, ready to drop

@@ -48,6 +48,8 @@ everything cosmetic second):
     - hovering a token in the rule line (real mouse) links its step card
       and trace row, gaps link nothing, and it still works when the line
       has scrolled sideways
+    - with nothing hovered, the text cursor in the rule line links the
+      step whose token it is in (arrow keys, selections, typing a token)
     - hovering a trace row lights up its step card and rule-line token
       (the link works from either side)
     - hovering or focusing a step also highlights its row in the trace
@@ -1368,6 +1370,78 @@ def test_rule_line_hover_links_its_step(driver, r):
     set_value(driver, box, rule, debounced=True)
 
 
+def test_rule_line_caret_links_its_step(driver, r):
+    """With nothing hovered, the text cursor in the rule line links the
+    step whose token it is in (or at the end of, or at the start of): the
+    token, its card and its trace row light up. A selection across several
+    tokens links nothing; typing a new token links its new step once the
+    chain rebuilds; leaving the box clears it. Real keyboard input."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.common.keys import Keys
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    box = driver.find_element('id', 'ruleTextInput')
+    set_value(driver, box, 'c sa4 se3', debounced=True)
+
+    def linked():
+        return driver.execute_script(
+            "var t = document.querySelector('#ruleHl .hl-on'), c = document.querySelector('#chain .step.linked'), w = document.querySelector('#trace .trace-row.linked');"
+            "return [t && t.textContent, c && [].indexOf.call(document.querySelectorAll('#chain .step'), c) + 1, w && w.dataset.step];")
+
+    def keys(*k):
+        ActionChains(driver).send_keys(*k).perform()
+        time.sleep(0.15)
+
+    ActionChains(driver).move_to_element(driver.find_element('id', 'wordInput')).perform()   # mouse well away from the rule line
+    box.click()
+    keys(Keys.HOME)                                       # caret before 'c'
+    r.check(linked() == ['c', 1, '1'], 'caret at the start of "c" links step 1', f'{linked()}')
+    keys(Keys.ARROW_RIGHT)                                # after 'c'
+    r.check(linked() == ['c', 1, '1'], 'caret at the end of "c" still links step 1', f'{linked()}')
+    keys(Keys.ARROW_RIGHT)                                # before 'sa4' (past the space)
+    r.check(linked() == ['sa4', 2, '2'], 'caret at the start of "sa4" links step 2', f'{linked()}')
+    keys(Keys.ARROW_RIGHT)                                # between s and a
+    r.check(linked() == ['sa4', 2, '2'], 'caret inside "sa4" links step 2', f'{linked()}')
+    keys(Keys.ARROW_RIGHT, Keys.ARROW_RIGHT)              # after 'sa4'
+    r.check(linked() == ['sa4', 2, '2'], 'caret at the end of "sa4" links step 2', f'{linked()}')
+    keys(Keys.ARROW_RIGHT, Keys.ARROW_RIGHT)              # inside 'se3'
+    r.check(linked()[0] == 'se3' and linked()[1] == 3, 'moving on, the link follows to "se3" / step 3', f'{linked()}')
+
+    def shift_right(n):
+        # hold Shift only for these presses (Selenium otherwise leaves it down)
+        chain = ActionChains(driver).key_down(Keys.SHIFT)
+        for _ in range(n):
+            chain = chain.send_keys(Keys.ARROW_RIGHT)
+        chain.key_up(Keys.SHIFT).perform()
+        time.sleep(0.15)
+
+    keys(Keys.HOME)
+    shift_right(4)                                        # selects 'c sa'
+    sel = driver.execute_script("var i = document.getElementById('ruleTextInput'); return [i.selectionStart, i.selectionEnd];")
+    r.check(linked() == [None, None, None], 'a selection across several tokens links nothing', f'selection {sel}, {linked()}')
+    keys(Keys.HOME)
+    keys(Keys.ARROW_RIGHT, Keys.ARROW_RIGHT)
+    shift_right(2)                                        # selects 'sa' inside sa4
+    r.check(linked() == ['sa4', 2, '2'], 'a selection inside one token links that token', f'{linked()}')
+
+    # typing a new token: after the chain rebuilds, its step is linked
+    keys(Keys.END)
+    keys(' ss5')
+    time.sleep(0.7)
+    steps_now = driver.execute_script("return document.querySelectorAll('#chain .step').length;")
+    r.check(steps_now == 4 and linked() == ['ss5', 4, '4'], 'typing a new token links its new step once the chain rebuilds', f'{steps_now} steps, {linked()}')
+
+    # the mouse takes over while hovering a token, and the caret takes back over afterwards
+    ActionChains(driver).move_to_element(driver.find_element('id', 'wordInput')).perform()
+    time.sleep(0.15)
+    r.check(linked()[0] == 'ss5', 'with the mouse elsewhere, the caret link is back', f'{linked()}')
+
+    box.send_keys(Keys.TAB)                                # leave the box
+    time.sleep(0.15)
+    r.check(linked() == [None, None, None], 'leaving the rule line clears the caret link', f'{linked()}')
+    set_value(driver, box, 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1403,6 +1477,7 @@ def main():
         test_step_hover_links_to_its_trace_row(driver, r)
         test_trace_row_hover_links_back_to_its_step(driver, r)
         test_rule_line_hover_links_its_step(driver, r)
+        test_rule_line_caret_links_its_step(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
