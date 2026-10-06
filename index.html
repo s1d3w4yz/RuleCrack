@@ -2343,7 +2343,15 @@ d $1$2$3"></textarea>
       void el.offsetWidth; // restart the animation if clicked twice
       el.classList.add('jump-highlight');
     });
-    traceEl.scrollIntoView({behavior:'smooth', block:'center'});
+    // Only move the page if the chain or trace isn't fully on screen (e.g.
+    // you're scrolled down at the batch table, or the columns were expanded
+    // taller than the window) — then line the top of the target view up with
+    // the top of the window. If both are already visible, leave the view alone.
+    function fullyVisible(el){ var r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }
+    if (!(fullyVisible(traceEl) && fullyVisible(chainEl))){
+      var top = builderView.getBoundingClientRect().top + window.scrollY - 12;
+      window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+    }
   });
 
   // ---------------------------------------------------------------------
