@@ -771,6 +771,60 @@ def test_toggle_groups_expose_pressed_state(driver, r):
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
 
 
+def test_live_announcements(driver, r):
+    """Changes a screen reader user can't see are announced through the
+    hidden #liveStatus region (moves, deletes, copies, the result, search
+    counts), the in-place status lines are live regions, and the rule
+    line reports aria-invalid while it has parse errors. Nothing is
+    announced on page load."""
+    def live():
+        return driver.execute_script("return document.getElementById('liveStatus').textContent;")
+
+    def settle():
+        time.sleep(1.4)  # let any pending debounced announcement fire first
+
+    driver.get(INDEX_URL)
+    time.sleep(1.0)
+    r.check(live() == '', 'nothing is announced on page load', repr(live()))
+    attrs = driver.execute_script(
+        "return ['ruleParseStatus', 'portabilityNote', 'validatorSummary', 'targetNote'].map(function(id){"
+        "  return document.getElementById(id).getAttribute('aria-live'); });")
+    r.check(attrs == ['polite'] * 4, 'status lines that update in place are polite live regions', f'{attrs}')
+
+    settle()
+    driver.execute_script("document.querySelectorAll('.step')[1].querySelector('.down').click();")
+    time.sleep(0.25)
+    r.check(live() == 'Step moved down to position 3 of 8', 'moving a step down announces its new position', repr(live()))
+
+    settle()
+    driver.execute_script("document.querySelector('.step .del').click();")
+    time.sleep(0.25)
+    r.check(live().startswith('Deleted step 1.'), 'deleting a step announces it', repr(live()))
+
+    settle()
+    driver.execute_script("document.getElementById('copyRuleBtn').click();")
+    time.sleep(0.4)
+    r.check(live() == 'Rule copied', 'copying the rule announces it', repr(live()))
+
+    settle()
+    set_value(driver, driver.find_element('id', 'wordInput'), 'dragon')
+    time.sleep(1.3)
+    r.check(live().startswith('Result: '), 'changing the word announces the new result after a pause', repr(live()))
+
+    settle()
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'rev')
+    time.sleep(1.0)
+    r.check(live() == '2 operators match', 'searching the cheat sheet announces how many operators match', repr(live()))
+    set_value(driver, driver.find_element('id', 'cheatSearch'), '')
+
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'zzz', debounced=True)
+    invalid = driver.execute_script("return document.getElementById('ruleTextInput').getAttribute('aria-invalid');")
+    r.check(invalid == 'true', 'a rule line with parse errors is marked aria-invalid', f'{invalid!r}')
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4', debounced=True)
+    invalid = driver.execute_script("return document.getElementById('ruleTextInput').getAttribute('aria-invalid');")
+    r.check(invalid is None, 'aria-invalid clears once the line parses', f'{invalid!r}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -798,6 +852,7 @@ def main():
         test_document_basics(driver, r)
         test_every_control_has_an_accessible_name(driver, r)
         test_toggle_groups_expose_pressed_state(driver, r)
+        test_live_announcements(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)
