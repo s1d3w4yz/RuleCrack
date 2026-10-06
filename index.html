@@ -610,7 +610,7 @@ princess</textarea>
       <div class="cheat-legend" id="cheatLegend"></div>
       <div class="searchrow">
         <input type="search" id="cheatSearch" class="cheatsearch" placeholder="Search operators or descriptions…" autocomplete="off" spellcheck="false" aria-label="Search the cheat sheet">
-        <label class="searchopt" title="Match only the operator and its example, not the description — case-sensitive, like the operators themselves"><input type="checkbox" id="cheatOpOnly"> Operators only</label>
+        <label class="searchopt" title="Match only the operator itself, not its example or description — case-sensitive, like the operators themselves"><input type="checkbox" id="cheatOpOnly"> Operators only</label>
       </div>
       <div id="cheatBody"></div>
     </div>
@@ -2637,15 +2637,16 @@ d $1$2$3"></textarea>
   var cheatSearch = document.getElementById('cheatSearch');
   var cheatOpOnly = document.getElementById('cheatOpOnly');
   function filterCheatsheet(){
-    // "Operators only" matches just the syntax and example columns, and is
-    // case-sensitive (c/C and t/T are different operators) — so a single
+    // "Operators only" matches just the syntax column (not the example —
+    // its X/Y arguments are arbitrary sample characters, not part of the
+    // operator) and is case-sensitive (c/C and t/T are different operators) — so a single
     // letter stops matching every description that happens to contain it.
     var opOnly = cheatOpOnly.checked;
     var terms = (opOnly ? cheatSearch.value : cheatSearch.value.toLowerCase()).split(/\s+/).filter(Boolean);
     var shown = 0, rows = cheatBody.querySelectorAll('.cheat-row');
     rows.forEach(function(row){
       var ex = (row.querySelector('button.ex')||{dataset:{}}).dataset.token || '';
-      var hay = opOnly ? (row.querySelector('.syntax').textContent + ' ' + ex)
+      var hay = opOnly ? row.querySelector('.syntax').textContent
                        : row.textContent.toLowerCase() + ' ' + ex.toLowerCase();
       var hit = terms.every(function(t){ return hay.indexOf(t) !== -1; });
       row.classList.toggle('cf-hide', !hit);
