@@ -384,6 +384,10 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row.start .word{color:var(--dim)}
 .trace-row.final .num{background:var(--good)}
 .trace-row.final .word{color:var(--good);font-weight:600;font-size:1.25rem}
+/* A step that did not run (switched off, or after a rejecting step) keeps its row, dimmed, so the
+   list is as long as the chain and the layout doesn't jump when the outcome changes. */
+.trace-row.skipped .num{background:transparent;color:var(--dim);box-shadow:inset 0 0 0 1px var(--control-border)}
+.trace-row.skipped .word{color:var(--dim);font-family:inherit;font-size:.9rem;font-weight:400;font-style:italic}
 .trace-row.rejected .num{background:var(--danger)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
@@ -403,7 +407,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
   position:sticky;top:0;z-index:2;background:var(--surface);
   box-shadow:0 4px 6px -4px rgba(0,0,0,.35);
 }
-.trace.locked .trace-row:last-child{
+.trace.locked .trace-row.outcome{
   position:sticky;bottom:0;z-index:2;background:var(--surface);
   border-top:1px dashed var(--rule);
   box-shadow:0 -4px 6px -4px rgba(0,0,0,.35);
@@ -2758,15 +2762,30 @@ d $1$2$3"></textarea>
     copyResultBtn.disabled = result.rejected;
     copyResultBtn.title = result.rejected ? 'This word is rejected by the chain, so there is no final result to copy' : 'Copy the final word the chain produces';
 
-    traceEl.innerHTML = result.trace.map(function(row, i){
+    // One row per chain step, in order: a row for each step that ran, and a dimmed placeholder for
+    // each one that didn't (switched off, or after the step that rejected the word).
+    var rejectedAt = result.rejected ? lastRow.stepNum : 0;
+    var rowsHtml = [];
+    function rowHtml(row, i){
       var isFirst = i===0;
       var isLast = i===result.trace.length-1 && result.trace.length>1 && !row.rejected;
-      var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'');
+      var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'') + ((isLast||row.rejected)?' outcome':'');
       var marker = row.stepNum ? '<span class="num" title="Step '+row.stepNum+' in the chain below"><span class="sr-only">Step </span>'+row.stepNum+'</span>' : '<span class="dot"></span>';
       return '<div class="'+cls+'"'+(row.stepNum ? ' data-step="'+row.stepNum+'"' : '')+'>'+marker+
         '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
-    }).join('');
+    }
+    rowsHtml.push(rowHtml(result.trace[0], 0));
+    steps.forEach(function(st, k){
+      var n = k + 1, idx = -1;
+      result.trace.forEach(function(row, ti){ if (row.stepNum === n) idx = ti; });
+      if (idx >= 0){ rowsHtml.push(rowHtml(result.trace[idx], idx)); return; }
+      var why = !st.enabled ? 'Not run — this step is switched off' : 'Not run — the chain stopped at step ' + rejectedAt;
+      rowsHtml.push('<div class="trace-row skipped" data-step="'+n+'"><span class="num" title="Step '+n+' in the chain below"><span class="sr-only">Step </span>'+n+'</span>'+
+        '<div class="content"><div class="word">'+escapeHtml(OPS[st.type].label)+'</div>'+
+        '<div class="caption">'+escapeHtml(why)+'</div></div></div>');
+    });
+    traceEl.innerHTML = rowsHtml.join('');
 
     if (typeof linkTraceRow === 'function') linkTraceRow(false); // keep the hover link across a re-render
     copyRuleBtn.textContent = TARGET==='john_native' ? 'Copy John rule' : 'Copy Hashcat rule';
@@ -3660,7 +3679,8 @@ d $1$2$3"></textarea>
     // scroll area, so the part where a row can actually be seen is smaller
     if (box.classList.contains('locked') && box.children.length > 2){
       if (el !== box.firstElementChild) top = Math.max(top, box.firstElementChild.getBoundingClientRect().bottom);
-      if (el !== box.lastElementChild) bottom = Math.min(bottom, box.lastElementChild.getBoundingClientRect().top);
+      var end = box.querySelector('.trace-row.outcome') || box.lastElementChild, er = end.getBoundingClientRect();
+      if (el !== end && er.bottom >= b.bottom - 1) bottom = Math.min(bottom, er.top);   // only while it is pinned to the bottom
     }
     if (r.top < top) box.scrollTop -= (top - r.top) + 4;
     else if (r.bottom > bottom) box.scrollTop += (r.bottom - bottom) + 4;

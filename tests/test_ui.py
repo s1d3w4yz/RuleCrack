@@ -177,7 +177,7 @@ def engine_run(driver, word, steps):
 
 def final_trace_word(driver):
     return driver.execute_script(
-        "var rows = document.querySelectorAll('#trace .trace-row');"
+        "var rows = document.querySelectorAll('#trace .trace-row:not(.skipped)');"   # skipped rows are dimmed placeholders
         "return rows[rows.length-1].querySelector('.word').textContent;"
     )
 
@@ -1253,7 +1253,8 @@ def test_step_hover_links_to_its_trace_row(driver, r):
         "var box = t.getBoundingClientRect(), b = row.getBoundingClientRect(), top = box.top, bot = box.bottom;"
         "if (t.classList.contains('locked')){"   # the pinned first/last rows cover part of the box
         "  if (row !== t.firstElementChild) top = Math.max(top, t.firstElementChild.getBoundingClientRect().bottom);"
-        "  if (row !== t.lastElementChild) bot = Math.min(bot, t.lastElementChild.getBoundingClientRect().top); }"
+        "  var end = t.querySelector('.trace-row.outcome') || t.lastElementChild, er = end.getBoundingClientRect();"
+        "  if (row !== end && er.bottom >= box.bottom - 1) bot = Math.min(bot, er.top); }"
         "return b.top >= top - 1 && b.bottom <= bot + 1;")
     r.check(inview is True, 'hovering a step whose trace row is out of view scrolls the trace to show it', f'in view: {inview}')
 
@@ -1262,10 +1263,11 @@ def test_step_hover_links_to_its_trace_row(driver, r):
     driver.execute_script("var i = document.querySelectorAll('#chain .step')[1].querySelector('.p-arg'); i.value = 'q'; i.dispatchEvent(new Event('input', {bubbles: true}));")
     r.check(linked() == ['2'], 'the link survives a trace re-render', f'{linked()}')
 
-    # a disabled step did not run, so there is no row to link
+    # a disabled step did not run: it keeps a dimmed placeholder row, and that row still links
     driver.execute_script("document.querySelectorAll('#chain .s-enabled')[2].click();")
     hover(3)
-    r.check(linked() == [], 'a disabled step has no trace row to link', f'{linked()}')
+    r.check(linked() == ['3'] and driver.execute_script("return document.querySelector('#trace .trace-row.linked').classList.contains('skipped');"),
+            'a disabled step keeps a dimmed trace row, and it still links', f'{linked()}')
 
     # underline as well as color for what changed
     deco = driver.execute_script("var h = document.querySelector('#trace .word .hl'); return h ? getComputedStyle(h).textDecorationLine : null;")
@@ -1368,7 +1370,8 @@ def test_rule_line_hover_links_its_step(driver, r):
         "var b0 = t.getBoundingClientRect(), b = row.getBoundingClientRect(), top = b0.top, bot = b0.bottom;"
         "if (t.classList.contains('locked')){"
         "  if (row !== t.firstElementChild) top = Math.max(top, t.firstElementChild.getBoundingClientRect().bottom);"
-        "  if (row !== t.lastElementChild) bot = Math.min(bot, t.lastElementChild.getBoundingClientRect().top); }"
+        "  var end = t.querySelector('.trace-row.outcome') || t.lastElementChild, er = end.getBoundingClientRect();"
+        "  if (row !== end && er.bottom >= b0.bottom - 1) bot = Math.min(bot, er.top); }"
         "return b.top >= top - 1 && b.bottom <= bot + 1;")
     r.check(vis is True, 'the linked trace row is brought fully into view, not hidden under a pinned row', f'visible: {vis}')
 
@@ -1674,6 +1677,33 @@ def test_rule_line_highlight_with_multibyte_steps(driver, r):
         "var h=document.querySelector('#ruleHl .hl-on');out.push(h?h.textContent:null);"
         "c.dispatchEvent(new MouseEvent('mouseout',{bubbles:true}));});return out;")
     r.check(marks == ['c', 'sa4', 'se3', 'si1', 'so0', 'ss5', '$\\xc2$\\xa3', '$1'], 'hovering each step highlights exactly its own text, including the multi-byte one', repr(marks))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
+def test_trace_keeps_a_row_for_every_step(driver, r):
+    """Steps that did not run (after a rejecting step, or switched off) keep a dimmed row, so the
+    trace is as long as the chain and the layout doesn't jump when the outcome changes."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c >3 sa4 $1', debounced=True)
+    info = lambda: driver.execute_script(
+        "var rows=document.querySelectorAll('#trace .trace-row');"
+        "return {n: rows.length, skipped: document.querySelectorAll('#trace .trace-row.skipped').length,"
+        " rejected: document.querySelectorAll('#trace .trace-row.rejected').length,"
+        " h: Math.round(document.documentElement.scrollHeight), trace: Math.round(document.getElementById('trace').getBoundingClientRect().height),"
+        " why: Array.from(document.querySelectorAll('#trace .trace-row.skipped .caption')).map(function(c){return c.textContent;})};")
+    ok = info()
+    r.check(ok['n'] == 5 and ok['skipped'] == 0, 'a chain that finishes shows the start row and one row per step', f'{ok}')
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c >9 sa4 $1', debounced=True)   # "password" is 8 long: rejected at step 2
+    rej = info()
+    r.check(rej['n'] == 5 and rej['rejected'] == 1 and rej['skipped'] == 2, 'a rejection keeps a dimmed row for each later step', f'{rej}')
+    r.check(all('stopped at step 2' in w for w in rej['why']), 'the dimmed rows say which step stopped the chain', f"{rej['why']}")
+    r.check(rej['h'] == ok['h'] and rej['trace'] == ok['trace'], 'a rejection does not change the page or trace height', f'{ok} -> {rej}')
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 $1', debounced=True)
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].click();")
+    off = info()
+    r.check(off['skipped'] == 1 and off['why'] == ['Not run — this step is switched off'], 'a switched-off step keeps a dimmed row that says so', f'{off}')
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
 
 
@@ -2341,6 +2371,7 @@ def main():
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
         test_byte_escapes_in_the_rule_line(driver, r)
+        test_trace_keeps_a_row_for_every_step(driver, r)
         test_rule_line_highlight_with_multibyte_steps(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)
         test_top_bar_stays_within_the_intro_width(driver, r)
