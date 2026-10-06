@@ -51,6 +51,12 @@ existing `.rule` file line by line.
   The three columns are sized to end together within the window and
   re-fit when you resize it (devtools opening, maximizing, zooming); below
   1150px wide they stack and the lists use fixed heights instead.
+- **Accessibility**: a real HTML document (language, viewport, one `<main>`),
+  skip links, an accessible name on every control (each step's checkbox,
+  arguments and buttons say which step they belong to), toggle buttons that
+  report their pressed state, a visible focus ring, and spoken updates for
+  moves, deletes, copies, the chain's result and search results. The tests
+  check these so they don't regress.
 - **Hashcat / John the Ripper compatibility**: a three-way target switch,
   since John's rule engine and hashcat's overlap but neither is a subset of
   the other — hashcat has 13 operators John never implements at all, and
