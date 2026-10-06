@@ -2002,6 +2002,30 @@ def test_section_gaps_are_consistent(driver, r):
     r.check(pos == ['absolute', True], 'an empty status line takes no room (but stays in the accessibility tree)', f'{pos}')
 
 
+def test_top_bar_buttons_are_uniform(driver, r):
+    """Every button in the top bar (views, theme, text size, link switches,
+    help) is the same height, and so is every group around them, at all
+    three text sizes — the text-size "A" buttons used to be taller."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def heights():
+        return driver.execute_script(
+            "var rnd = function(x){ return Math.round(x * 10) / 10; };"
+            "return {buttons: Array.from(new Set([].map.call(document.querySelectorAll('.controlrow .mbtn'), function(b){ return rnd(b.getBoundingClientRect().height); }))),"
+            "        groups: Array.from(new Set([].map.call(document.querySelectorAll('.controlrow > div'), function(g){ return rnd(g.getBoundingClientRect().height); })))};")
+
+    for size, label in (('', 'default'), ('lg', 'larger'), ('xl', 'largest')):
+        driver.execute_script("document.querySelector('#sizeSwitch [data-size-set=\"' + arguments[0] + '\"]').click();", size)
+        time.sleep(0.3)
+        h = heights()
+        r.check(len(h['buttons']) == 1 and len(h['groups']) == 1, f'{label} text size: all top-bar buttons and groups are one height', f'{h}')
+    driver.execute_script("document.querySelector('#sizeSwitch [data-size-set=\"\"]').click();")
+    driver.find_element('css selector', '.mbtn[data-mode="validator"]').click()
+    h = heights()
+    r.check(len(h['buttons']) == 1 and len(h['groups']) == 1, 'the same in the validator view', f'{h}')
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -2057,6 +2081,7 @@ def main():
         test_auto_theme_follows_the_system(driver, r)
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
+        test_top_bar_buttons_are_uniform(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

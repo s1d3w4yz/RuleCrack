@@ -116,7 +116,10 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .modetoggle{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px;width:fit-content;margin:10px 0 16px}
 .mbtn{
   font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--dim);
-  background:none;border:none;border-radius:6px;padding:7px 14px;cursor:pointer;
+  background:none;border:none;border-radius:6px;padding:0 14px;cursor:pointer;
+  /* One fixed height for every button in the top bar (in rem, so it scales with the text
+     size). The text-size "A" buttons use bigger letters and used to stretch their group. */
+  height:1.8rem;display:inline-flex;align-items:center;justify-content:center;line-height:1;
 }
 .mbtn:hover{color:var(--ink)}
 .mbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
