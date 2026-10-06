@@ -825,6 +825,39 @@ def test_live_announcements(driver, r):
     r.check(invalid is None, 'aria-invalid clears once the line parses', f'{invalid!r}')
 
 
+def test_reduced_motion_is_respected(driver, r):
+    """With the system's 'reduce motion' setting on, the batch 'trace'
+    jump does not play its flash animation and the page scrolls instantly;
+    with it off, both still happen. Runs last (changes media emulation)."""
+    def media(value):
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia',
+                               {'features': [{'name': 'prefers-reduced-motion', 'value': value}]})
+
+    def probe():
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        driver.execute_script("window.scrollTo(0, 0); document.querySelectorAll('.tracebtn')[1].click();")
+        time.sleep(0.12)
+        early = driver.execute_script("return Math.round(window.scrollY);")
+        anim = driver.execute_script("return getComputedStyle(document.getElementById('trace')).animationName;")
+        time.sleep(1.0)
+        late = driver.execute_script("return Math.round(window.scrollY);")
+        return early, late, anim
+
+    try:
+        media('no-preference')
+        early, late, anim = probe()
+        r.check(anim == 'jumpFlash' and early < late, 'normally: the jump flashes and scrolls smoothly',
+                f'animation {anim!r}, scrollY {early} -> {late}')
+        media('reduce')
+        early, late, anim = probe()
+        r.check(anim == 'none' and early == late and late > 0, 'with reduce-motion: no flash, and the scroll is instant',
+                f'animation {anim!r}, scrollY {early} -> {late}')
+    finally:
+        media('no-preference')
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -856,6 +889,7 @@ def main():
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)
+        test_reduced_motion_is_respected(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

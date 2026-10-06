@@ -408,6 +408,11 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
   100%{box-shadow:0 0 0 0 transparent;}
 }
 .jump-highlight{animation:jumpFlash 1s ease}
+/* Respect "reduce motion": no flash animation, and (in JS) no animated scrolling. */
+@media (prefers-reduced-motion:reduce){
+  .jump-highlight{animation:none}
+  *,*::before,*::after{scroll-behavior:auto !important;transition-duration:.01ms !important;animation-duration:.01ms !important;animation-iteration-count:1 !important}
+}
 
 /* rulefile validator */
 .vtable-wrap{max-height:480px;overflow-y:auto;border:1px solid var(--rule);border-radius:8px;margin-top:8px}
@@ -2409,7 +2414,7 @@ d $1$2$3"></textarea>
     function fullyVisible(el){ var r = el.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; }
     if (!(fullyVisible(traceEl) && fullyVisible(chainEl))){
       var top = builderView.getBoundingClientRect().top + window.scrollY - 12;
-      window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
+      window.scrollTo({top: Math.max(0, top), behavior: scrollBehavior()});
     }
   });
 
@@ -2668,7 +2673,7 @@ d $1$2$3"></textarea>
     validatorReturnRow.textContent = idx + 1;
     validatorReturnBox.hidden = false;
     syncColumnFit(); // the box adds height to column 1
-    ruleTextInput.scrollIntoView({behavior:'smooth', block:'center'});
+    ruleTextInput.scrollIntoView({behavior: scrollBehavior(), block:'center'});
   }
   validatorReturnSave.addEventListener('click', function(){
     if (VALIDATOR_FIX_ROW===null) return;
@@ -2978,6 +2983,8 @@ d $1$2$3"></textarea>
     ruleParseTimer = setTimeout(loadRuleText, 300);
   });
 
+  // 'smooth' unless the user asked their system to reduce motion
+  function scrollBehavior(){ return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; }
   // Spoken updates for screen readers (the hidden #liveStatus region). Quiet
   // until the page has finished loading, so nothing is announced on open;
   // announceSoon() waits for a pause so typing doesn't produce a stream.
