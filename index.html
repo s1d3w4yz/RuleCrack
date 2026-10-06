@@ -1871,56 +1871,63 @@ d $1$2$3"></textarea>
   // resizing the window afterwards deliberately does not re-fit them.
   var LOAD_VIEWPORT_HEIGHT = window.innerHeight;
   var VIEWPORT_MARGIN = 24; // breathing room so a column ends just inside the viewport
-  // col1 and col2 carry different amounts of fixed (non-list) content —
-  // section 03's add-step row + callout isn't the same size as section
-  // 04's checkbox row + section 05's batch test —
-  // so sizing each column's list independently from the same "available"
-  // figure doesn't actually produce equal column heights: whichever
-  // column has MORE fixed content around its list ends up with a taller
-  // total once both lists hit their own floor (there's nothing
-  // left to take the difference out of). Work out what each column would
-  // need on its own first, then apply the larger of the two totals to
-  // BOTH — the one with less fixed content just gets a taller list than
-  // its own floor would otherwise ask for, to make up the difference.
-  function fitListHeight(card, listEl, available, minHeight){
+  // The shared height of columns 1 and 2 is the SMALLEST of: what fits the
+  // viewport, what column 1 can fill with its own content, and what column
+  // 2 can fill with its own — so whichever list has fewer rows than room
+  // decides the height, and the other list is shrunk (it scrolls) to match,
+  // instead of the short one being padded out with empty space. Two limits:
+  // a column's fixed content + its list floor (about 2-3 rows) can't be
+  // shrunk further, and only if that alone is taller than the shared height
+  // is the other column's list padded (min-height) to keep them equal.
+  //
+  // To measure, a list's inline max/min height is cleared first so it takes
+  // its natural height; overhead is everything in the card that is NOT the
+  // list (inputs, callouts, headings...), which differs a lot between the
+  // two columns.
+  function measureColumn(card, listEl, minHeight){
     if (listEl.classList.contains('expanded')) return null; // left at its natural/full size
-    var fixedOverhead = card.getBoundingClientRect().height - listEl.getBoundingClientRect().height;
+    // 'none', not '': clearing the inline value would fall back to the
+    // stylesheet's pre-JS cap (420px / 560px) instead of the real content height
+    listEl.style.maxHeight = 'none'; listEl.style.minHeight = '';
+    var listH = listEl.getBoundingClientRect().height;
+    var overhead = card.getBoundingClientRect().height - listH;
     // the floors are "about N rows", so they grow with the text size setting
     var textScale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
-    var listHeight = Math.max(minHeight * textScale, available - fixedOverhead);
-    return {fixedOverhead: fixedOverhead, total: fixedOverhead + listHeight};
+    var floor = Math.min(minHeight * textScale, listH); // never taller than the content
+    return {list: listEl, overhead: overhead, content: listH, floor: floor, natural: overhead + listH};
   }
-  function setListHeight(listEl, px){ listEl.style.maxHeight = px + 'px'; listEl.style.minHeight = px + 'px'; }
+  function applyColumnHeight(m, total){
+    var box = total - m.overhead;
+    m.list.style.maxHeight = box + 'px';
+    // pad only when the content truly can't reach the shared height
+    m.list.style.minHeight = (total > m.natural) ? box + 'px' : '';
+  }
   function syncColumnFit(){
     if (document.getElementById('builderView').hidden) return;
     // Each column's total height is capped at the load-time viewport
     // height, so scrolling down once shows a whole column on screen.
     var available = LOAD_VIEWPORT_HEIGHT - VIEWPORT_MARGIN;
-    var fit1 = fitListHeight(col1Card, chainEl, available, MIN_CHAIN_HEIGHT);
-    var fit2 = fitListHeight(col2Card, traceEl, available, MIN_TRACE_HEIGHT);
-    var rawTarget = Math.max(fit1 ? fit1.total : 0, fit2 ? fit2.total : 0);
-    var targetTotal;
-    if (fit1 && fit2){
+    var m1 = measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT);
+    var m2 = measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT);
+    var ms = [m1, m2].filter(Boolean);
+    var targetTotal = 0;
+    if (ms.length){
+      var lower = Math.max.apply(null, ms.map(function(m){ return m.overhead + m.floor; }));
+      var wanted = Math.min.apply(null, [available].concat(ms.map(function(m){ return m.natural; })));
+      targetTotal = Math.max(lower, wanted);
+    }
+    if (m1 && m2){
       // Neither column is manually expanded — this is a real, authoritative
       // measurement of what both should match, so remember it.
-      targetTotal = rawTarget;
       lastColumnTarget = targetTotal;
-    } else {
-      // One column is expanded and excluded from rawTarget entirely (so
-      // it doesn't get chased, per the existing design) — but the OTHER
-      // one still shouldn't shrink below the real baseline just because
-      // its sibling's current size isn't being counted this time. E.g.
-      // expand column 1, expand column 2, then collapse column 1: column
-      // 2 is still excluded, so rawTarget would be column 1's own natural
-      // minimum alone — smaller than the true shared baseline whenever
-      // column 2 is the one with more fixed content around its list.
-      targetTotal = Math.max(rawTarget, lastColumnTarget || 0);
+    } else if (lastColumnTarget){
+      // One column is expanded and doesn't take part (it shows everything) —
+      // but the OTHER one must still match the real baseline, not be sized
+      // from its own numbers alone. E.g. expand column 1, expand column 2,
+      // then collapse column 1: column 2 is still excluded.
+      targetTotal = lastColumnTarget;
     }
-    // min-height as well as max-height: a list with fewer rows than its box
-    // could hold (a short chain, a short trace, a tall window) would otherwise
-    // end early and leave its column shorter than the others.
-    if (fit1 && targetTotal>0) setListHeight(chainEl, targetTotal - fit1.fixedOverhead);
-    if (fit2 && targetTotal>0) setListHeight(traceEl, targetTotal - fit2.fixedOverhead);
+    ms.forEach(function(m){ if (targetTotal > 0) applyColumnHeight(m, targetTotal); });
     syncCheatHeight();
   }
   var lastColumnTarget = null; // last target height measured with neither chain nor trace expanded
@@ -3020,7 +3027,7 @@ d $1$2$3"></textarea>
   // after that the checkbox is entirely the user's.
   (function(){
     var rowH = (traceEl.firstElementChild && traceEl.firstElementChild.offsetHeight) || 55;
-    var boxH = parseFloat(traceEl.style.maxHeight) || traceEl.clientHeight;
+    var boxH = traceEl.getBoundingClientRect().height;
     if (boxH < rowH * 3){
       traceLockToggle.checked = false;
       traceEl.classList.remove('locked');

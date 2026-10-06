@@ -32,7 +32,9 @@ everything cosmetic second):
     - an out-of-range position argument (e.g. typing 99) clamps to 35 in
       the actual exported rule, not just visually
     - the three columns stay equal height however full the lists are
-      (full, one-step and empty chains; expanding a short list)
+      (full, one-step and empty chains; expanding a short list), and in a
+      tall window they end at column 2's natural height by shrinking the
+      chain list instead of padding the trace box
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -595,6 +597,34 @@ def test_columns_stay_equal_height(driver, r):
     driver.execute_script("document.getElementById('traceExpandBtn').click();")
 
 
+def test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r):
+    """In a window taller than column 2's content needs (e.g. 1215x1123),
+    the columns must end at column 2's natural height by SHRINKING the
+    step-chain list — not by padding the trace box with empty space to
+    reach column 1's height. Runs last: it reloads the page at a different
+    viewport size."""
+    driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride',
+                           {'width': 1215, 'height': 1123, 'deviceScaleFactor': 1, 'mobile': False})
+    try:
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        m = driver.execute_script(
+            "var h = function(id){ return Math.round(document.getElementById(id).getBoundingClientRect().height); };"
+            "var t = document.getElementById('trace'), c = document.getElementById('chain');"
+            "return {c1: h('col1Card'), c2: h('col2Card'), c3: h('cheatCard'), vh: window.innerHeight,"
+            "        trace: h('trace'),        traceContent: [].reduce.call(t.children, function(a, e){ return a + e.getBoundingClientRect().height; }, 0) + 2, chain: h('chain'), chainContent: c.scrollHeight + 2};")
+        r.check(m['c1'] == m['c2'] == m['c3'], 'tall window: all three columns are equal height', f'{m}')
+        r.check(m['trace'] <= m['traceContent'] + 1,
+                'tall window: the trace box is not padded past its own rows', f"box {m['trace']}px, content {m['traceContent']}px")
+        r.check(m['chain'] < m['chainContent'],
+                'tall window: the chain list was shrunk (scrolls) to match column 2', f"box {m['chain']}px, content {m['chainContent']}px")
+        r.check(m['c1'] < m['vh'] - 24,
+                'tall window: columns end below the viewport limit because column 2 has no more to show', f"{m['c1']}px vs limit {m['vh'] - 24}px")
+    finally:
+        driver.execute_cdp_cmd('Emulation.clearDeviceMetricsOverride', {})
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -620,6 +650,7 @@ def main():
         test_rule_line_follows_chain_edits(driver, r)
         test_text_size_control(driver, r)
         test_columns_stay_equal_height(driver, r)
+        test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
