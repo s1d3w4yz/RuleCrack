@@ -182,12 +182,30 @@ def run_regression_checks(driver, results):
         ('hashcat', '>2', '\u00e9', '\u00e9'),
         ('hashcat', 'h', '\u00e9', 'c3a9'),
         ('hashcat', '[', '\u00e9a', '\\xA9a'),         # half a character shows as \xNN   # ?s is printable-ASCII symbols (space included), not é
+        # \xNN byte escapes in arguments (checked against real hashcat)
+        ('hashcat', '$\\xc2 $\\xb5', 'ab', 'abµ'),
+        ('hashcat', '^\\xb5 ^\\xc2', 'ab', 'µab'),
+        ('hashcat', 'i1\\xc3 i2\\xa9', 'ab', 'aéb'),
+        ('hashcat', 'o1\\xc3 o2\\xa9', 'abcd', 'aéd'),
+        ('hashcat', '$\\xc5 $\\x8d', 'ab', 'ab\u014d'),
+        ('hashcat', '$\\x41', 'ab', 'abA'),
+        ('hashcat', 's\\xc3\\xa9', 'café', 'caf\\xA9\\xA9'),   # replaces the first byte of é
+        ('john', '$\\xc2 $\\xb5', 'ab', 'abµ'),
     ]
     for dialect, rule, word, want in cases:
         r = run_rule(driver, dialect, rule, word)
         got = r.get('final') if not r.get('error') and not r.get('rejected') else None
         ok = (got == want) and not r.get('error')
         results.append((ok, f'regression [{dialect}] {rule} on {word}', None if ok else f'got {r}, want {want}'))
+    # a typed multi-byte character is written one operation per byte, so it works on every hashcat
+    for kind, args, want in (('append', "{X:'\u00b5'}", '$\\xc2$\\xb5'), ('prepend', "{X:'\u00b5'}", '^\\xb5^\\xc2'),
+                             ('insert', "{N:1,X:'\u00e9'}", 'i1\\xc3i2\\xa9'), ('overstrike', "{N:1,X:'\u00e9'}", 'o1\\xc3o2\\xa9')):
+        got = driver.execute_script(f"return window.__test.hashcatToken('{kind}', {args});")
+        results.append((got == want, f'regression token for {kind} of a multi-byte character', None if got == want else f'got {got!r}, want {want!r}'))
+    # operators that take one byte refuse a raw multi-byte character (hashcat would read half of it)
+    for rule in ('s\u00e9a', '@\u00e9', '!\u00e9'):
+        r = run_rule(driver, 'hashcat', rule, 'abc')
+        results.append((bool(r.get('error')), f'regression [hashcat] {rule} is a syntax error (one byte only)', None if r.get('error') else f'parsed: {r}'))
     # hashcat's class ops accept only ?l ?u ?d ?s ?h ?H; real hashcat refuses ?a / ?b
     for rule in ('~s?a4', '~@?b', '~!?a'):
         r = run_rule(driver, 'hashcat', rule, 'ab1')

@@ -690,7 +690,7 @@ try{
         don’t only try words from a list: they can also be told to apply <em>rules</em> to each word — capitalize it,
         add a 1 at the end, swap a for @ — to guess the variations people really use. A rule is a chain of
         small steps run in order. Build one below, watch each step fire, and see how reordering, adding
-        or removing a step changes the result. Positions count from 0 (the first character is position 0).
+        or removing a step changes the result. Positions count from 0, in bytes (é is 2 bytes).
         Use this only on systems you are authorized to test.
       </p>
       <ul class="syntaxnotes">
@@ -963,25 +963,61 @@ d $1$2$3"></textarea>
   }
   // Decode a byte string for display. Valid UTF-8 shows as text; a byte that isn't part of a
   // valid sequence (e.g. half of "é" after a delete) shows as \xNN so nothing is hidden.
-  function fromBytes(bs){
-    var out = '', i = 0, n = bs.length, dec = new TextDecoder('utf-8', {fatal:true});
+  function byteUnits(bs){            // [{text, start, len}] — one unit per character or stray byte
+    var units = [], i = 0, n = bs.length, dec = new TextDecoder('utf-8', {fatal:true});
     while (i < n){
       var b = bs.charCodeAt(i);
-      if (b < 0x80){ out += bs[i]; i++; continue; }
+      if (b < 0x80){ units.push({text: bs[i], start: i, len: 1}); i++; continue; }
       var len = (b>=0xC2 && b<=0xDF) ? 2 : (b>=0xE0 && b<=0xEF) ? 3 : (b>=0xF0 && b<=0xF4) ? 4 : 0, ok = false;
       if (len && i+len <= n){
         var arr = new Uint8Array(len);
         for (var k=0;k<len;k++) arr[k] = bs.charCodeAt(i+k);
-        try { out += dec.decode(arr); ok = true; i += len; } catch (e) {}
+        try { units.push({text: dec.decode(arr), start: i, len: len}); ok = true; i += len; } catch (e) {}
       }
-      if (!ok){ out += '\\x' + (b<16?'0':'') + b.toString(16).toUpperCase(); i++; }
+      if (!ok){ units.push({text: '\\x' + (b<16?'0':'') + b.toString(16).toUpperCase(), start: i, len: 1}); i++; }
     }
-    return out;
+    return units;
   }
+  function fromBytes(bs){ return byteUnits(bs).map(function(u){ return u.text; }).join(''); }
   function isValidUtf8(bs){
     var arr = new Uint8Array(bs.length);
     for (var i=0;i<bs.length;i++) arr[i] = bs.charCodeAt(i);
     try { new TextDecoder('utf-8', {fatal:true}).decode(arr); return true; } catch (e) { return false; }
+  }
+  // Rule arguments. A one-character argument (X, Y) can hold ordinary text, or a single raw byte
+  // written \xNN in the rule (hashcat's byte escape — the way to get a byte such as 0xC2 that is not
+  // text by itself). A raw byte >= 0x80 is stored as the lone surrogate U+DC00+byte so it can't be
+  // confused with the text character of the same number.
+  function loneByte(b){ return b < 0x80 ? String.fromCharCode(b) : String.fromCharCode(0xDC00 + b); }
+  function argBytes(str){            // an argument as a byte string (possibly several bytes)
+    var out = '';
+    Array.from(str).forEach(function(ch){
+      var cp = ch.charCodeAt(0);
+      out += (ch.length === 1 && cp >= 0xDC80 && cp <= 0xDCFF) ? String.fromCharCode(cp - 0xDC00) : toBytes(ch);
+    });
+    return out;
+  }
+  function argDisplay(str){          // for the input box and captions: a raw byte shows as \xNN
+    return Array.from(str).map(function(ch){
+      var cp = ch.charCodeAt(0);
+      return (ch.length === 1 && cp >= 0xDC80 && cp <= 0xDCFF) ? '\\x' + (cp - 0xDC00).toString(16).toUpperCase() : ch;
+    }).join('');
+  }
+  function byteTok(b){               // one byte as it is written in a rule line
+    var c = String.fromCharCode(b);
+    return (b >= 0x20 && b <= 0x7E && c !== '\\') ? c : '\\x' + (b < 16 ? '0' : '') + b.toString(16);
+  }
+  function xt(str){                  // an argument as it is written in a rule line (bytes as \xNN)
+    var bs = argBytes(str), out = '';
+    for (var i=0;i<bs.length;i++) out += byteTok(bs.charCodeAt(i));
+    return out;
+  }
+  // A multi-byte character in one of the five operators that accept it is written as one operation
+  // per byte (a prepend writes the bytes last-first so the character comes out whole).
+  function perByte(str, tok, reverse){
+    var bs = argBytes(str), parts = [];
+    for (var i=0;i<bs.length;i++) parts.push(tok(bs.charCodeAt(i), i));
+    return (reverse ? parts.reverse() : parts).join('');
   }
   function toggleCaseChar(ch){
     if (/[a-z]/.test(ch)) return asciiUpper(ch);
@@ -1107,14 +1143,14 @@ d $1$2$3"></textarea>
     run:function(w,a){ if (a.N<w.length){ var arr=w.split(''); arr[a.N]=toggleCaseChar(arr[a.N]); return {word:arr.join('')}; } return {word:w}; },
     caption:function(a){ return 'Toggle case at position '+a.N+' (no-op if out of range)'; }});
   def('toggle_at_sep',    {label:'Toggle case after the Nth X (0 = the first X)', group:'Case', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return '3'+posChar(a.N)+a.X; },
+    hashcat:function(a){ return '3'+posChar(a.N)+xt(a.X); },
     run:function(w,a){ return {word: toggleAtSep(w,a.X,a.N)}; },
     caption:function(a){ return "Toggle the letter right after occurrence "+a.N+" of '"+a.X+"'"; }});
   def('title',        {label:'Title case (space-separated)', group:'Case', args:[], kind:'normal',
     hashcat:function(){ return 'E'; }, run:function(w){ return {word: titleSep(w, function(ch){ return ch===' '; })}; },
     caption:function(){ return 'Lowercase, then capitalize the first letter and every letter after a space'; }});
   def('title_sep',      {label:'Title case (custom separator)', group:'Case', args:[{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 'e'+a.X; },
+    hashcat:function(a){ return 'e'+xt(a.X); },
     run:function(w,a){ return {word: titleSep(w, function(ch){ return ch===a.X; })}; },
     caption:function(a){ return "Lowercase, then capitalize the first letter and every letter after '"+a.X+"'"; }});
 
@@ -1172,10 +1208,12 @@ d $1$2$3"></textarea>
 
   // --- Insert / delete / replace ---
   def('append',        {label:'Append char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'append',
-    hashcat:function(a){ return '$'+a.X; }, run:function(w,a){ return {word: w+a.X}; },
+    multibyte:true,
+    hashcat:function(a){ return perByte(a.X, function(b){ return '$'+byteTok(b); }); }, run:function(w,a){ return {word: w+a.X}; },
     caption:function(a){ return "Append '"+a.X+"'"; }});
   def('prepend',       {label:'Prepend char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'prepend',
-    hashcat:function(a){ return '^'+a.X; }, run:function(w,a){ return {word: a.X+w}; },
+    multibyte:true,
+    hashcat:function(a){ return perByte(a.X, function(b){ return '^'+byteTok(b); }, true); }, run:function(w,a){ return {word: a.X+w}; },
     caption:function(a){ return "Prepend '"+a.X+"'"; }});
   def('delete_first',     {label:'Delete first char', group:'Insert / delete / replace', args:[], kind:'normal',
     hashcat:function(){ return '['; }, run:function(w){ return {word: w.slice(1)}; },
@@ -1196,27 +1234,39 @@ d $1$2$3"></textarea>
     run:function(w,a){ if (a.N>=w.length || a.N+a.M>w.length) return {word:w}; return {word: w.slice(0,a.N)+w.slice(a.N+a.M)}; },
     caption:function(a){ return 'Remove '+a.M+' chars starting at position '+a.N+' (no-op if that range doesn’t fit)'; }});
   def('insert',        {label:'Insert char at N', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 'i'+posChar(a.N)+a.X; },
-    run:function(w,a){ if (a.N>w.length) return {word:w}; return {word: w.slice(0,a.N)+a.X+w.slice(a.N)}; },
+    multibyte:true,
+    hashcat:function(a){ return perByte(a.X, function(b,i){ return 'i'+posChar(a.N+i)+byteTok(b); }); },
+    run:function(w,a){   // a multi-byte character is one insert per byte, each one place further along
+      for (var i=0;i<a.X.length;i++){ var p=a.N+i; if (p<=w.length) w = w.slice(0,p)+a.X[i]+w.slice(p); }
+      return {word:w};
+    },
     caption:function(a){ return "Insert '"+a.X+"' at position "+a.N+' (no-op if beyond the end)'; }});
   def('insert_every',     {label:'Insert char every N chars', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 'v'+posChar(a.N)+a.X; },
-    run:function(w,a){ return {word: insertEvery(w,a.N,a.X)}; },
+    multibyte:true,
+    hashcat:function(a){ return perByte(a.X, function(b,i){ return 'v'+posChar(a.N+i)+byteTok(b); }); },
+    run:function(w,a){   // one byte at a time, the interval one longer for each
+      for (var i=0;i<a.X.length;i++) w = insertEvery(w,a.N+i,a.X[i]);
+      return {word:w};
+    },
     caption:function(a){ return "Insert '"+a.X+"' after every "+a.N+' characters'; }});
   def('overstrike',      {label:'Replace the char at position N with X', group:'Insert / delete / replace', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 'o'+posChar(a.N)+a.X; },
-    run:function(w,a){ if (a.N>=w.length) return {word:w}; return {word: w.slice(0,a.N)+a.X+w.slice(a.N+1)}; },
+    multibyte:true,
+    hashcat:function(a){ return perByte(a.X, function(b,i){ return 'o'+posChar(a.N+i)+byteTok(b); }); },
+    run:function(w,a){   // one overwrite per byte
+      for (var i=0;i<a.X.length;i++){ var p=a.N+i; if (p<w.length) w = w.slice(0,p)+a.X[i]+w.slice(p+1); }
+      return {word:w};
+    },
     caption:function(a){ return "Overwrite position "+a.N+" with '"+a.X+"' (no-op if out of range)"; }});
   def('truncate_at',     {label:'Keep only the first N chars', group:'Insert / delete / replace', args:[{n:'N',t:'pos'}], kind:'normal',
     hashcat:function(a){ return "'"+posChar(a.N); },
     run:function(w,a){ return {word: w.slice(0,a.N)}; },
     caption:function(a){ return 'Cut the word down to its first '+a.N+' characters'; }});
   def('replace',       {label:'Replace all X with Y', group:'Insert / delete / replace', args:[{n:'X',t:'char'},{n:'Y',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 's'+a.X+a.Y; },
+    hashcat:function(a){ return 's'+xt(a.X)+xt(a.Y); },
     run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += (w[i]===a.X ? a.Y : w[i]); return {word:out}; },
     caption:function(a){ return "Replace every '"+a.X+"' with '"+a.Y+"' (case-sensitive)"; }});
   def('purgechar',      {label:'Delete every X', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return '@'+a.X; },
+    hashcat:function(a){ return '@'+xt(a.X); },
     run:function(w,a){ return {word: w.split('').filter(function(c){return c!==a.X;}).join('')}; },
     caption:function(a){ return "Remove every '"+a.X+"'"; }});
 
@@ -1238,7 +1288,7 @@ d $1$2$3"></textarea>
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)-1+256)&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return 'Decrease the byte value at position '+a.N+' by 1'; }});
   def('chr_add',        {label:'Add X’s character code to the character at position N', group:'Character-code math', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'normal',
-    hashcat:function(a){ return 'B'+posChar(a.N)+a.X; },
+    hashcat:function(a){ return 'B'+posChar(a.N)+xt(a.X); },
     run:function(w,a){ if (a.N>=w.length || !a.X) return {word:w}; var arr=w.split(''); var code=(arr[a.N].charCodeAt(0)+a.X.charCodeAt(0))&0xFF; arr[a.N]=String.fromCharCode(code); return {word:arr.join('')}; },
     caption:function(a){ return "Add the byte value of '"+a.X+"' to position "+a.N+' (bytewise, mod 256)'; }});
   def('replace_np1',     {label:'Copy the next character over the one at position N', group:'Character-code math', args:[{n:'N',t:'pos'}], kind:'normal',
@@ -1299,33 +1349,33 @@ d $1$2$3"></textarea>
     run:function(w,a){ return {reject: w.length!==a.N}; },
     caption:function(a){ return 'Reject unless length is exactly '+a.N; }});
   def('reject_contain',    {label:'Reject if contains X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return '!'+a.X; },
+    hashcat:function(a){ return '!'+xt(a.X); },
     run:function(w,a){ return {reject: w.indexOf(a.X)!==-1}; },
     caption:function(a){ return "Reject if it contains '"+a.X+"'"; }});
   def('reject_not_contain',  {label:'Reject unless contains X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return '/'+a.X; },
+    hashcat:function(a){ return '/'+xt(a.X); },
     run:function(w,a){ return {reject: w.indexOf(a.X)===-1}; },
     caption:function(a){ return "Reject unless it contains '"+a.X+"'"; }});
   def('reject_equal_first',  {label:'Reject unless first char = X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return '('+a.X; },
+    hashcat:function(a){ return '('+xt(a.X); },
     run:function(w,a){ return {reject: w[0]!==a.X}; },
     caption:function(a){ return "Reject unless the first character is '"+a.X+"'"; }});
   def('reject_equal_last',  {label:'Reject unless last char = X', group:'Reject filters', args:[{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return ')'+a.X; },
+    hashcat:function(a){ return ')'+xt(a.X); },
     run:function(w,a){ return {reject: w.slice(-1)!==a.X}; },
     caption:function(a){ return "Reject unless the last character is '"+a.X+"'"; }});
   def('reject_equal_at',   {label:'Reject the word unless the character at position N is X', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return '='+posChar(a.N)+a.X; },
+    hashcat:function(a){ return '='+posChar(a.N)+xt(a.X); },
     run:function(w,a){ return {reject: w[a.N]!==a.X}; },
     caption:function(a){ return "Reject unless position "+a.N+" is '"+a.X+"'"; }});
   def('reject_contains',   {label:'Reject if X appears fewer than N times', group:'Reject filters', args:[{n:'N',t:'pos'},{n:'X',t:'char'}], kind:'reject',
-    hashcat:function(a){ return '%'+posChar(a.N)+a.X; },
+    hashcat:function(a){ return '%'+posChar(a.N)+xt(a.X); },
     run:function(w,a){ return {reject: countChar(w,a.X)<a.N || a.N>=w.length}; },
     caption:function(a){ return "Reject unless '"+a.X+"' appears at least "+a.N+' time(s)'; }});
 
   // --- Class-based (advanced) ---
   def('cls_replace',     {label:'Replace class C with Y', group:'Class-based (advanced)', args:[{n:'C',t:'class'},{n:'Y',t:'char'}], kind:'normal',
-    hashcat:function(a){ return '~s?'+a.C+a.Y; },
+    hashcat:function(a){ return '~s?'+a.C+xt(a.Y); },
     run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += classMatch(w[i],a.C) ? a.Y : w[i]; return {word:out}; },
     caption:function(a){ return 'Replace every '+CLASS_LABEL[a.C]+" with '"+a.Y+"'"; }});
   def('cls_purge',      {label:'Purge chars in class C', group:'Class-based (advanced)', args:[{n:'C',t:'class'}], kind:'normal',
@@ -1630,7 +1680,7 @@ d $1$2$3"></textarea>
   def('j_string_insert', {label:'Insert/append/prepend a string at N', group:'Insert / delete / replace',
     args:[{n:'N',t:'pos'},{n:'STR',t:'string'}], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; },
-    john:function(a){ return johnStringInsertToken(a.N, a.STR||''); },
+    john:function(a){ return johnStringInsertToken(a.N, argDisplay(a.STR||'')); },
     run:function(w,a){ var N=Math.min(a.N,w.length); return {word: w.slice(0,N)+(a.STR||'')+w.slice(N)}; },
     caption:function(a, before){
       var verb = (before!==undefined && a.N>=before.length) ? 'Append' : (a.N<=0 ? 'Prepend' : 'Insert');
@@ -1683,7 +1733,7 @@ d $1$2$3"></textarea>
     caption:function(){ return 'Shift every character one key left on a US QWERTY keyboard'; }});
 
   def('j_cls_replace', {label:'Replace class C with Y', group:'Class-based (advanced)', args:[{n:'C',t:'johnclass'},{n:'Y',t:'char'}], kind:'normal', johnOnly:true,
-    hashcat:function(){ return null; }, john:function(a){ return 's?'+a.C+a.Y; },
+    hashcat:function(){ return null; }, john:function(a){ return 's?'+a.C+xt(a.Y); },
     run:function(w,a){ var out=''; for (var i=0;i<w.length;i++) out += johnClassMatch(w[i],a.C)?a.Y:w[i]; return {word:out}; },
     caption:function(a){ return 'Replace every '+JOHN_CLASS_LABEL[a.C]+" with '"+a.Y+"'"; }});
   def('j_cls_purge', {label:'Purge chars in class C', group:'Class-based (advanced)', args:[{n:'C',t:'johnclass'}], kind:'normal', johnOnly:true,
@@ -1748,14 +1798,19 @@ d $1$2$3"></textarea>
       if (/[A-Z]/.test(ch)){ i++; return 10 + (ch.charCodeAt(0) - 65); }
       return null;
     }
-    function readChar(){
+    // `multi`: the operator accepts a whole multi-byte character as its argument ($ ^ i v o);
+    // everywhere else an argument is exactly one byte, so a raw non-ASCII character is an error
+    // and a byte >= 0x80 has to be written \xNN.
+    function readChar(multi){
       if (i >= str.length) return null;
       if (str[i] === '\\' && str[i+1] === 'x' && /^[0-9a-fA-F]{2}$/.test(str.substr(i+2,2))){
         var code = parseInt(str.substr(i+2,2), 16);
         i += 4;
-        return String.fromCharCode(code);
+        return loneByte(code);
       }
-      var ch = str[i]; i++; return ch;
+      var cp = str.codePointAt(i), ch = String.fromCodePoint(cp);
+      if (cp > 127 && !multi) return null;
+      i += ch.length; return ch;
     }
     function readClassLetter(){
       if (str[i] !== '?') return null;
@@ -1800,14 +1855,14 @@ d $1$2$3"></textarea>
           case 'T': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('toggle_at',{N:N})); break; }
           case '3': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('toggle_at_sep',{N:N,X:X})); break; }
           case 'p': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeword_times',{N:N})); break; }
-          case '$': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('append',{X:X})); break; }
-          case '^': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('prepend',{X:X})); break; }
+          case '$': { var X=readChar(true); if(X==null){ok=false;break;} steps.push(mkStep('append',{X:X})); break; }
+          case '^': { var X=readChar(true); if(X==null){ok=false;break;} steps.push(mkStep('prepend',{X:X})); break; }
           case 'D': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('delete_at',{N:N})); break; }
           case 'x': { var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('extract',{N:N,M:M})); break; }
           case 'O': { var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('omit',{N:N,M:M})); break; }
-          case 'i': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert',{N:N,X:X})); break; }
-          case 'v': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert_every',{N:N,X:X})); break; }
-          case 'o': { var N=readPos(),X=readChar(); if(N==null||X==null){ok=false;break;} steps.push(mkStep('overstrike',{N:N,X:X})); break; }
+          case 'i': { var N=readPos(),X=readChar(true); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert',{N:N,X:X})); break; }
+          case 'v': { var N=readPos(),X=readChar(true); if(N==null||X==null){ok=false;break;} steps.push(mkStep('insert_every',{N:N,X:X})); break; }
+          case 'o': { var N=readPos(),X=readChar(true); if(N==null||X==null){ok=false;break;} steps.push(mkStep('overstrike',{N:N,X:X})); break; }
           case "'": { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('truncate_at',{N:N})); break; }
           case 's': { var X=readChar(),Y=readChar(); if(X==null||Y==null){ok=false;break;} steps.push(mkStep('replace',{X:X,Y:Y})); break; }
           case '@': { var X=readChar(); if(X==null){ok=false;break;} steps.push(mkStep('purgechar',{X:X})); break; }
@@ -1885,9 +1940,12 @@ d $1$2$3"></textarea>
       if (str[i] === '\\' && str[i+1] === 'x' && /^[0-9a-fA-F]{2}$/.test(str.substr(i+2,2))){
         var code = parseInt(str.substr(i+2,2), 16);
         i += 4;
-        return String.fromCharCode(code);
+        return loneByte(code);
       }
-      var ch = str[i]; i++; return ch;
+      // John reads the rule byte by byte too, so a raw non-ASCII character can't be one argument
+      var cp = str.codePointAt(i), ch = String.fromCodePoint(cp);
+      if (cp > 127) return null;
+      i += ch.length; return ch;
     }
     function readClassLetter(){
       if (i >= str.length) return null;
@@ -1898,7 +1956,11 @@ d $1$2$3"></textarea>
       if (i >= str.length) return null;
       var delim = str[i]; i++;
       var out = '';
-      while (i < str.length && str[i] !== delim) out += str[i++];
+      while (i < str.length && str[i] !== delim){
+        if (str[i] === '\\' && str[i+1] === 'x' && /^[0-9a-fA-F]{2}$/.test(str.substr(i+2,2))){
+          out += loneByte(parseInt(str.substr(i+2,2), 16)); i += 4;
+        } else { out += str[i++]; }
+      }
       if (i >= str.length) return null; // unterminated
       i++; // consume closing delimiter
       return out;
@@ -2421,7 +2483,7 @@ d $1$2$3"></textarea>
       return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg" data-arg="'+spec.n+'" inputmode="numeric" value="'+escapeHtml(val)+'"></span>';
     }
     if (spec.t==='char'){
-      return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg wide" data-arg="'+spec.n+'" maxlength="2" value="'+escapeHtml(val)+'"></span>';
+      return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg wide" data-arg="'+spec.n+'" maxlength="4" value="'+escapeHtml(argDisplay(val))+'"></span>';
     }
     if (spec.t==='class'){
       var options = CLASS_OPTIONS.map(function(c){ return '<option value="'+c[0]+'"'+(c[0]===val?' selected':'')+'>'+c[1]+'</option>'; }).join('');
@@ -2502,7 +2564,8 @@ d $1$2$3"></textarea>
           var spec = op.args.filter(function(s){return s.n===argName;})[0];
           var v = e.target.value;
           if (spec.t==='pos'){ v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
-          else if (spec.t==='char'){ v = v.slice(0,1); }
+          else if (spec.t==='char'){   // one character, or a byte written \xNN
+            v = /^\\x[0-9a-fA-F]{2}$/.test(v) ? loneByte(parseInt(v.slice(2),16)) : (Array.from(v)[0] || ''); }
           step.args[argName] = v;
           renderTraceAndRule(); renderBatch();
           syncRuleLine(); paintRuleHl(); syncColumnFit();
@@ -2588,17 +2651,24 @@ d $1$2$3"></textarea>
   // independent list (e.g. a parsed rulefile line's steps) to run it
   // without touching whatever the chain builder currently has loaded —
   // used by the rulefile validator to preview each line's own output.
-  // A rule file is read byte by byte, so a one-character argument (X, Y) is one byte: a typed
-  // non-ASCII character contributes only its first UTF-8 byte (hashcat would then read the rest
-  // as further rule letters). Whole-string arguments become their UTF-8 bytes.
+  // A rule file is read byte by byte, so a one-character argument (X, Y) is one byte. Only $ ^ i v o
+  // (op.multibyte) take a whole multi-byte character; for any other operator a multi-byte argument
+  // can't be written, and the step says so instead of guessing.
   function byteArgs(op, args){
     var out = {};
     Object.keys(args).forEach(function(k){ out[k] = args[k]; });
     (op.args || []).forEach(function(spec){
       var v = out[spec.n];
       if (typeof v !== 'string') return;
-      if (spec.t === 'char') out[spec.n] = v.length && v.charCodeAt(0) > 127 ? toBytes(v).charAt(0) : v;
-      else if (spec.t === 'string') out[spec.n] = toBytes(v);
+      if (spec.t === 'char' || spec.t === 'string') out[spec.n] = argBytes(v);
+    });
+    return out;
+  }
+  function captionArgs(op, args){      // arguments as they should read in a caption (raw bytes as \xNN)
+    var out = {};
+    Object.keys(args).forEach(function(k){ out[k] = args[k]; });
+    (op.args || []).forEach(function(spec){
+      if ((spec.t === 'char' || spec.t === 'string') && typeof out[spec.n] === 'string') out[spec.n] = argDisplay(out[spec.n]);
     });
     return out;
   }
@@ -2614,17 +2684,22 @@ d $1$2$3"></textarea>
       if (!step.enabled) continue;
       var op = OPS[step.type];
       var before = current;
-      var res = op.run(before, byteArgs(op, step.args), ctx);
+      var bargs = byteArgs(op, step.args), badArg = null;
+      if (!op.multibyte) (op.args || []).forEach(function(spec){
+        if (spec.t === 'char' && typeof bargs[spec.n] === 'string' && bargs[spec.n].length > 1) badArg = spec.n;
+      });
+      var res = badArg ? {reject:true, note:'“'+argDisplay(step.args[badArg])+'” is '+bargs[badArg].length+' bytes, but this operator takes a single byte — write each byte as \\xNN'}
+                       : op.run(before, bargs, ctx);
 
       if (res.reject){
         rejected = true;
-        rejectCaption = op.caption(step.args, before, before, ctx) || 'Rejected';
+        rejectCaption = res.note || op.caption(captionArgs(op, step.args), before, before, ctx) || 'Rejected';
         trace.push({word: fromBytes(before), caption: '✗ Rejected — '+rejectCaption, changedHtml: escapeHtml(fromBytes(before)), rejected:true, stepNum: s+1});
         break;
       }
 
       var after = (res.word!==undefined) ? res.word : before;
-      var caption = op.caption(step.args, before, after, ctx);
+      var caption = op.caption(captionArgs(op, step.args), before, after, ctx);
       var changedHtml = highlightAfter(op, before, after);
       trace.push({word: fromBytes(after), caption: caption, changedHtml: changedHtml, rejected:false, stepNum: s+1});
       current = after;
@@ -2633,31 +2708,26 @@ d $1$2$3"></textarea>
     return {final: rejected ? null : fromBytes(current), trace: trace, rejected: rejected};
   }
 
-  // `before` and `after` are byte strings; each highlighted / plain run is decoded for display.
+  // `before` and `after` are byte strings. The whole word is decoded once, so a character made of
+  // bytes from different steps (C2 then B5 = µ) still reads as one; a character is highlighted when
+  // any of its bytes is new or changed.
   function highlightAfter(op, before, after){
-    function esc(bs){ return escapeHtml(fromBytes(bs)); }
-    function hl(bs){ return bs ? '<span class="hl">'+esc(bs)+'</span>' : ''; }
-    if (op.kind==='append'){
-      var addLen = after.length - before.length;
-      if (addLen <= 0) return esc(after);
-      return esc(after.slice(0, after.length-addLen)) + hl(after.slice(after.length-addLen));
-    }
-    if (op.kind==='prepend'){
-      var pLen = after.length - before.length;
-      if (pLen <= 0) return esc(after);
-      return hl(after.slice(0,pLen)) + esc(after.slice(pLen));
-    }
-    if (op.kind==='memorize') return esc(after);
-    if (before.length === after.length){
-      var html = '', run = '', runHl = false;
-      for (var i=0;i<after.length;i++){
-        var changed = before[i]!==after[i];
-        if (i && changed!==runHl){ html += runHl ? hl(run) : esc(run); run = ''; }
-        runHl = changed; run += after[i];
-      }
-      return html + (runHl ? hl(run) : esc(run));
-    }
-    return hl(after);
+    var changedAt;
+    if (op.kind==='append'){ var addLen = after.length - before.length; changedAt = function(i){ return addLen > 0 && i >= after.length - addLen; }; }
+    else if (op.kind==='prepend'){ var pLen = after.length - before.length; changedAt = function(i){ return pLen > 0 && i < pLen; }; }
+    else if (op.kind==='memorize') changedAt = function(){ return false; };
+    else if (before.length === after.length) changedAt = function(i){ return before[i] !== after[i]; };
+    else changedAt = function(){ return true; };
+    var html = '', run = '', runHl = null;
+    function flush(){ if (run) html += runHl ? '<span class="hl">'+escapeHtml(run)+'</span>' : escapeHtml(run); run = ''; }
+    byteUnits(after).forEach(function(u){
+      var hl = false;
+      for (var k=0;k<u.len;k++) if (changedAt(u.start+k)) hl = true;
+      if (runHl !== null && hl !== runHl) flush();
+      runHl = hl; run += u.text;
+    });
+    flush();
+    return html;
   }
 
   // Ties the red "Rejected" row in section 04 back to the section 03 card
@@ -3289,7 +3359,7 @@ d $1$2$3"></textarea>
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
 
     var legend = '<span class="subline"><span class="mono">N M I</span> = a position: 0–9, then A–Z for 10–35</span>'+
-      '<span class="subline"><span class="mono">X Y</span> = a literal character</span>'+
+      '<span class="subline"><span class="mono">X Y</span> = a literal character, or any byte as <span class="mono">\\xNN</span> (<span class="mono">$\\xc5 $\\x8d</span> appends ō)</span>'+
       (TARGET==='both' ? '' : '<span class="subline"><span class="mono">C</span> = a class: '+(TARGET==='john_native'
         ? 'v vowel, c consonant, d digit, l lowercase, u uppercase, s symbol, p punctuation, w whitespace, a letter, x letter or digit (more in John’s docs)'
         : 'l lowercase, u uppercase, d digit, s symbol, h / H hex digit')+'</span>')+

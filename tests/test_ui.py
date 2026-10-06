@@ -1657,6 +1657,26 @@ def test_both_callout_is_a_code_block(driver, r):
             'the Both callout is a 4-line code block plus three short points', f'{cb}')
 
 
+def test_byte_escapes_in_the_rule_line(driver, r):
+    """Words run as UTF-8 bytes and a rule can write a byte as \\xNN (hashcat's escape, the way to
+    append a multi-byte character such as µ = c2 b5): the escapes parse, the trace shows the
+    character, and a step's argument box shows a raw byte as \\xNN."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'wordInput'), 'ab', debounced=True)
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), '$\\xc2 $\\xb5', debounced=True)
+    final = driver.execute_script("var rows=document.querySelectorAll('#trace .trace-row');return rows[rows.length-1].querySelector('.word').textContent;")
+    r.check(final == 'ab\u00b5', 'the rule line "$\\xc2 $\\xb5" appends the two bytes of \u00b5', repr(final))
+    arg = driver.execute_script("return document.querySelector('#chain .step .p-arg[data-arg=\"X\"]').value;")
+    r.check(arg == '\\xC2', 'a raw byte shows as \\xNN in the step\'s argument box', repr(arg))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 's\u00e9a', debounced=True)
+    err = driver.execute_script("return document.getElementById('ruleError') ? document.getElementById('ruleError').textContent : (document.querySelector('.rule-error')||{}).textContent;")
+    n = driver.execute_script("return document.querySelectorAll('#chain .step').length;")
+    r.check(n == 0 or bool(err), 'a raw multi-byte character after s is not accepted as one-byte argument', f'{n} steps, {err!r}')
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
+
+
 def test_cheat_search_keeps_john_only_explanation(driver, r):
     """Searching the cheat sheet keeps the John-only box's explanation
     visible (a search that lands in it still says why it isn't buildable
@@ -2300,6 +2320,7 @@ def main():
         test_auto_theme_follows_the_system(driver, r)
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
+        test_byte_escapes_in_the_rule_line(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)
         test_top_bar_stays_within_the_intro_width(driver, r)
         test_contrast_meets_wcag_aa(driver, r)
