@@ -40,6 +40,9 @@ everything cosmetic second):
     - the page is a real document (standards mode, lang, viewport, one
       <main>, working skip links) and every visible control in both views
       has an accessible name
+    - a deleted step can be undone (Undo button, Ctrl+Z), and keyboard
+      shortcuts (Alt+Up/Down to move, Delete to remove) work from a step's
+      checkbox and buttons but not inside its dropdown or text boxes
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -1020,6 +1023,81 @@ def test_page_has_no_phantom_scroll(driver, r):
                           "document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
+def test_step_keyboard_shortcuts(driver, r):
+    """From a step's checkbox or buttons: Alt+Up / Alt+Down move the step
+    (focus stays on it) and Delete removes it (focus moves to the next
+    step). They do nothing in the step's dropdown or text boxes, where
+    those keys already mean something, and Ctrl+Z undoes a keyboard
+    delete. Driven with real key presses."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.common.keys import Keys
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
+
+    def chain():
+        return driver.execute_script(
+            "return [].map.call(document.querySelectorAll('#chain .step'), function(r){"
+            "  return r.querySelector('.s-type').value + ':' + [].map.call(r.querySelectorAll('.p-arg'), function(a){ return a.value; }).join(''); });")
+
+    def focused():
+        return driver.execute_script(
+            "var e = document.activeElement, r = e.closest && e.closest('.step');"
+            "return {cls: String(e.className).split(' ')[0], step: r ? [].indexOf.call(document.querySelectorAll('#chain .step'), r) + 1 : null};")
+
+    def boxes():
+        return driver.find_elements('css selector', '#chain .s-enabled')
+
+    def press(*keys):
+        ActionChains(driver).key_down(keys[0]).send_keys(*keys[1:]).key_up(keys[0]).perform() if len(keys) > 1 else ActionChains(driver).send_keys(keys[0]).perform()
+        time.sleep(0.25)
+
+    original = chain()                                   # [c, sa4, se3, si1]
+    boxes()[1].send_keys('')                             # focus step 2's checkbox
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].focus();")
+    press(Keys.ALT, Keys.ARROW_DOWN)
+    r.check(chain() == [original[0], original[2], original[1], original[3]], 'Alt+Down on a checkbox moves the step down', f'{chain()}')
+    f = focused()
+    r.check(f['cls'] == 's-enabled' and f['step'] == 3, 'focus stays on the moved step', f'{f}')
+
+    press(Keys.ALT, Keys.ARROW_UP)
+    press(Keys.ALT, Keys.ARROW_UP)
+    r.check(chain() == [original[1], original[0], original[2], original[3]], 'Alt+Up twice moves it to the top', f'{chain()}')
+    f = focused()
+    r.check(f['step'] == 1, 'focus follows the step to the top', f'{f}')
+    press(Keys.ALT, Keys.ARROW_UP)
+    announced = driver.execute_script("return document.getElementById('liveStatus').textContent;")
+    r.check(chain() == [original[1], original[0], original[2], original[3]] and 'first step' in announced,
+            'Alt+Up on the first step does nothing and says so', f'{announced!r}')
+
+    # the dropdown and text boxes keep their own key meanings
+    before = chain()
+    driver.execute_script("document.querySelectorAll('#chain .s-type')[1].focus();")
+    press(Keys.ALT, Keys.ARROW_DOWN)
+    press(Keys.DELETE)
+    r.check(chain() == before, 'Alt+Down and Delete do nothing inside a step\'s dropdown', f'{chain()}')
+    driver.execute_script("document.querySelectorAll('#chain .p-arg')[0].focus();")
+    press(Keys.DELETE)
+    r.check(len(chain()) == len(before), 'Delete inside an argument box edits the text, not the step', f'{len(chain())} steps')
+    # that Delete really edited the box; start the rest from a fresh chain
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
+    before = chain()
+
+    # Delete removes the focused step and moves focus to the next one; Ctrl+Z brings it back
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].focus();")
+    press(Keys.DELETE)
+    r.check(chain() == [before[0], before[2], before[3]], 'Delete on a checkbox removes that step', f'{chain()}')
+    f = focused()
+    r.check(f['cls'] == 's-enabled' and f['step'] == 2, 'focus moves to the next step\'s checkbox', f'{f}')
+    press(Keys.CONTROL, 'z')
+    r.check(chain() == before, 'Ctrl+Z then restores it', f'{chain()}')
+
+    # and the buttons work the same way
+    driver.execute_script("document.querySelectorAll('#chain .step')[1].querySelector('.down').focus();")
+    press(Keys.ALT, Keys.ARROW_DOWN)
+    r.check(chain() == [before[0], before[2], before[1], before[3]], 'Alt+Down also works from the step\'s buttons', f'{chain()}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1050,6 +1128,7 @@ def main():
         test_live_announcements(driver, r)
         test_click_targets_are_big_enough(driver, r)
         test_delete_can_be_undone(driver, r)
+        test_step_keyboard_shortcuts(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

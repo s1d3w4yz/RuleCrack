@@ -2146,7 +2146,7 @@ d $1$2$3"></textarea>
       row.innerHTML =
         '<span class="grip" title="Drag to reorder" aria-hidden="true"></span>'+
         '<span class="idx mono">'+(i+1)+'</span>'+
-        '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
+        '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="Space: enable or disable this step · Alt+↑ / Alt+↓: move it · Delete: remove it (Ctrl+Z undoes)" aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Delete">'+
         '<div class="body">'+
           '<div class="toprow">'+
             '<select class="s-type" title="'+escapeHtml(opLabel(step.type))+'">'+typeOptionsHtml(step.type, TARGET)+'</select>'+
@@ -2196,8 +2196,8 @@ d $1$2$3"></textarea>
       });
 
       wireStepDrag(row, i);
-      row.querySelector('.up').addEventListener('click', function(){ if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAllKeepFocus(step.id, i-1>0 ? '.up' : '.down'); announce('Step moved up to position ' + i + ' of ' + steps.length); } });
-      row.querySelector('.down').addEventListener('click', function(){ if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAllKeepFocus(step.id, i+1<steps.length-1 ? '.down' : '.up'); announce('Step moved down to position ' + (i+2) + ' of ' + steps.length); } });
+      row.querySelector('.up').addEventListener('click', function(){ moveStep(i, i-1, i-1>0 ? '.up' : '.down'); });
+      row.querySelector('.down').addEventListener('click', function(){ moveStep(i, i+1, i+1<steps.length-1 ? '.down' : '.up'); });
       row.querySelector('.del').addEventListener('click', function(){ deleteStep(i); });
 
       chainEl.appendChild(row);
@@ -2254,7 +2254,7 @@ d $1$2$3"></textarea>
       var from = dragFrom;
       dragFrom = null; clearDropMarks();
       if (to > from) to--; // removing the dragged step shifts later slots up by one
-      if (to !== from){ steps.splice(to, 0, steps.splice(from, 1)[0]); renderAll(); announce('Step moved to position ' + (to+1) + ' of ' + steps.length); }
+      if (to !== from) moveStep(from, to, null);
     });
   }
   var labelMeasure = document.createElement('canvas').getContext('2d');
@@ -2777,8 +2777,42 @@ d $1$2$3"></textarea>
     renderAll();
     var row = chainEl.querySelector('.step[data-id="'+stepId+'"]');
     var el = row && row.querySelector(selector);
-    if (el && !el.disabled) el.focus();
+    if (!el || el.disabled) el = row && row.querySelector('.s-enabled'); // e.g. a step that just became the first has no enabled "up"
+    if (el) el.focus();
   }
+  // Moves a step (buttons, drag and keyboard all come through here) and says so.
+  // focusSelector: which of the step's controls should keep focus, or null.
+  function moveStep(from, to, focusSelector){
+    if (to < 0 || to >= steps.length || to === from) return;
+    var moved = steps.splice(from, 1)[0];
+    steps.splice(to, 0, moved);
+    if (focusSelector) renderAllKeepFocus(moved.id, focusSelector); else renderAll();
+    announce('Step moved ' + (to < from ? 'up' : 'down') + ' to position ' + (to + 1) + ' of ' + steps.length);
+  }
+  // Keyboard shortcuts for a step: with focus on its checkbox or one of its
+  // buttons, Alt+Up / Alt+Down move it and Delete removes it. Not on the
+  // dropdown or text boxes, where those keys already mean something (Alt+Down
+  // opens a dropdown; Delete edits text).
+  chainEl.addEventListener('keydown', function(e){
+    var t = e.target, row = t.closest && t.closest('.step');
+    if (!row || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && t.type === 'text')) return;
+    if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+    var idx = steps.findIndex(function(st){ return st.id == row.dataset.id; });
+    if (idx < 0) return;
+    var focusSel = t.matches('.up') ? '.up' : t.matches('.down') ? '.down' : t.matches('.del') ? '.del' : '.s-enabled';
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')){
+      e.preventDefault();
+      var to = idx + (e.key === 'ArrowUp' ? -1 : 1);
+      if (to < 0 || to >= steps.length) announce(e.key === 'ArrowUp' ? 'Already the first step' : 'Already the last step');
+      else moveStep(idx, to, focusSel);
+    } else if (!e.altKey && e.key === 'Delete'){
+      e.preventDefault();
+      deleteStep(idx);
+      var next = steps[Math.min(idx, steps.length - 1)];   // keep focus in the list
+      var nextBox = next && chainEl.querySelector('.step[data-id="' + next.id + '"] .s-enabled');
+      if (nextBox) nextBox.focus(); else addType.focus();
+    }
+  });
   function renderAll(){
     renderChain();
     renderTraceAndRule();

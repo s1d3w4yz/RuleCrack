@@ -21,7 +21,9 @@ existing `.rule` file line by line.
   class-based (`~`) variants. Grouped by category in the add-step menu.
 - **Step chain**: steps run top to bottom. Reorder them by dragging or with
   the arrow buttons and watch the output change — this is the core lesson: rule order
-  changes the result.
+  changes the result. From the keyboard, focus a step's checkbox (or one of
+  its buttons) and press Alt+↑ / Alt+↓ to move it or Delete to remove it. A
+  deleted step can be undone (the toast's Undo button, or Ctrl/Cmd+Z).
 - **Rule line**: the rule as plain text. Paste or type one (your own, or a
   line from an existing `.rule` file) and it's parsed straight into the
   step chain below, using the same engine as the visual builder — no
