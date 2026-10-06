@@ -939,6 +939,33 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
+def test_page_has_no_phantom_scroll(driver, r):
+    """The page ends right after its content (the body's own 12px padding
+    and nothing more) in every target and with the cheat sheet expanded.
+    Guards against hidden/positioned elements (the screen-reader-only
+    spans inside the long cheat list were one) stretching the page with
+    blank scroll, which also spoils the 'scroll to the end and the columns
+    sit centered' behavior."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def extra():
+        return driver.execute_script(
+            "return Math.round(document.documentElement.scrollHeight -"
+            "  (document.querySelector('.wrap').getBoundingClientRect().bottom + window.scrollY));")
+
+    for target in ('hashcat', 'john_native', 'both'):
+        driver.execute_script("document.querySelector('#targetBtns [data-target=\"' + arguments[0] + '\"]').click();", target)
+        time.sleep(0.3)
+        e = extra()
+        r.check(0 <= e <= 24, f'{target} target: no blank scroll below the content', f'{e}px below the page content')
+    driver.execute_script("document.getElementById('cheatExpandBtn').click();")
+    time.sleep(0.3)
+    e = extra()
+    r.check(0 <= e <= 24, 'cheat sheet expanded: no blank scroll below the content', f'{e}px')
+    driver.execute_script("document.getElementById('cheatExpandBtn').click();"
+                          "document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -969,6 +996,7 @@ def main():
         test_live_announcements(driver, r)
         test_click_targets_are_big_enough(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
+        test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
         test_columns_refit_on_window_resize(driver, r)
