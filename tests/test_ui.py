@@ -631,7 +631,7 @@ def test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r):
     reach column 1's height. Runs last: it reloads the page at a different
     viewport size."""
     driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride',
-                           {'width': 1215, 'height': 1123, 'deviceScaleFactor': 1, 'mobile': False})
+                           {'width': 1215, 'height': 1300, 'deviceScaleFactor': 1, 'mobile': False})
     try:
         driver.get(INDEX_URL)
         time.sleep(0.8)
@@ -1458,6 +1458,49 @@ def test_batch_rows_keep_their_line_numbers(driver, r):
     set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
 
 
+def test_batch_wrap_toggle(driver, r):
+    """'Wrap long lines' is one toggle for the batch box and table. On (the
+    default): long entries wrap, nothing scrolls sideways. Off: every entry
+    stays on one line, the box and the table scroll sideways, and the
+    'trace' buttons stay pinned in view."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    long1 = 'correcthorsebatterystaple' * 3
+    long2 = 'Winter2023!WinterIsComing-ThisIsAVeryLongPassphrase1234567890'
+    set_value(driver, driver.find_element('id', 'batchInput'), f'password\n{long1}\nsunshine\n{long2}')
+
+    def info():
+        return driver.execute_script(
+            "var t = document.getElementById('batchInput'), w = document.querySelector('.batch-scroll'), rows = document.querySelectorAll('#batchBody tr');"
+            "var btn = rows[1].querySelector('.tracebtn').getBoundingClientRect(), box = w.getBoundingClientRect();"
+            "return {checked: document.getElementById('batchWrap').checked, wrapAttr: t.getAttribute('wrap'),"
+            "  taOverflow: t.scrollWidth > t.clientWidth + 1, tableOverflow: w.scrollWidth > w.clientWidth + 1,"
+            "  heights: [].map.call(rows, function(x){ return Math.round(x.getBoundingClientRect().height); }),"
+            "  btnVisible: btn.right <= box.right + 1 && btn.left >= box.left - 1};")
+
+    on = info()
+    r.check(on['checked'] and on['wrapAttr'] == 'soft', 'wrapping is on by default', f'{on}')
+    r.check(not on['taOverflow'] and not on['tableOverflow'], 'wrap on: nothing scrolls sideways', f'{on}')
+    r.check(max(on['heights']) > 60, 'wrap on: long entries wrap onto several lines (tall rows)', f"{on['heights']}")
+
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    off = info()
+    r.check(not off['checked'] and off['wrapAttr'] == 'off', 'unchecking turns wrapping off for the box', f'{off}')
+    r.check(off['taOverflow'], 'wrap off: the box scrolls sideways for long entries', f'{off}')
+    r.check(off['tableOverflow'], 'wrap off: the table scrolls sideways too', f'{off}')
+    r.check(max(off['heights']) < 50, 'wrap off: every row stays on one line', f"{off['heights']}")
+    r.check(off['btnVisible'], 'wrap off: the trace button stays pinned in view', f'{off}')
+
+    cols = driver.execute_script("return ['col1Card', 'col2Card', 'cheatCard'].map(function(id){ return Math.round(document.getElementById(id).getBoundingClientRect().height); });")
+    r.check(len(set(cols)) == 1, 'wrap off: the three columns are still equal height', f'{cols}')
+
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    back = info()
+    r.check(back['checked'] and back['wrapAttr'] == 'soft' and not back['tableOverflow'], 'turning it back on restores wrapping', f'{back}')
+    set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1495,6 +1538,7 @@ def main():
         test_rule_line_hover_links_its_step(driver, r)
         test_rule_line_caret_links_its_step(driver, r)
         test_batch_rows_keep_their_line_numbers(driver, r)
+        test_batch_wrap_toggle(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

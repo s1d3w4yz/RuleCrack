@@ -409,6 +409,13 @@ table.batch th{
 }
 table.batch td{padding:6px;font-family:'IBM Plex Mono',monospace;vertical-align:top;word-break:break-all}
 table.batch tr+tr td{border-top:1px solid var(--rule)}
+/* "Wrap long lines" off: every entry stays on one line, the box and the table
+   scroll sideways, and the trace button stays pinned to the right edge */
+#batchInput[wrap="off"]{white-space:pre;overflow-wrap:normal;overflow-x:auto}
+.batch-nowrap .batch-scroll{overflow-x:auto}
+.batch-nowrap table.batch{width:max-content;min-width:100%}
+.batch-nowrap table.batch td.b-in,.batch-nowrap table.batch td.out{white-space:nowrap;word-break:normal}
+.batch-nowrap table.batch td.tracecol,.batch-nowrap table.batch th:last-child{position:sticky;right:0;background:var(--surface);box-shadow:-6px 0 6px -6px rgba(0,0,0,.4)}
 table.batch th.b-n,table.batch td.b-n{width:1%;padding-right:2px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
 table.batch td.b-n{font-size:.78rem;padding-top:8px}
 table.batch td.arrow{color:var(--dim);font-family:inherit;text-align:center;padding-top:7px}
@@ -722,22 +729,27 @@ try{
       </div>
       <div class="trace locked" id="trace"></div>
 
-      <h2 id="h-batch" tabindex="-1" style="margin-top:4px"><span class="n">05</span> Batch test</h2>
+      <div class="sectionhead" style="margin-top:4px">
+        <h2 id="h-batch" tabindex="-1"><span class="n">05</span> Batch test</h2>
+        <label class="locktoggle" title="On: long entries wrap onto several lines in the box and the table. Off: each entry stays on one line and you scroll sideways."><input type="checkbox" id="batchWrap" checked autocomplete="off"> Wrap long lines</label>
+      </div>
       <p class="sub">Run the same chain against a list of words, one per line. <span class="mono" style="white-space:nowrap">&uarr; trace</span> loads a row's word into section 01 so you can watch it step by step.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
            cleared and the example words never come back. -->
       <label class="field">
-        <textarea id="batchInput" spellcheck="false" autocomplete="off">password
+        <textarea id="batchInput" wrap="soft" spellcheck="false" autocomplete="off">password
 dragon
 sunshine
 letmein
 princess</textarea>
       </label>
+      <div class="batch-scroll">
       <table class="batch">
         <thead><tr><th class="b-n" title="Line number in the box above">#</th><th>Input</th><th></th><th>Output</th><th></th></tr></thead>
         <tbody id="batchBody"></tbody>
       </table>
+      </div>
     </div>
 
     <!-- FAR RIGHT: cheat sheet -->
@@ -2015,6 +2027,15 @@ d $1$2$3"></textarea>
   var copyRuleBtn = document.getElementById('copyRuleBtn');
   var batchInput = document.getElementById('batchInput');
   var batchBody = document.getElementById('batchBody');
+  var batchWrap = document.getElementById('batchWrap');
+  // One toggle for the box and the table, so line numbers and rows keep matching.
+  function applyBatchWrap(){
+    var wrap = batchWrap.checked;
+    col2Card.classList.toggle('batch-nowrap', !wrap);
+    batchInput.setAttribute('wrap', wrap ? 'soft' : 'off');
+    syncColumnFit();   // row heights change, so column 2's height does
+  }
+  batchWrap.addEventListener('change', applyBatchWrap);
   var ruleTextInput = document.getElementById('ruleTextInput');
   var ruleParseStatus = document.getElementById('ruleParseStatus');
   var cheatBody = document.getElementById('cheatBody');
