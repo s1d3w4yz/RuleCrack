@@ -2835,6 +2835,19 @@ d $1$2$3"></textarea>
   renderCheatsheet();
   renderValidator();
   syncColumnFit();
+  // Pinning the first and last rows only makes sense when the box has room
+  // for at least one step between them. When the viewport-fit sizing left it
+  // shorter than ~3 rows, start with the lock unticked so the box is a
+  // plain scrolling list. Decided once at load (like the column sizing);
+  // after that the checkbox is entirely the user's.
+  (function(){
+    var rowH = (traceEl.firstElementChild && traceEl.firstElementChild.offsetHeight) || 55;
+    var boxH = parseFloat(traceEl.style.maxHeight) || traceEl.clientHeight;
+    if (boxH < rowH * 3){
+      traceLockToggle.checked = false;
+      traceEl.classList.remove('locked');
+    }
+  })();
 
   // Read-only hook for tests/ (see tests/README.md) — exposes the rule
   // engine's pure logic (parsing, tokenizing, running a chain) so it can
