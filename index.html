@@ -46,6 +46,13 @@ header.page h1{font-size:2.1rem;letter-spacing:-0.01em;text-wrap:balance}
 header.page p{margin:0;color:var(--dim);max-width:70ch;line-height:1.55}
 header.page p a{color:var(--accent)}
 header.page p strong{color:var(--ink);font-weight:600}
+header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5}
+.syntaxnotes{list-style:none;margin:10px 0 0;padding:0;max-width:110ch;display:grid;grid-template-columns:max-content max-content 1fr;column-gap:12px;row-gap:8px;align-items:baseline;font-size:.92rem;line-height:1.45;color:var(--dim)}
+.syntaxnotes li{display:contents}
+.syntaxnotes a{color:var(--accent);font-weight:600}
+.syntaxnotes .tag{justify-self:start;font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
+.syntaxnotes strong{color:var(--ink);font-weight:600}
+@media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
 
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .themebtn{
@@ -422,20 +429,24 @@ try{
       <button class="mbtn" data-mode="validator" type="button">Rulefile validator</button>
     </div>
     <div id="builderIntro">
-      <p>
-        A password-cracking rule is a chain of small transformation steps — capitalize,
-        substitute, append, swap, reject — applied to a word in order. Build a chain
-        below, watch each step fire one at a time, and see what happens when you
-        reorder, add, or remove a step. Start with
-        <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">hashcat's rule syntax</a>
-        (the default tab): <strong>it's unambiguous, and it's the de facto standard</strong> —
-        most published rule lists use it, and John the Ripper runs it byte-for-byte
-        identically in its own hashcat-compat mode, so it's portable without any extra
-        thought. Reach for
-        <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's own native syntax</a>
-        only when you need something hashcat genuinely can't express, like
-        pluralization or John's own character classes.
+      <p class="lead">
+        A password-cracking rule is a chain of small steps — capitalize, substitute,
+        append, swap, reject — applied to a word in order. Build one below, watch each
+        step fire, and see how reordering, adding or removing a step changes the result.
       </p>
+      <ul class="syntaxnotes">
+        <li>
+          <a href="https://hashcat.net/wiki/doku.php?id=rule_based_attack" target="_blank" rel="noopener">Hashcat syntax</a>
+          <span class="tag">default</span>
+          <span><strong>Unambiguous and the de facto standard.</strong> Most published rule lists use it, and
+          John the Ripper runs it byte-for-byte identically in its hashcat-compat mode, so it's portable.</span>
+        </li>
+        <li>
+          <a href="https://www.openwall.com/john/doc/RULES.shtml" target="_blank" rel="noopener">John's native syntax</a>
+          <span class="tag">special cases</span>
+          <span>Only when hashcat can't express what you need, like pluralization or John's own character classes.</span>
+        </li>
+      </ul>
       <div class="targetrow">
         <span class="targetlabel">Target:</span>
         <div class="targetbtns" id="targetBtns" role="tablist">
