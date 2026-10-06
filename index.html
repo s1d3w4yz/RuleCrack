@@ -1830,7 +1830,7 @@ d $1$2$3"></textarea>
     });
   }
   wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(expanded){
-    if (expanded) chainEl.style.maxHeight = ''; else syncColumnFit();
+    if (expanded) chainEl.style.maxHeight = ''; else syncColumnFit(); // keep min-height: expanded is never shorter than the synced height
   });
   wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(expanded){
     if (expanded) traceEl.style.maxHeight = ''; else syncColumnFit();
@@ -1890,6 +1890,7 @@ d $1$2$3"></textarea>
     var listHeight = Math.max(minHeight * textScale, available - fixedOverhead);
     return {fixedOverhead: fixedOverhead, total: fixedOverhead + listHeight};
   }
+  function setListHeight(listEl, px){ listEl.style.maxHeight = px + 'px'; listEl.style.minHeight = px + 'px'; }
   function syncColumnFit(){
     if (document.getElementById('builderView').hidden) return;
     // Each column's total height is capped at the load-time viewport
@@ -1915,8 +1916,11 @@ d $1$2$3"></textarea>
       // column 2 is the one with more fixed content around its list.
       targetTotal = Math.max(rawTarget, lastColumnTarget || 0);
     }
-    if (fit1 && targetTotal>0) chainEl.style.maxHeight = (targetTotal - fit1.fixedOverhead) + 'px';
-    if (fit2 && targetTotal>0) traceEl.style.maxHeight = (targetTotal - fit2.fixedOverhead) + 'px';
+    // min-height as well as max-height: a list with fewer rows than its box
+    // could hold (a short chain, a short trace, a tall window) would otherwise
+    // end early and leave its column shorter than the others.
+    if (fit1 && targetTotal>0) setListHeight(chainEl, targetTotal - fit1.fixedOverhead);
+    if (fit2 && targetTotal>0) setListHeight(traceEl, targetTotal - fit2.fixedOverhead);
     syncCheatHeight();
   }
   var lastColumnTarget = null; // last target height measured with neither chain nor trace expanded
@@ -2128,7 +2132,7 @@ d $1$2$3"></textarea>
           else if (spec.t==='char'){ v = v.slice(0,1); }
           step.args[argName] = v;
           renderTraceAndRule(); renderBatch();
-          syncRuleLine(); paintRuleHl();
+          syncRuleLine(); paintRuleHl(); syncColumnFit();
         });
       });
 
@@ -2629,6 +2633,7 @@ d $1$2$3"></textarea>
     setMode('builder');
     validatorReturnRow.textContent = idx + 1;
     validatorReturnBox.hidden = false;
+    syncColumnFit(); // the box adds height to column 1
     ruleTextInput.scrollIntoView({behavior:'smooth', block:'center'});
   }
   validatorReturnSave.addEventListener('click', function(){
@@ -2644,6 +2649,7 @@ d $1$2$3"></textarea>
   validatorReturnCancel.addEventListener('click', function(){
     VALIDATOR_FIX_ROW = null;
     validatorReturnBox.hidden = true;
+    syncColumnFit();
   });
 
   // renderAll() rebuilds every step card, which would drop keyboard focus
@@ -2659,9 +2665,9 @@ d $1$2$3"></textarea>
     renderChain();
     renderTraceAndRule();
     renderBatch();
-    syncColumnFit();
     if (!syncingFromText) syncRuleLine(); // chain-side change -> rewrite the rule line
     if (ruleHl) paintRuleHl(); // disabled steps are struck through in the rule line
+    syncColumnFit(); // last, so lines that appear/disappear above are counted
   }
 
   function renderCheatsheet(){
@@ -2883,6 +2889,7 @@ d $1$2$3"></textarea>
       ruleParseStatus.className = 'sub ok';
       ruleTextInput.classList.remove('err');
     }
+    syncColumnFit(); // the status line just changed column 1's height
   }
   // ---------- rule-line overlay: hover highlight + disabled steps ----------
   // Two things are drawn over the rule line, both by finding which slice of

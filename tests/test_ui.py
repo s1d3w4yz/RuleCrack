@@ -31,6 +31,8 @@ everything cosmetic second):
       aN reject step rejects a given word
     - an out-of-range position argument (e.g. typing 99) clamps to 35 in
       the actual exported rule, not just visually
+    - the three columns stay equal height however full the lists are
+      (full, one-step and empty chains; expanding a short list)
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -563,6 +565,36 @@ def test_text_size_control(driver, r):
     r.check(root_px() == 16 and active() == [''], 'choosing the default returns to 16px', f"{root_px()}px, active {active()!r}")
 
 
+def test_columns_stay_equal_height(driver, r):
+    """The three columns of the builder view must end at the same height
+    however full the lists are — a short chain, an empty one, a typed rule
+    whose status line appears — not only with the default example."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def heights():
+        return driver.execute_script(
+            "return ['col1Card', 'col2Card', 'cheatCard'].map(function(id){"
+            "  return Math.round(document.getElementById(id).getBoundingClientRect().height);});")
+
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    h = heights()
+    r.check(len(set(h)) == 1, 'columns are equal height with a full chain', f'{h}')
+
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c', debounced=True)
+    h = heights()
+    r.check(len(set(h)) == 1, 'columns are equal height with a one-step chain (list shorter than its box)', f'{h}')
+
+    clear_chain(driver)
+    time.sleep(0.2)
+    h = heights()
+    r.check(len(set(h)) == 1, 'columns are equal height with an empty chain', f'{h}')
+
+    driver.execute_script("document.getElementById('traceExpandBtn').click();")
+    h = heights()
+    r.check(len(set(h)) == 1, 'expanding a list that has few rows does not make its column shorter', f'{h}')
+    driver.execute_script("document.getElementById('traceExpandBtn').click();")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -587,6 +619,7 @@ def main():
         test_position_arg_clamping(driver, r)
         test_rule_line_follows_chain_edits(driver, r)
         test_text_size_control(driver, r)
+        test_columns_stay_equal_height(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
