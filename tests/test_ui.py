@@ -47,6 +47,8 @@ everything cosmetic second):
     - High contrast meets WCAG AAA (text 7:1, control edges 4.5:1) in both
       themes, and its switch works, is remembered and follows the system's
       'more contrast' setting unless a choice was made
+    - in forced-colors mode (Windows High Contrast) the active toggle, the
+      linked-step highlights and the drag handle are still visible
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -2208,6 +2210,35 @@ def test_high_contrast_switch(driver, r):
         driver.get(INDEX_URL)
 
 
+def test_forced_colors_keep_states_visible(driver, r):
+    """In forced-colors mode (Windows High Contrast) the browser drops
+    backgrounds and shadows, so the active toggle and the linked-step
+    highlights must also be drawn with outlines. Runs last (media emulation)."""
+    import time as _t
+    try:
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'forced-colors', 'value': 'active'}]})
+        driver.get(INDEX_URL)
+        _t.sleep(0.8)
+
+        def outline(sel):
+            return driver.execute_script(
+                "var e = document.querySelector(arguments[0]); if (!e) return null; var cs = getComputedStyle(e);"
+                "return [cs.outlineStyle, parseFloat(cs.outlineWidth)];", sel)
+
+        act = outline('#themeSwitch .mbtn.active')
+        idle = outline('#themeSwitch .mbtn:not(.active)')
+        r.check(act[0] != 'none' and act[1] >= 2 and idle[0] == 'none', 'forced colors: the active toggle has an outline and the inactive ones do not', f'{act} vs {idle}')
+        driver.execute_script("document.querySelectorAll('#chain .step')[1].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));")
+        _t.sleep(0.2)
+        card, row, tok = outline('#chain .step.linked'), outline('#trace .trace-row.linked'), outline('#ruleHl .hl-on')
+        r.check(all(x and x[0] != 'none' and x[1] >= 2 for x in (card, row, tok)), 'forced colors: the linked card, trace row and rule-line token are outlined', f'{card} {row} {tok}')
+        grip = driver.execute_script("var cs = getComputedStyle(document.querySelector('#chain .grip'), '::before'); return cs.backgroundImage.indexOf('gradient') >= 0;")
+        r.check(grip, 'forced colors: the drag handle dots are still drawn', f'{grip}')
+    finally:
+        driver.execute_cdp_cmd('Emulation.setEmulatedMedia', {'features': [{'name': 'forced-colors', 'value': ''}]})
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -2268,6 +2299,7 @@ def main():
         test_contrast_meets_wcag_aa(driver, r)
         test_high_contrast_meets_wcag_aaa(driver, r)
         test_high_contrast_switch(driver, r)
+        test_forced_colors_keep_states_visible(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

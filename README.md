@@ -59,6 +59,8 @@ existing `.rule` file line by line.
   A **High contrast** switch, which also turns on by itself when the system
   asks for more contrast, goes further to AAA: all text 7:1 and control
   edges 4.5:1, in either theme. The tests scan both modes in both themes.
+  Windows High Contrast (forced colors) is supported too: the active toggle,
+  the linked-step highlights and the drag handle are drawn with outlines.
 - **Display options**: a Dark / Light / Auto theme (Auto follows the system's
   setting live and uses dark if the system doesn't say) and three text sizes (every size in
   the page scales together). Both are remembered per browser. The default

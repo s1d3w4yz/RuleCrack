@@ -475,6 +475,17 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
   100%{box-shadow:0 0 0 0 transparent;}
 }
 .jump-highlight{animation:jumpFlash 1s ease}
+/* Forced colors (Windows High Contrast and similar): the browser replaces our colors and drops
+   backgrounds and shadows, which is how the active toggle, the linked-step highlights and the
+   drag handle were drawn. Outlines survive, so use those, in the system's own colors. */
+@media (forced-colors: active){
+  .mbtn.active,.tbtn.active{outline:2px solid Highlight;outline-offset:-2px;text-decoration:underline}
+  .step.linked,.trace .trace-row.linked{outline:2px solid Highlight;outline-offset:-2px}
+  .rulehl .hl-on{outline:2px solid Highlight}
+  .step .grip::before{forced-color-adjust:none;background-image:radial-gradient(circle,CanvasText 1.3px,transparent 1.7px);opacity:1}
+  .step .grip{border-right:1px solid CanvasText}
+  .toast{border:2px solid CanvasText}
+}
 /* Respect "reduce motion": no flash animation, and (in JS) no animated scrolling. */
 @media (prefers-reduced-motion:reduce){
   .jump-highlight{animation:none}
