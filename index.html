@@ -194,9 +194,12 @@ label.field textarea{
 }
 .step.disabled{opacity:.5}
 .step.rejecty{border-color:var(--danger)}
-.step .idx{
+.step.dragging{opacity:.4}
+.step.drop-above{box-shadow:0 -3px 0 -1px var(--accent)}
+.step.drop-below{box-shadow:0 3px 0 -1px var(--accent)}
+.step .idx{cursor:grab;display:flex;flex-direction:column;align-items:center;line-height:1.1;user-select:none;
   font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--dim);
-  width:20px;flex:none;text-align:center;padding-top:8px;
+  width:20px;flex:none;text-align:center;padding-top:3px;
 }
 .step .body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
 .step .body .toprow{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
@@ -240,6 +243,8 @@ label.field textarea{
 .step button.iconbtn:hover{border-color:var(--accent);color:var(--accent)}
 .step button.iconbtn:disabled{opacity:.35;cursor:default}
 .step button.iconbtn.del:hover{border-color:var(--danger);color:var(--danger)}
+.step .idx .grip{font-size:.85rem;letter-spacing:-2px}
+.step .idx:hover{color:var(--accent)}
 .step input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);margin-top:8px}
 
 .addrow{display:flex;gap:8px;flex-wrap:wrap}
@@ -1998,7 +2003,7 @@ d $1$2$3"></textarea>
       var argsHtml = op.args.map(function(spec){ return renderArgInput(step, spec); }).join('');
 
       row.innerHTML =
-        '<span class="idx mono">'+(i+1)+'</span>'+
+        '<span class="idx mono" title="Drag to reorder"><span class="grip" aria-hidden="true">&#8942;&#8942;</span>'+(i+1)+'</span>'+
         '<input type="checkbox" class="s-enabled" '+(step.enabled?'checked':'')+' title="enable/disable step">'+
         '<div class="body">'+
           '<div class="toprow">'+
@@ -2033,6 +2038,7 @@ d $1$2$3"></textarea>
         });
       });
 
+      wireStepDrag(row, i);
       row.querySelector('.up').addEventListener('click', function(){ if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAll(); } });
       row.querySelector('.down').addEventListener('click', function(){ if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAll(); } });
       row.querySelector('.del').addEventListener('click', function(){ steps.splice(i,1); renderAll(); });
@@ -2044,6 +2050,56 @@ d $1$2$3"></textarea>
   // The dropdown clips long labels, and the full label used to sit under
   // every one of them. Now that line only appears for the steps whose
   // label really doesn't fit in the dropdown, so most cards are one row.
+  // ---------- drag to reorder ----------
+  // Only the number/grip cell starts a drag (the row is made draggable on
+  // mousedown there), so text selection in the dropdowns and inputs keeps
+  // working. The drop position comes from which half of the hovered row
+  // the pointer is in; the up/down buttons stay as the keyboard- and
+  // touch-friendly way to move a step.
+  var dragFrom = null;
+  function clearDropMarks(){
+    chainEl.querySelectorAll('.drop-above,.drop-below').forEach(function(r){ r.classList.remove('drop-above','drop-below'); });
+  }
+  function wireStepDrag(row, i){
+    var idx = row.querySelector('.idx');
+    idx.addEventListener('mousedown', function(){
+      row.draggable = true;
+      // a plain click on the handle must not leave the row draggable
+      document.addEventListener('mouseup', function(){ row.draggable = false; }, {once:true});
+    });
+    row.addEventListener('dragstart', function(e){
+      dragFrom = i;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(i)); } catch(err){}
+    });
+    row.addEventListener('dragend', function(){
+      row.draggable = false; row.classList.remove('dragging'); dragFrom = null; clearDropMarks();
+    });
+    row.addEventListener('dragover', function(e){
+      if (dragFrom === null) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      var r = row.getBoundingClientRect();
+      var below = e.clientY > r.top + r.height/2;
+      clearDropMarks();
+      row.classList.add(below ? 'drop-below' : 'drop-above');
+      // keep long lists reachable: nudge the scroll box near its edges
+      var box = chainEl.getBoundingClientRect();
+      if (e.clientY < box.top + 24) chainEl.scrollTop -= 12;
+      else if (e.clientY > box.bottom - 24) chainEl.scrollTop += 12;
+    });
+    row.addEventListener('drop', function(e){
+      if (dragFrom === null) return;
+      e.preventDefault();
+      var r = row.getBoundingClientRect();
+      var to = i + (e.clientY > r.top + r.height/2 ? 1 : 0);
+      var from = dragFrom;
+      dragFrom = null; clearDropMarks();
+      if (to > from) to--; // removing the dragged step shifts later slots up by one
+      if (to !== from){ steps.splice(to, 0, steps.splice(from, 1)[0]); renderAll(); }
+    });
+  }
   var labelMeasure = document.createElement('canvas').getContext('2d');
   function flagClippedLabels(){
     chainEl.querySelectorAll('.step').forEach(function(row){
