@@ -3609,9 +3609,21 @@ d $1$2$3"></textarea>
     var parseFn = TARGET==='john_native' ? parseRuleLineJohn : parseRuleLine;
     var parsed = text.trim() ? parseFn(text, function(type, args){ return {type:type, args:args}; }) : {steps: []};
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
-    var out = [];
-    steps.filter(function(st){ return tokenFn(st.type, st.args) !== null; }).forEach(function(st, idx){
-      var m = parsed.steps[idx];
+    var out = [], at = 0;
+    steps.filter(function(st){ return tokenFn(st.type, st.args) !== null; }).forEach(function(st){
+      var m = parsed.steps[at];
+      // A multi-byte character in $ ^ i v o is written as one operation per byte, so that one step
+      // owns several parsed operations; its slice runs from the first to the last of them.
+      var k = (OPS[st.type].multibyte && typeof st.args.X === 'string') ? Math.max(1, argBytes(st.args.X).length) : 1;
+      if (k > 1){
+        var last = parsed.steps[at + k - 1];
+        at += k;
+        if (!m || !last || !m.src || !last.src || m.type !== st.type) return;
+        if (tokenFn(st.type, st.args) !== text.slice(m.src[0], last.src[1])) return;
+        out.push({step: st, from: m.src[0], to: last.src[1]});
+        return;
+      }
+      at++;
       if (!m || !m.src || m.type !== st.type || argSig(m.args) !== argSig(st.args)) return;
       out.push({step: st, from: m.src[0], to: m.src[1]});
     });

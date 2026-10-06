@@ -1657,6 +1657,26 @@ def test_both_callout_is_a_code_block(driver, r):
             'the Both callout is a 4-line code block plus three short points', f'{cb}')
 
 
+def test_rule_line_highlight_with_multibyte_steps(driver, r):
+    """A step holding a multi-byte character (the default chain ends with Append £) is written as
+    one operation per byte, so it owns several operations in the rule line. Hovering it still
+    highlights all of its text, and the steps after it still line up."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    # make step 7 (Append !) a multi-byte character; the step after it must still match
+    set_value(driver, driver.find_elements('css selector', '#chain .step')[6].find_element('css selector', '.p-arg[data-arg="X"]'), '\u00a3')
+    rule = driver.execute_script("return document.getElementById('ruleTextInput').value;")
+    r.check('$\\xc2$\\xa3 $1' in rule, 'editing an argument to a multi-byte character rewrites the rule line with its bytes', repr(rule))
+    marks = driver.execute_script(
+        "var out=[];document.querySelectorAll('#chain .step').forEach(function(c){"
+        "c.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}));"
+        "var h=document.querySelector('#ruleHl .hl-on');out.push(h?h.textContent:null);"
+        "c.dispatchEvent(new MouseEvent('mouseout',{bubbles:true}));});return out;")
+    r.check(marks == ['c', 'sa4', 'se3', 'si1', 'so0', 'ss5', '$\\xc2$\\xa3', '$1'], 'hovering each step highlights exactly its own text, including the multi-byte one', repr(marks))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def test_byte_escapes_in_the_rule_line(driver, r):
     """Words run as UTF-8 bytes and a rule can write a byte as \\xNN (hashcat's escape, the way to
     append a multi-byte character such as µ = c2 b5): the escapes parse, the trace shows the
@@ -2321,6 +2341,7 @@ def main():
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
         test_byte_escapes_in_the_rule_line(driver, r)
+        test_rule_line_highlight_with_multibyte_steps(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)
         test_top_bar_stays_within_the_intro_width(driver, r)
         test_contrast_meets_wcag_aa(driver, r)
