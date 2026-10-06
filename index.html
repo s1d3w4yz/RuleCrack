@@ -1852,9 +1852,6 @@ d $1$2$3"></textarea>
   // cap: on a very short window the columns may exceed the viewport.
   var MIN_CHAIN_HEIGHT = 165;
   var MIN_TRACE_HEIGHT = 110;
-  // Columns are sized to the viewport as it was when the page loaded;
-  // resizing the window afterwards deliberately does not re-fit them.
-  var LOAD_VIEWPORT_HEIGHT = window.innerHeight;
   var VIEWPORT_MARGIN = 24; // breathing room so a column ends just inside the viewport
   var cheatCard = document.getElementById('cheatCard');
   var col1Card = document.getElementById('col1Card');
@@ -1882,10 +1879,20 @@ d $1$2$3"></textarea>
             overhead: card.getBoundingClientRect().height - content,
             floor: Math.min(minHeight * textScale, content)}; // never taller than the content
   }
+  // Equalizing column heights only means something while the columns are
+  // side by side. Below 1150px wide the grid wraps (matches the CSS
+  // breakpoints), so the lists fall back to their stylesheet caps and the
+  // cheat sheet to its own cap — which also keeps a phone's on-screen
+  // keyboard (it shrinks the viewport) from squeezing the lists mid-typing.
+  var threeColumns = window.matchMedia('(min-width: 1151px)');
   function syncColumnFit(){
     if (builderView.hidden) return;
+    if (!threeColumns.matches){
+      [chainEl, traceEl, cheatCard].forEach(function(el){ el.style.maxHeight = ''; el.style.minHeight = ''; });
+      return;
+    }
     var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
-    var total = planColumnHeight(LOAD_VIEWPORT_HEIGHT - VIEWPORT_MARGIN, cols);
+    var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN, cols);
     cols.forEach(function(c){
       var box = total - c.overhead;
       // a manually expanded list stays uncapped (it shows everything, and its
@@ -1912,6 +1919,14 @@ d $1$2$3"></textarea>
     columnObserver.observe(col1Card);
     columnObserver.observe(col2Card);
   }
+  // Re-fit when the window is resized (devtools opening, maximizing, zoom,
+  // rotating a tablet). Debounced so dragging a window edge doesn't re-measure
+  // on every pixel. The trace's lock default stays a load-time decision.
+  var resizeTimer = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(syncColumnFit, 150);
+  });
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
     if (expanded){ cheatCard.style.maxHeight = ''; cheatCard.style.minHeight = ''; } // CSS .expanded{max-height:none} takes over
     else syncColumnFit();

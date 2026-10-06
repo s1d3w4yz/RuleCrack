@@ -34,7 +34,9 @@ everything cosmetic second):
     - the three columns stay equal height however full the lists are
       (full, one-step and empty chains; expanding a short list), and in a
       tall window they end at column 2's natural height by shrinking the
-      chain list instead of padding the trace box
+      chain list instead of padding the trace box; resizing the window
+      re-fits them, and the stacked narrow layout falls back to the
+      stylesheet caps
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -625,6 +627,52 @@ def test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r):
         driver.get(INDEX_URL)
 
 
+def test_columns_refit_on_window_resize(driver, r):
+    """Resizing the window re-fits the columns (they used to be sized only
+    at load), only while the three columns sit side by side; the stacked
+    narrow layout falls back to the stylesheet caps and comes back cleanly.
+    Runs last: it changes the viewport size."""
+    def size(w, h):
+        driver.execute_cdp_cmd('Emulation.setDeviceMetricsOverride',
+                               {'width': w, 'height': h, 'deviceScaleFactor': 1, 'mobile': False})
+        time.sleep(0.5)  # past the 150ms resize debounce
+
+    def cols():
+        return driver.execute_script(
+            "var h = function(id){ return Math.round(document.getElementById(id).getBoundingClientRect().height); };"
+            "return {c1: h('col1Card'), c2: h('col2Card'), c3: h('cheatCard'), vh: window.innerHeight,"
+            "        chain: h('chain'), trace: h('trace')};")
+
+    try:
+        size(1500, 857)
+        driver.get(INDEX_URL)
+        time.sleep(0.8)
+        a = cols()
+        r.check(a['c1'] == a['c2'] == a['c3'] and a['c1'] <= a['vh'], 'sanity: equal columns that fit at 1500x857', f'{a}')
+
+        size(1500, 1123)
+        b = cols()
+        r.check(b['c1'] == b['c2'] == b['c3'] and b['c1'] > a['c1'],
+                'making the window taller re-fits the columns (equal, and taller than before)', f'{a["c1"]}px -> {b["c1"]}px')
+
+        size(1500, 700)
+        c = cols()
+        r.check(c['c1'] == c['c2'] == c['c3'] and c['c1'] < b['c1'],
+                'making the window shorter re-fits the columns again (equal, and shorter)', f'{b["c1"]}px -> {c["c1"]}px')
+
+        size(1000, 900)
+        n = cols()
+        r.check(n['chain'] <= 560 and n['trace'] <= 420,
+                'in the stacked narrow layout the lists use their stylesheet caps, not the column fit', f'{n}')
+
+        size(1500, 857)
+        e = cols()
+        r.check(e == a, 'returning to the original size restores the original column heights exactly', f'{a} vs {e}')
+    finally:
+        driver.execute_cdp_cmd('Emulation.clearDeviceMetricsOverride', {})
+        driver.get(INDEX_URL)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -651,6 +699,7 @@ def main():
         test_text_size_control(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)
+        test_columns_refit_on_window_resize(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)

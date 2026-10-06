@@ -48,6 +48,9 @@ existing `.rule` file line by line.
   the page scales together). Both are remembered per browser. The default
   size is compact enough for the three columns to fit one screen; the
   larger sizes are there when you need more readable text.
+  The three columns are sized to end together within the window and
+  re-fit when you resize it (devtools opening, maximizing, zooming); below
+  1150px wide they stack and the lists use fixed heights instead.
 - **Hashcat / John the Ripper compatibility**: a three-way target switch,
   since John's rule engine and hashcat's overlap but neither is a subset of
   the other — hashcat has 13 operators John never implements at all, and
