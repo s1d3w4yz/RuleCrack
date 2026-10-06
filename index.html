@@ -179,12 +179,15 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .card .sub{font-size:.82rem;color:var(--dim);line-height:1.5;margin-top:-8px}
 
 .sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.expandbtn{
+.expandbtn,.hdrbtn{
   font-family:'IBM Plex Mono',monospace;font-size:.78rem;color:var(--ink);
   background:var(--surface-2);border:1px solid var(--dim);border-radius:6px;padding:4px 10px;
   cursor:pointer;white-space:nowrap;flex:none;letter-spacing:normal;text-transform:none;
 }
-.expandbtn:hover{border-color:var(--accent);color:var(--accent)}
+.expandbtn:hover,.hdrbtn:hover{border-color:var(--accent);color:var(--accent)}
+.hdrbtn.copied{color:var(--good);border-color:var(--good)}
+.hdrbtn:disabled{opacity:.5;cursor:default}
+.hdrbtn:disabled:hover{border-color:var(--dim);color:var(--ink)}
 
 label.field{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--dim)}
 label.field input[type=text]{
@@ -591,7 +594,10 @@ try{
         </label>
       </div>
 
-      <h2 style="margin-top:4px"><span class="n">02</span>Rule line</h2>
+      <div class="sectionhead" style="margin-top:4px">
+        <h2><span class="n">02</span>Rule line</h2>
+        <button class="hdrbtn" id="copyRuleBtn" type="button" title="Copy the rule the chain applies — disabled steps are left out, even though the line above still shows them struck through">Copy Hashcat rule</button>
+      </div>
       <p class="sub" id="ruleLineSub">The rule as plain text, kept in step with the chain below. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to replace the chain.</p>
       <label class="field">
         <span class="rulewrap">
@@ -600,6 +606,14 @@ try{
         </span>
       </label>
       <div id="ruleParseStatus" class="sub" style="margin-top:-6px"></div>
+      <div class="sub" id="portabilityNote" style="margin-top:-6px"></div>
+      <div class="callout small" id="validatorReturnBox" hidden>
+        Fixing row <span id="validatorReturnRow" class="mono"></span> from the rulefile validator.
+        <div class="copyrow" style="margin-top:6px">
+          <button class="copy" id="validatorReturnSave">✓ Save fix &amp; return to validator</button>
+          <button class="copy" id="validatorReturnCancel">Cancel</button>
+        </div>
+      </div>
 
       <div class="sectionhead" style="margin-top:4px">
         <h2><span class="n">03</span>Step chain</h2>
@@ -637,16 +651,6 @@ try{
       <h2 style="margin-top:4px"><span class="n">05</span>Export</h2>
       <div class="copyrow">
         <button class="copy" id="copyResultBtn">Copy final result</button>
-        <button class="copy" id="copyRuleBtn">Copy Hashcat rule</button>
-      </div>
-      <div class="rule-out mono" id="hashcatOutput"></div>
-      <div class="sub" id="portabilityNote" style="margin-top:-6px"></div>
-      <div class="callout small" id="validatorReturnBox" hidden style="margin-top:8px">
-        Fixing row <span id="validatorReturnRow" class="mono"></span> from the rulefile validator.
-        <div class="copyrow" style="margin-top:6px">
-          <button class="copy" id="validatorReturnSave">✓ Save fix &amp; return to validator</button>
-          <button class="copy" id="validatorReturnCancel">Cancel</button>
-        </div>
       </div>
 
       <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
@@ -1951,7 +1955,6 @@ d $1$2$3"></textarea>
     if (expanded){ cheatCard.style.maxHeight = ''; cheatCard.style.minHeight = ''; } // CSS .expanded{max-height:none} takes over
     else { syncCheatHeight(); }
   });
-  var hashcatOutput = document.getElementById('hashcatOutput');
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
   var batchInput = document.getElementById('batchInput');
@@ -2299,8 +2302,8 @@ d $1$2$3"></textarea>
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
     }).join('');
 
-    hashcatOutput.innerHTML = buildRuleHtml();
     copyRuleBtn.textContent = TARGET==='john_native' ? 'Copy John rule' : 'Copy Hashcat rule';
+    copyRuleBtn.disabled = !ruleHasTokens();
 
     var enabledSteps = steps.filter(function(s){ return s.enabled; });
     var noteEl = document.getElementById('portabilityNote');
@@ -2333,6 +2336,10 @@ d $1$2$3"></textarea>
   // calls for. A step with no token at all in that dialect (e.g. a
   // John-native op while composing plain hashcat syntax) is left out of
   // the string — the portability note above says what's missing and why.
+  function ruleHasTokens(){
+    var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
+    return steps.some(function(st){ return st.enabled && tokenFn(st.type, st.args) !== null; });
+  }
   function buildRuleString(){
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
     var parts = [];
@@ -2343,23 +2350,6 @@ d $1$2$3"></textarea>
     });
     return parts.length ? parts.join(' ') : '(no rule — chain is empty, or nothing here converts to this syntax)';
   }
-  // Same string, but with each token colored by the same compat-key used
-  // in the cheat sheet — so compatibility is visible on the literal rule
-  // you're about to copy, not just in the reference list above it.
-  function buildRuleHtml(){
-    var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
-    var parts = [];
-    steps.forEach(function(step){
-      if (!step.enabled) return;
-      var tok = tokenFn(step.type, step.args);
-      if (tok===null) return;
-      var cc = compatClass(step.type);
-      var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
-      parts.push(cc ? '<span class="'+cc+'"'+tip+'>'+escapeHtml(tok)+'</span>' : escapeHtml(tok));
-    });
-    return parts.length ? parts.join(' ') : '(no rule — chain is empty, or nothing here converts to this syntax)';
-  }
-
   function renderBatch(){
     var lines = (batchInput.value||'').split('\n').map(function(l){return l.trim();}).filter(Boolean);
     batchBody.innerHTML = lines.map(function(w){
@@ -2970,7 +2960,7 @@ d $1$2$3"></textarea>
     copyText(result.rejected ? '(rejected)' : result.final, copyResultBtn);
   });
   copyRuleBtn.addEventListener('click', function(){
-    copyText(hashcatOutput.textContent, copyRuleBtn);
+    if (ruleHasTokens()) copyText(buildRuleString(), copyRuleBtn);
   });
 
   // ---------- target selector wiring ----------
@@ -3047,7 +3037,8 @@ d $1$2$3"></textarea>
     johnToken: johnToken,
     compatClass: compatClass,
     buildableInTarget: buildableInTarget,
-    runChain: runChain
+    runChain: runChain,
+    buildRuleString: buildRuleString
   };
 })();
 </script>

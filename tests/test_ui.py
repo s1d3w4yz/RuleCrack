@@ -159,7 +159,7 @@ def test_chain_builder_matches_engine(driver, r):
         engine_token(driver, 'hashcat', 'lrest', {}),
         engine_token(driver, 'hashcat', 'replace', {'X': 'a', 'Y': '4'}),
     ])
-    ui_export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    ui_export = driver.execute_script("return window.__test.buildRuleString();")
     r.check(ui_export == expected_tokens,
             'export box matches the engine-built token string',
             f"UI showed {ui_export!r}, expected {expected_tokens!r}")
@@ -310,7 +310,7 @@ def test_enable_disable_step_excludes_it(driver, r):
             'disabling the 2nd step excludes it from the trace result',
             f"UI {ui_final!r}, engine (urest only) {only_first['final']!r}")
 
-    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    export = driver.execute_script("return window.__test.buildRuleString();")
     expected_export = engine_token(driver, 'hashcat', 'urest', {})
     r.check(export == expected_export,
             'disabling a step also excludes its token from the export',
@@ -329,14 +329,14 @@ def test_cross_target_export_and_portability(driver, r):
     add_step(driver, 'to_hex_lower')  # hashcat-only ('h'): no John equivalent at all
 
     driver.find_element('css selector', '#targetBtns .tbtn[data-target="hashcat"]').click()
-    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    export = driver.execute_script("return window.__test.buildRuleString();")
     r.check(export == 'l h', 'hashcat target: export includes the hashcat-only step', export)
     n = note()
     r.check(n['cls'] == 'sub warn' and n['text'].startswith('✗ Won’t run in John the Ripper'),
             'hashcat target: portability note warns about the hashcat-only step', n)
 
     driver.find_element('css selector', '#targetBtns .tbtn[data-target="both"]').click()
-    export_both = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    export_both = driver.execute_script("return window.__test.buildRuleString();")
     r.check(export_both == 'l h',
             '"Both" target: a pre-existing hashcat-only step stays in the export '
             '(only the add-step menu restricts what\'s buildable fresh, not steps already built)',
@@ -406,7 +406,7 @@ def test_position_arg_clamping(driver, r):
     add_step(driver, 'toggle_at', {'N': '99'})  # out of hashcat's 0-35 position range
 
     expected_token = engine_token(driver, 'hashcat', 'toggle_at', {'N': 35})  # clamped
-    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    export = driver.execute_script("return window.__test.buildRuleString();")
     r.check(export == expected_token == 'TZ',
             'typing an out-of-range position (99) clamps to 35 in the actual built rule',
             f"UI export {export!r}, expected {expected_token!r}")
@@ -526,7 +526,7 @@ def test_rule_line_follows_chain_edits(driver, r):
     r.check(struck == [engine_token(driver, 'hashcat', 'urest', {})],
             "the disabled step's token is the one drawn struck through",
             f"struck: {struck!r}")
-    export = driver.execute_script("return document.getElementById('hashcatOutput').textContent;")
+    export = driver.execute_script("return window.__test.buildRuleString();")
     r.check(export == expected([edited[0], edited[2]]),
             'the export still omits the disabled step even though the rule line shows it', f"export {export!r}")
 
