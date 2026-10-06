@@ -352,7 +352,10 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 }
 .trace-row .content{min-width:0;display:flex;flex-direction:column;gap:3px}
 .trace-row .word{font-family:'IBM Plex Mono',monospace;font-size:1.1rem;word-break:break-all}
-.trace-row .word .hl{color:var(--accent);font-weight:600}
+.trace-row .word .hl{color:var(--accent);font-weight:600;
+  /* underline as well as color, so what changed doesn't depend on telling colors apart */
+  text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
+.trace .trace-row.linked,.trace.locked .trace-row.linked{background:color-mix(in srgb,var(--accent) 16%, var(--surface));box-shadow:inset 3px 0 0 var(--accent)}
 .trace-row .caption{font-size:.78rem;color:var(--dim)}
 .trace-row.start .word{color:var(--dim)}
 .trace-row.final .num{background:var(--good)}
@@ -2371,11 +2374,12 @@ d $1$2$3"></textarea>
       var isLast = i===result.trace.length-1 && result.trace.length>1 && !row.rejected;
       var cls = 'trace-row' + (isFirst?' start':'') + (isLast?' final':'') + (row.rejected?' rejected':'');
       var marker = row.stepNum ? '<span class="num" title="Step '+row.stepNum+' in the chain below"><span class="sr-only">Step </span>'+row.stepNum+'</span>' : '<span class="dot"></span>';
-      return '<div class="'+cls+'">'+marker+
+      return '<div class="'+cls+'"'+(row.stepNum ? ' data-step="'+row.stepNum+'"' : '')+'>'+marker+
         '<div class="content"><div class="word mono">'+row.changedHtml+'</div>'+
         '<div class="caption">'+escapeHtml(row.caption)+'</div></div></div>';
     }).join('');
 
+    if (typeof linkTraceRow === 'function') linkTraceRow(false); // keep the hover link across a re-render
     copyRuleBtn.textContent = TARGET==='john_native' ? 'Copy John rule' : 'Copy Hashcat rule';
     copyRuleBtn.disabled = !ruleHasTokens();
 
@@ -3124,8 +3128,24 @@ d $1$2$3"></textarea>
     html += escapeHtml(text.slice(pos));
     ruleHl.innerHTML = '<span style="display:inline-block;transform:translateX(-'+ruleTextInput.scrollLeft+'px)">'+html+'</span>';
   }
-  function showStepToken(stepId){ hoverStepId = stepId; paintRuleHl(); }
-  function hideStepToken(){ hoverStepId = null; paintRuleHl(); }
+  // The same hover/focus also lights up the step's row in the section 04
+  // trace (rows carry data-step = the step's 1-based position), and scrolls
+  // the trace box just enough to show it if it's out of view. A step that
+  // didn't run (disabled, or after a rejecting step) has no row.
+  function linkTraceRow(scrollIntoBox){
+    traceEl.querySelectorAll('.trace-row.linked').forEach(function(r){ r.classList.remove('linked'); });
+    if (hoverStepId === null) return;
+    var idx = steps.findIndex(function(st){ return st.id == hoverStepId; });
+    var row = idx < 0 ? null : traceEl.querySelector('.trace-row[data-step="' + (idx + 1) + '"]');
+    if (!row) return;
+    row.classList.add('linked');
+    if (!scrollIntoBox) return;
+    var box = traceEl.getBoundingClientRect(), r = row.getBoundingClientRect();
+    if (r.top < box.top) traceEl.scrollTop -= (box.top - r.top) + 4;
+    else if (r.bottom > box.bottom) traceEl.scrollTop += (r.bottom - box.bottom) + 4;
+  }
+  function showStepToken(stepId){ hoverStepId = stepId; paintRuleHl(); linkTraceRow(true); }
+  function hideStepToken(){ hoverStepId = null; paintRuleHl(); linkTraceRow(false); }
   function stepIdOf(e){ var row = e.target.closest && e.target.closest('.step'); return row ? row.dataset.id : null; }
   ruleTextInput.addEventListener('input', paintRuleHl);   // text just changed; drop marks until the chain catches up
   ruleTextInput.addEventListener('scroll', paintRuleHl);  // keep the overlay aligned when a long line scrolls

@@ -45,6 +45,9 @@ everything cosmetic second):
     - a deleted step can be undone (Undo button, Ctrl+Z), and keyboard
       shortcuts (Alt+Up/Down to move, Delete to remove) work from a step's
       checkbox and buttons but not inside its dropdown or text boxes
+    - hovering or focusing a step also highlights its row in the trace
+      (scrolling it into view), and what changed in the trace is
+      underlined as well as colored
     - the rule line (section 02) follows chain edits — add, reorder, edit
       an argument, disable (token kept, struck through), delete — while
       text typed into it is left as typed
@@ -1188,6 +1191,57 @@ def test_auto_theme_follows_the_system(driver, r):
         driver.get(INDEX_URL)
 
 
+def test_step_hover_links_to_its_trace_row(driver, r):
+    """Hovering (or focusing) a step in section 03 also lights up that
+    step's row in the section 04 trace, scrolling the trace box if the row
+    is out of view; a step that did not run has no row; the link survives a
+    re-render. The changed characters in the trace are underlined as well
+    as colored, so the change doesn't depend on telling colors apart."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+    def linked():
+        return driver.execute_script("return [].map.call(document.querySelectorAll('#trace .trace-row.linked'), function(r){ return r.dataset.step; });")
+
+    def hover(n):
+        driver.execute_script("document.querySelectorAll('#chain .step')[arguments[0] - 1].dispatchEvent(new MouseEvent('mouseover', {bubbles: true}));", n)
+
+    r.check(linked() == [], 'no trace row is linked until a step is hovered')
+    hover(2)
+    r.check(linked() == ['2'], 'hovering step 2 links trace row 2', f'{linked()}')
+    hover(3)
+    r.check(linked() == ['3'], 'moving to step 3 moves the link', f'{linked()}')
+    driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
+    r.check(linked() == [], 'leaving the list clears the link', f'{linked()}')
+
+    # keyboard focus links it too
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].focus();")
+    r.check(linked() == ['2'], 'focusing a step links its trace row as well', f'{linked()}')
+    driver.execute_script("document.activeElement.blur();")
+
+    # a row below the fold of the trace box gets scrolled into view
+    driver.execute_script("document.getElementById('trace').scrollTop = 0;")
+    hover(7)
+    inview = driver.execute_script(
+        "var t = document.getElementById('trace').getBoundingClientRect(), row = document.querySelector('#trace .trace-row.linked');"
+        "if (!row) return null; var b = row.getBoundingClientRect(); return b.top >= t.top - 1 && b.bottom <= t.bottom + 1;")
+    r.check(inview is True, 'hovering a step whose trace row is out of view scrolls the trace to show it', f'in view: {inview}')
+
+    # editing while hovered keeps the link (the trace re-renders)
+    hover(2)
+    driver.execute_script("var i = document.querySelectorAll('#chain .step')[1].querySelector('.p-arg'); i.value = 'q'; i.dispatchEvent(new Event('input', {bubbles: true}));")
+    r.check(linked() == ['2'], 'the link survives a trace re-render', f'{linked()}')
+
+    # a disabled step did not run, so there is no row to link
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[2].click();")
+    hover(3)
+    r.check(linked() == [], 'a disabled step has no trace row to link', f'{linked()}')
+
+    # underline as well as color for what changed
+    deco = driver.execute_script("var h = document.querySelector('#trace .word .hl'); return h ? getComputedStyle(h).textDecorationLine : null;")
+    r.check(deco == 'underline', 'changed characters in the trace are underlined, not only colored', f'{deco!r}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1220,6 +1274,7 @@ def main():
         test_delete_can_be_undone(driver, r)
         test_step_keyboard_shortcuts(driver, r)
         test_tooltip_information_is_also_visible(driver, r)
+        test_step_hover_links_to_its_trace_row(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
