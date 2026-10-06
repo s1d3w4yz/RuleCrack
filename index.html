@@ -16,7 +16,8 @@
 :root{
   --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
   --ink:#E7E2D3; --dim:#A9AFB6; --accent:#D9A449;
-  --good:#4FB286; --danger:#E27A70; --rule:#323A41;
+  --good:#5CB88F; --danger:#E79088; --rule:#323A41;
+  --control-border:#707B85;   /* >= 3:1 on every surface: the edge of an input, select or button (WCAG 1.4.11) */
   color-scheme:dark;
 }
 :root[data-theme="light"]{
@@ -26,9 +27,10 @@
   --ink:#1F2420;
   --dim:#524D3E;
   --accent:#7D5108;
-  --good:#1C6E63;
+  --good:#1A655B;
   --danger:#9B3A33;
   --rule:#D8D0BC;
+  --control-border:#787058;
   color-scheme:light;
 }
 
@@ -52,7 +54,7 @@ h2[tabindex="-1"]:focus:not(:focus-visible),#main:focus{outline:none}
    the textareas and the page itself): a quiet thumb until you hover a
    scrolling area, so the several nested scrollers stop competing for
    attention. Standard properties — inherited from :root. */
-:root{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--dim) 45%, transparent) transparent}
+:root{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--dim) 75%, transparent) transparent}
 .chain:hover,.trace:hover,#cheatBody:hover,.vtable-wrap:hover,textarea:hover,select:hover{
   scrollbar-color:var(--dim) transparent;
 }
@@ -99,13 +101,13 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 
 .targetrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
 .targetlabel{font-size:.78rem;letter-spacing:.03em;text-transform:uppercase;color:var(--dim);font-weight:600}
-.targetbtns{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px}
+.targetbtns{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--control-border);border-radius:8px;padding:3px}
 .tbtn{
   font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--dim);
   background:none;border:none;border-radius:6px;padding:6px 12px;cursor:pointer;
 }
 .tbtn:hover{color:var(--ink)}
-.tbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
+.tbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .tbtn .rec{
   display:inline-block;margin-left:6px;font-size:.75rem;letter-spacing:.04em;
   color:var(--accent);border:1px solid var(--accent);border-radius:3px;
@@ -113,7 +115,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 }
 .targetnote{font-size:.78rem;color:var(--dim);flex-basis:100%} /* always on its own line under the buttons */
 
-.modetoggle{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:3px;width:fit-content;margin:10px 0 16px}
+.modetoggle{display:flex;flex-wrap:wrap;gap:4px;background:var(--surface-2);border:1px solid var(--control-border);border-radius:8px;padding:3px;width:fit-content;margin:10px 0 16px}
 .mbtn{
   font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--dim);
   background:none;border:none;border-radius:6px;padding:0 14px;cursor:pointer;
@@ -122,7 +124,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
   height:1.8rem;display:inline-flex;align-items:center;justify-content:center;line-height:1;
 }
 .mbtn:hover{color:var(--ink)}
-.mbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--rule)}
+.mbtn.active{background:var(--surface);color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 
 .badge{
   display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.75rem;
@@ -221,13 +223,13 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 label.field{display:flex;flex-direction:column;gap:6px;font-size:.85rem;color:var(--dim)}
 label.field input[type=text]{
   font-family:'IBM Plex Mono',monospace;font-size:1rem;color:var(--ink);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:6px;
   padding:9px 10px;width:100%;
 }
 label.field input:focus{outline:2px solid var(--accent);outline-offset:1px}
 label.field textarea{
   font-family:'IBM Plex Mono',monospace;font-size:.95rem;color:var(--ink);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:6px;
   padding:9px 10px;width:100%;resize:vertical;min-height:88px;
 }
 
@@ -253,11 +255,11 @@ label.field textarea{
   border-radius:6px;padding:4px 12px;min-height:28px;cursor:pointer}
 .toast button:hover{background:var(--accent);color:var(--bg)}
 .chain-empty{margin:auto;padding:14px 12px;text-align:center;font-size:.85rem;line-height:1.45;color:var(--dim)}
-.step.disabled{opacity:.5}
+.step.disabled{opacity:.7}
 .step.rejecty{border-color:var(--danger)}
-.step.rejecting{background:color-mix(in srgb,var(--danger) 14%, var(--surface-2))}
+.step.rejecting{background:color-mix(in srgb,var(--danger) 8%, var(--surface-2))}
 .step .taglabel.rejbadge{color:var(--danger);border-color:var(--danger);font-weight:600}
-.step.linked{background:color-mix(in srgb,var(--accent) 13%, var(--surface-2));border-color:var(--accent)}
+.step.linked{background:color-mix(in srgb,var(--accent) 8%, var(--surface-2));border-color:var(--accent)}
 .step.dragging{opacity:.4}
 .step.drop-above{box-shadow:0 -3px 0 -1px var(--accent)}
 .step.drop-below{box-shadow:0 3px 0 -1px var(--accent)}
@@ -291,7 +293,7 @@ label.field textarea{
 }
 .step select.s-type{
   font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
-  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  background:var(--surface);border:1px solid var(--control-border);border-radius:5px;
   padding:6px 7px;max-width:100%;
 }
 /* The <select> itself still clips long labels to its own box width (a
@@ -305,19 +307,19 @@ label.field textarea{
 .step .argrow .argwrap{display:flex;align-items:center;gap:4px;font-size:.78rem;color:var(--dim)}
 .step input.p-arg{
   font-family:'IBM Plex Mono',monospace;font-size:.9rem;color:var(--ink);
-  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  background:var(--surface);border:1px solid var(--control-border);border-radius:5px;
   padding:5px 6px;width:42px;text-align:center;min-width:0;
 }
 .step input.p-arg.wide{width:52px;text-align:left}
 .step select.p-arg{
   font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--ink);
-  background:var(--surface);border:1px solid var(--rule);border-radius:5px;
+  background:var(--surface);border:1px solid var(--control-border);border-radius:5px;
   padding:5px 6px;
 }
 .step .btns{display:flex;gap:3px;flex:none;margin-top:4px}
 .step .btns .row{display:flex;gap:3px}
 .step button.iconbtn{
-  background:none;border:1px solid var(--rule);color:var(--dim);
+  background:none;border:1px solid var(--control-border);color:var(--dim);
   width:24px;height:24px;border-radius:5px;cursor:pointer;font-size:.8rem;
   display:flex;align-items:center;justify-content:center;line-height:1;
 }
@@ -329,11 +331,11 @@ label.field textarea{
 .addrow{display:flex;gap:8px;flex-wrap:wrap}
 select#addType{
   font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--ink);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:6px;
   padding:8px 10px;flex:1;min-width:160px;
 }
 button.add{
-  background:none;border:1px dashed var(--rule);color:var(--dim);
+  background:none;border:1px dashed var(--control-border);color:var(--dim);
   padding:7px 14px;border-radius:6px;font-size:.85rem;cursor:pointer;
   font-family:'IBM Plex Mono',monospace;
 }
@@ -366,7 +368,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row .word .hl{color:var(--accent);font-weight:600;
   /* underline as well as color, so what changed doesn't depend on telling colors apart */
   text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px;text-decoration-color:var(--accent)}
-.trace .trace-row.linked,.trace.locked .trace-row.linked{background:color-mix(in srgb,var(--accent) 16%, var(--surface));box-shadow:inset 3px 0 0 var(--accent)}
+.trace .trace-row.linked,.trace.locked .trace-row.linked{background:color-mix(in srgb,var(--accent) 10%, var(--surface));box-shadow:inset 3px 0 0 var(--accent)}
 .trace-row .caption{font-size:.78rem;color:var(--dim)}
 .trace-row.start .word{color:var(--dim)}
 .trace-row.final .num{background:var(--good)}
@@ -400,7 +402,7 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .copyrow{display:flex;gap:8px;flex-wrap:wrap}
 button.copy{
   font-family:'IBM Plex Mono',monospace;font-size:.8rem;
-  background:var(--surface-2);border:1px solid var(--rule);color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--control-border);color:var(--ink);
   padding:7px 11px;border-radius:6px;cursor:pointer;
 }
 button.copy:hover{border-color:var(--accent)}
@@ -408,7 +410,7 @@ button.copy.copied{color:var(--good);border-color:var(--good)}
 
 .rule-out{
   font-family:'IBM Plex Mono',monospace;font-size:.85rem;
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:8px;
   padding:12px 14px;overflow-x:auto;white-space:pre;color:var(--ink);
 }
 
@@ -451,7 +453,7 @@ table.batch td.out{color:var(--good)}
 table.batch td.out.rejected{color:var(--danger)}
 table.batch td.tracecol{text-align:right;padding-top:5px}
 button.tracebtn{
-  background:none;border:1px solid var(--rule);color:var(--dim);
+  background:none;border:1px solid var(--control-border);color:var(--dim);
   padding:3px 8px;min-height:24px;border-radius:5px;font-size:.75rem;cursor:pointer;
   font-family:'IBM Plex Mono',monospace;white-space:nowrap;
 }
@@ -483,20 +485,20 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .vtable .v-comment{color:var(--dim);font-family:'IBM Plex Mono',monospace;font-size:.82rem;padding-top:8px}
 .vtable input.v-rule{
   width:100%;min-width:130px;font-family:'IBM Plex Mono',monospace;font-size:.82rem;color:var(--ink);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;padding:5px 7px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:5px;padding:5px 7px;
 }
 .vtable tr.v-deleted input.v-rule{text-decoration:line-through}
 .vtable input.v-rule:focus{border-color:var(--accent);outline:none}
 .v-status{font-size:.75rem;font-weight:700;white-space:nowrap;display:block}
 .v-status.ok{color:var(--good)}
 .v-status.err{color:var(--danger)}
-.v-err-detail{font-size:.75rem;color:var(--danger);opacity:.85;margin-top:2px}
+.v-err-detail{font-size:.75rem;color:var(--danger);margin-top:2px}
 .v-preview{font-family:'IBM Plex Mono',monospace;font-size:.82rem}
 .v-preview.rejected{color:var(--danger)}
 .v-actions{display:flex;gap:5px;flex-wrap:wrap;padding-top:7px}
 .v-actions button{
   font-family:'IBM Plex Mono',monospace;font-size:.75rem;color:var(--dim);
-  background:none;border:1px solid var(--rule);border-radius:5px;padding:4px 8px;cursor:pointer;white-space:nowrap;
+  background:none;border:1px solid var(--control-border);border-radius:5px;padding:4px 8px;cursor:pointer;white-space:nowrap;
 }
 .v-actions button:hover{border-color:var(--accent);color:var(--accent)}
 .v-actions button.v-del:hover{border-color:var(--danger);color:var(--danger)}
@@ -543,7 +545,7 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .rulewrap{position:relative;display:block}
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
-.rulehl .hl-on{background:color-mix(in srgb,var(--accent) 38%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
+.rulehl .hl-on{background:color-mix(in srgb,var(--accent) 18%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
 /* a disabled step: veil the token (same color as the input, so the text
    underneath looks dimmed) and strike a line through it */
 .rulehl .hl-off{background:color-mix(in srgb,var(--surface-2) 62%, transparent);text-decoration:line-through;text-decoration-color:var(--dim);text-decoration-thickness:2px}
@@ -565,7 +567,7 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .searchopt input{accent-color:var(--accent)}
 .cheatsearch{
   font-family:'Source Sans 3',system-ui,sans-serif;font-size:.84rem;color:var(--ink);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:6px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:6px;
   padding:7px 10px;width:100%;
 }
 .cheatsearch:focus{outline:2px solid var(--accent);outline-offset:1px}
@@ -587,7 +589,7 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .cheat-row .desc{font-size:.78rem;color:var(--dim);min-width:0}
 .cheat-row button.ex{
   font-family:'IBM Plex Mono',monospace;font-size:.76rem;color:var(--accent);
-  background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;
+  background:var(--surface-2);border:1px solid var(--control-border);border-radius:5px;
   padding:1px 7px;min-height:24px;cursor:pointer;flex:none;
 }
 .cheat-row button.ex:hover{border-color:var(--accent)}
@@ -3274,7 +3276,7 @@ d $1$2$3"></textarea>
       refList.forEach(function(j){
         html += '<div class="cheat-row">'+
           '<span class="syntax tok-john" title="John’s own syntax — not hashcat syntax, has no hashcat equivalent at all">'+escapeHtml(j.syntax)+'</span>'+
-          '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span style="opacity:.75">— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
+          '<span class="desc">'+escapeHtml(j.label)+(j.note ? ' <span>— '+escapeHtml(j.note)+'</span>' : '')+'</span>'+
         '</div>';
       });
       html += '</div>';

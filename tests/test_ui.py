@@ -42,6 +42,8 @@ everything cosmetic second):
     - the Link highlights / Scroll to match switches (off stops all
       linking, scrolling can be stopped on its own, both remembered, and
       both default to off under reduce-motion unless chosen)
+    - both themes meet WCAG AA: text 4.5:1 (3:1 large) in the rare-color
+      states, and every control edge 3:1
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -2028,8 +2030,8 @@ def test_top_bar_buttons_are_uniform(driver, r):
 
 def test_top_bar_stays_within_the_intro_width(driver, r):
     """The top bar is no wider than the intro text below it, so the display
-    switches (views, theme, text size) fill the first row and the link
-    switches and Help wrap to a second row."""
+    switches (views, theme, text size) fill the first row and high contrast,
+    the link switches and Help wrap to a second row."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     info = driver.execute_script(
         "var row = document.querySelector('.controlrow'), top0 = row.getBoundingClientRect().top;"
@@ -2041,6 +2043,103 @@ def test_top_bar_stays_within_the_intro_width(driver, r):
     second = {x['id'] for x in info['g'] if x['row'] != info['g'][0]['row']}
     r.check(first == {'modeToggle', 'themeSwitch', 'sizeSwitch'} and second == {'linkSwitch', 'helpgroup'},
             'views, theme and text size share the first row; link switches and Help are on the second', f'{info["g"]}')
+
+
+CONTRAST_JS = """
+function parse(c){var m=(c||'').match(/rgba?\\(([^)]+)\\)/); if(!m) return null; var p=m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number); return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};}
+function over(f,b){return {r:f.r*f.a+b.r*(1-f.a),g:f.g*f.a+b.g*(1-f.a),b:f.b*f.a+b.b*(1-f.a),a:1};}
+function lum(c){var f=function(v){v/=255; return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);}; return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);}
+function cr(a,b){var x=lum(a),y=lum(b); return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+function bgOf(el){var chain=[]; for(var e=el;e;e=e.parentElement){var c=parse(getComputedStyle(e).backgroundColor); if(c&&c.a>0){chain.push(c); if(c.a>=1) break;}}
+  var base=parse(getComputedStyle(document.body).backgroundColor)||{r:255,g:255,b:255,a:1}; if(base.a<1) base={r:255,g:255,b:255,a:1};
+  for(var i=chain.length-1;i>=0;i--) base=over(chain[i],base); return base;}
+function vis(e){var r=e.getBoundingClientRect(),c=getComputedStyle(e); return r.width>0&&r.height>0&&c.visibility!=='hidden'&&c.display!=='none'&&!e.closest('[hidden]')&&!e.closest('.skipnav')&&!e.closest('.sr-only');}
+var minText=arguments[0], minLargeText=arguments[1], minBorder=arguments[2];
+var badText=[], seen={};
+var w=document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), n;
+while(n=w.nextNode()){
+  var t=n.textContent.trim(); if(!t) continue; var el=n.parentElement;
+  if(el.tagName==='SCRIPT'||el.tagName==='STYLE'||!vis(el)) continue;
+  if(el.closest('button:disabled,input:disabled,select:disabled,[aria-disabled=true]')) continue;   // disabled controls are exempt
+  var cs=getComputedStyle(el), o=1; for(var e=el;e;e=e.parentElement) o*=parseFloat(getComputedStyle(e).opacity);
+  var fg=parse(cs.color), b=bgOf(el), f=over({r:fg.r,g:fg.g,b:fg.b,a:fg.a*o},b), size=parseFloat(cs.fontSize), bold=parseInt(cs.fontWeight)>=700;
+  var large=size>=24||(size>=18.66&&bold), ratio=cr(f,b), need=large?minLargeText:minText;
+  var key=el.tagName+'.'+el.className+'|'+cs.color+'|'+o+'|'+JSON.stringify(b); if(seen[key]) continue; seen[key]=1;
+  if(ratio<need) badText.push(ratio.toFixed(2)+' (need '+need+') '+t.slice(0,24)+' ['+String(el.className||el.tagName).slice(0,20)+']');
+}
+var badBorder=[], seenB={};
+[].forEach.call(document.querySelectorAll('button,input:not([type=checkbox]):not([type=hidden]),select,textarea'), function(el){
+  if(!vis(el)||el.disabled) return; var cs=getComputedStyle(el), par=bgOf(el.parentElement||document.body);
+  var bw=parseFloat(cs.borderTopWidth)||0, bc=parse(cs.borderTopColor), bg=parse(cs.backgroundColor);
+  var border=(bw>0&&bc&&bc.a>0)?cr(over(bc,par),par):0, fill=(bg&&bg.a>0)?cr(over(bg,par),par):0;
+  if(!bw && el.closest('.modetoggle,.targetbtns')) return;       // a segment of a switch: the group's own border is the control edge (checked below)
+  var key=el.tagName+'.'+String(el.className).split(' ')[0]+Math.round(border*10)+Math.round(fill*10); if(seenB[key]) return; seenB[key]=1;
+  if(Math.max(border,fill)<minBorder) badBorder.push(Math.max(border,fill).toFixed(2)+' '+el.tagName.toLowerCase()+(el.id?'#'+el.id:'')+'.'+String(el.className).split(' ')[0]);
+});
+[].forEach.call(document.querySelectorAll('.modetoggle,.targetbtns'), function(g){
+  if(!vis(g)) return; var cs=getComputedStyle(g), par=bgOf(g.parentElement), bc=parse(cs.borderTopColor); var r=cr(over(bc,par),par);
+  if(r<minBorder) badBorder.push(r.toFixed(2)+' switch group #'+(g.id||g.className.split(' ').pop()));
+});
+return {text: badText, borders: badBorder};
+"""
+
+
+def _contrast_scan(driver):
+    """Run the contrast scan in the states that carry the rarest colors: the
+    builder (with a disabled step, an error, the undo toast, the cheat
+    sheet expanded), each target, the help dialog and the validator."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.getElementById('cheatExpandBtn').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
+    driver.execute_script("document.querySelectorAll('#chain .s-enabled')[1].click();")           # a disabled step
+    driver.execute_script("document.querySelectorAll('#chain .step .del')[0].click();")           # shows the undo toast
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'zzz', debounced=True)          # an error state
+    return driver, set_value
+
+
+def test_contrast(driver, r, mode, min_text, min_large, min_border):
+    """Both themes, in the given contrast mode: every piece of visible text
+    in the rare-color states, and the edge of every bordered control."""
+    import time as _t
+    for theme in ('dark', 'light'):
+        driver.execute_script("localStorage.clear();")
+        driver.get(INDEX_URL)
+        _t.sleep(0.7)
+        driver.execute_script("document.querySelector('#themeSwitch [data-theme-set=\"' + arguments[0] + '\"]').click();", theme)
+        if mode == 'high':
+            driver.execute_script("document.getElementById('contrastBtn').click();")
+        _t.sleep(0.3)
+        problems = {'text': [], 'borders': []}
+
+        def scan():
+            res = driver.execute_script(CONTRAST_JS, min_text, min_large, min_border)
+            problems['text'] += res['text']
+            problems['borders'] += res['borders']
+
+        _contrast_scan(driver)
+        scan()
+        for target in ('both', 'john_native'):
+            driver.execute_script("document.querySelector('#targetBtns [data-target=\"' + arguments[0] + '\"]').click();", target)
+            _t.sleep(0.3)
+            scan()
+        driver.execute_script("document.getElementById('helpBtn').click();")
+        _t.sleep(0.3)
+        scan()
+        driver.execute_script("document.getElementById('helpDialog').close();")
+        driver.execute_script("document.querySelector('.mbtn[data-mode=\"validator\"]').click();")
+        set_value(driver, driver.find_element('id', 'validatorInput'), 'c sa4\nzzz\n# a comment', debounced=True)
+        scan()
+        text, borders = sorted(set(problems['text'])), sorted(set(problems['borders']))
+        r.check(not text, f'{theme} theme, {mode} contrast: all text reaches {min_text}:1 ({min_large}:1 for large text)', f'{len(text)} below: {text[:6]}')
+        r.check(not borders, f'{theme} theme, {mode} contrast: every control edge reaches {min_border}:1', f'{len(borders)} below: {borders[:6]}')
+    driver.execute_script("localStorage.clear();")
+    driver.get(INDEX_URL)
+
+
+def test_contrast_meets_wcag_aa(driver, r):
+    """WCAG 2.2 AA in both themes: text 4.5:1 (3:1 large) and 1.4.11
+    non-text contrast, 3:1 for the edge of every control."""
+    test_contrast(driver, r, 'normal', 4.5, 3, 3)
 
 
 def main():
@@ -2100,6 +2199,7 @@ def main():
         test_help_dialog(driver, r)
         test_top_bar_buttons_are_uniform(driver, r)
         test_top_bar_stays_within_the_intro_width(driver, r)
+        test_contrast_meets_wcag_aa(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
