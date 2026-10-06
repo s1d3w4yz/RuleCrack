@@ -1948,9 +1948,9 @@ d $1$2$3"></textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
-    hashcat:     'The full hashcat operator set. Those tagged [Hashcat only] (red in the cheat sheet) run in hashcat but have no John equivalent.',
+    hashcat:     'The full hashcat operator set. Those tagged [Hashcat only] (<span class="tok-hc">red in the cheat sheet</span>) run in hashcat but have no John equivalent.',
     both:        'Limited to the 57 operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule behaves identically in either tool.',
-    john_native: 'Builds John’s own syntax instead of hashcat’s. Steps tagged [John only] (teal in the cheat sheet) have no hashcat equivalent, so the rule won’t run in hashcat.'
+    john_native: 'Builds John’s own syntax instead of hashcat’s. Steps tagged [John only] (<span class="tok-john">teal in the cheat sheet</span>) have no hashcat equivalent, so the rule won’t run in hashcat.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
   // are excluded from both/john_native; johnOnly ops are excluded from
@@ -2867,7 +2867,7 @@ d $1$2$3"></textarea>
   function setTarget(target){
     TARGET = target;
     targetBtns.querySelectorAll('.tbtn').forEach(function(b){ b.classList.toggle('active', b.dataset.target===target); });
-    targetNote.textContent = TARGET_NOTES[TARGET];
+    targetNote.innerHTML = TARGET_NOTES[TARGET]; // static strings above, never user input
     lenFieldsRow.hidden = TARGET !== 'john_native';
     updateRuleLineHints();
     populateAddType();
@@ -2879,7 +2879,7 @@ d $1$2$3"></textarea>
     if (!btn) return;
     setTarget(btn.dataset.target);
   });
-  targetNote.textContent = TARGET_NOTES[TARGET];
+  targetNote.innerHTML = TARGET_NOTES[TARGET]; // static strings above, never user input
 
   minLenInput.addEventListener('input', function(){
     var v = parseInt(minLenInput.value,10); MIN_LEN = isNaN(v) ? 0 : v;
