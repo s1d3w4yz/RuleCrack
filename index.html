@@ -393,6 +393,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
    came from. An <input> can't highlight part of its own text, so this sits
    on top with identical font/padding/border, transparent text, and a
    translucent <mark>; pointer-events:none keeps the input fully usable. */
+.hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
@@ -520,7 +521,8 @@ try{
         <h2><span class="n">03</span>Step chain</h2>
         <button class="expandbtn" id="chainExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
-      <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output. Hover a step to see which part of the rule line above it came from.</p>
+      <p class="sub">Steps run top to bottom. Use the arrows to move a step and watch the trace change — order changes the output.
+        <span class="hoverhint">&#9755; Hover a step to see which part of the rule line above it came from.</span></p>
       <div class="chain" id="chain"></div>
       <div class="addrow">
         <select id="addType"></select>
