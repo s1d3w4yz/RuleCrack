@@ -834,7 +834,7 @@ def test_live_announcements(driver, r):
     settle()
     driver.execute_script("document.querySelectorAll('.step')[1].querySelector('.down').click();")
     time.sleep(0.25)
-    r.check(live() == 'Step moved down to position 3 of 8', 'moving a step down announces its new position', repr(live()))
+    r.check(live() == 'Step moved down to position 3 of 9', 'moving a step down announces its new position', repr(live()))
 
     settle()
     driver.execute_script("document.querySelector('.step .del').click();")

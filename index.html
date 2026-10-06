@@ -2433,7 +2433,8 @@ d $1$2$3"></textarea>
     Object.assign(newStep('replace'), {args:{X:'o',Y:'0'}}),
     Object.assign(newStep('replace'), {args:{X:'s',Y:'5'}}),
     Object.assign(newStep('append'), {args:{X:'!'}}),
-    Object.assign(newStep('append'), {args:{X:'1'}})
+    Object.assign(newStep('append'), {args:{X:'1'}}),
+    Object.assign(newStep('append'), {args:{X:'£'}})   // two bytes (c2 a3): the rule line shows them as \\xNN
   ];
 
   // Builds grouped <optgroup> HTML for a type <select>. When the target
