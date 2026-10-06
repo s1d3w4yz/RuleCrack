@@ -90,6 +90,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .syntaxnotes a{color:var(--accent);font-weight:600;padding-block:2px} /* link height 21px -> 25px */
 .syntaxnotes .tag{justify-self:start;font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border:1px solid var(--rule);border-radius:4px;padding:1px 6px}
 .syntaxnotes strong{color:var(--ink);font-weight:600}
+.syntaxnotes .term{color:var(--accent);font-weight:600}
 @media (max-width:800px){ .syntaxnotes{grid-template-columns:1fr;row-gap:2px} .syntaxnotes li + li > :first-child{margin-top:8px} }
 
 .titlerow{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
@@ -589,20 +590,26 @@ try{
       </div>
     </div>
     <div id="validatorIntro" hidden>
-      <p>
-        Paste an existing <span class="mono">.rule</span> file (or a John
-        <span class="mono">List.Rules</span> section) below and check every line against
-        a real parser — not a guess. Pick the syntax it's written in first:
-        the same letter can mean two different things in hashcat syntax versus
-        John's own native grammar (<span class="mono">p</span>, <span class="mono">R</span>,
-        <span class="mono">L</span>, <span class="mono">v</span>, <span class="mono">+</span>/<span class="mono">-</span>),
-        so there's no reliable way to auto-detect which dialect a file is in —
-        you already know which engine it's meant to run on, so say so here.
-        Blank lines and <span class="mono">#</span> comments pass through untouched.
-        Fix a broken line inline, or send it to the chain builder above for the
-        full trace/cheat-sheet treatment; delete lines you don't want; then
-        export the cleaned file.
+      <p class="lead">
+        Paste a <span class="mono">.rule</span> file (or a John <span class="mono">List.Rules</span>
+        section) and check every line against a real parser, not a guess. Fix a broken line
+        inline or in the chain builder, delete what you don't want, then export the cleaned file.
       </p>
+      <ul class="syntaxnotes">
+        <li>
+          <span class="term">Pick the syntax first</span>
+          <span class="tag">required</span>
+          <span>The same letter can mean two different things in hashcat versus John's native grammar
+          (<span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>,
+          <span class="mono">v</span>, <span class="mono">+</span>/<span class="mono">-</span>), so a file's
+          dialect can't be auto-detected. <strong>You know which engine it's for — say so below.</strong></span>
+        </li>
+        <li>
+          <span class="term">Blank lines and comments</span>
+          <span class="tag">kept</span>
+          <span>Blank lines and <span class="mono">#</span> comments pass through untouched.</span>
+        </li>
+      </ul>
       <div class="targetrow">
         <span class="targetlabel">Syntax:</span>
         <div class="targetbtns" id="validatorDialectBtns" role="group" aria-label="Syntax of the pasted file">
