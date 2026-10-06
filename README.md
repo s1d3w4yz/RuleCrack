@@ -113,7 +113,7 @@ existing `.rule` file line by line.
   restore toggle, and a "Fix in builder" button that sends the line to the
   full chain builder — forcing it onto the matching dialect — for the full
   trace/cheat-sheet/batch-test treatment, with a "Save fix & return" button
-  back in the builder's export section to write the result back into the
+  back under the builder's rule line to write the result back into the
   right row. An export panel joins every non-deleted line (comments and
   blanks included, original order preserved) into a copyable, cleaned
   rulefile.
