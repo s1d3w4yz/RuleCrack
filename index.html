@@ -191,7 +191,7 @@ label.field textarea{
    rather than a pure CSS flex/grid stretch (which was tried first and
    reliably mis-sized things in ways that were hard to predict). The
    560px here is only the pre-JS/no-JS fallback. */
-.chain{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;padding-right:2px}
+.chain{display:flex;flex-direction:column;gap:8px;max-height:560px;overflow-y:auto;padding:6px;border:1px solid var(--rule);border-radius:8px}
 .chain.expanded{max-height:none}
 .step{
   display:flex;align-items:flex-start;gap:8px;
@@ -269,7 +269,7 @@ button.add{
 button.add:hover{border-color:var(--accent);color:var(--accent)}
 
 /* trace */
-.trace{display:flex;flex-direction:column;gap:0;max-height:420px;overflow-y:auto}
+.trace{display:flex;flex-direction:column;gap:0;max-height:420px;overflow-y:auto;border:1px solid var(--rule);border-radius:8px}
 .trace.expanded{max-height:none}
 .trace-row{
   display:grid;grid-template-columns:28px 1fr;gap:10px;
