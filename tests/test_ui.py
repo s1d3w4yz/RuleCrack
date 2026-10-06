@@ -33,6 +33,7 @@ everything cosmetic second):
       the actual exported rule, not just visually
     - the three target views agree (Hashcat = all but John-only, Both =
       minus hashcat-only, John = shared + John-only) and 'vNX' is hashcat-only
+    - the Both callout is a code block plus short points
     - the Auto theme follows the system live, falls back to dark, is
       remembered, and an explicit Dark/Light ignores the system
     - the three columns stay equal height however full the lists are
@@ -1624,6 +1625,20 @@ def test_target_views_are_consistent(driver, r):
     r.check('Won’t run in John' in note and 'vNX' in note, 'in the Hashcat view, a rule using v loads and warns that it won\'t run in John', repr(note))
 
 
+def test_both_callout_is_a_code_block(driver, r):
+    """The Both setup callout is a 4-line code block plus three short
+    points (not one dense paragraph)."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    # the Both setup callout: a code block and short points
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    time.sleep(0.2)
+    cb = driver.execute_script(
+        "var c = document.querySelector('#cheatBody > .callout');"
+        "return {code: c.querySelector('pre.codeblock') ? c.querySelector('pre.codeblock').textContent : null, points: c.querySelectorAll('ul.calloutlist li').length};")
+    r.check(cb['code'] and cb['code'].count('\n') == 3 and '!! hashcat logic ON' in cb['code'] and cb['points'] == 3,
+            'the Both callout is a 4-line code block plus three short points', f'{cb}')
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1666,6 +1681,7 @@ def main():
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)
+        test_both_callout_is_a_code_block(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)
         test_tall_window_shrinks_chain_instead_of_padding_trace(driver, r)

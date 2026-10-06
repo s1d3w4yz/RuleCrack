@@ -491,6 +491,9 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 }
 .callout b{color:var(--accent)}
 .callout.small{font-size:.78rem}
+.codeblock{margin:8px 0;padding:8px 10px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;
+  font-family:'IBM Plex Mono',monospace;font-size:.78rem;line-height:1.5;color:var(--ink);white-space:pre;overflow-x:auto}
+.calloutlist{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
 
 #ruleParseStatus.ok{color:var(--good)}
 #ruleParseStatus.err{color:var(--danger)}
@@ -2997,14 +3000,15 @@ d $1$2$3"></textarea>
     var topCallout = '';
     if (TARGET === 'both'){
       topCallout = '<div class="callout small" style="margin-bottom:14px">'+
-        '<b>Using these in John?</b> Wrap the include in a hashcat-compat section of your '+
-        '<span class="mono">john.conf</span>:<br>'+
-        '<span class="mono">[List.Rules:MyRules]<br>!! hashcat logic ON<br>.include \'mychain.rule\'<br>!! hashcat logic OFF</span><br>'+
-        'In that mode John processes everything above identically to hashcat. Outside it, a few letters are '+
-        'overloaded with John’s own commands of the same name — notably <span class="mono">v</span> '+
-        '(hashcat: insert a char every N chars — John: always reads it as assign-a-variable, regardless of mode) '+
-        'and <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>, <span class="mono">+</span>/<span class="mono">-</span> '+
-        '(John falls back to its own meaning when hashcat mode is off and no digit follows).'+
+        '<b>Using these in John?</b> Put the include inside a hashcat-compat section of your <span class="mono">john.conf</span>:'+
+        '<pre class="codeblock">[List.Rules:MyRules]\n!! hashcat logic ON\n.include \'mychain.rule\'\n!! hashcat logic OFF</pre>'+
+        '<ul class="calloutlist">'+
+          '<li>Inside that section, John runs these rules like hashcat does.</li>'+
+          '<li>Outside it, <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span> and '+
+            '<span class="mono">+</span>/<span class="mono">-</span> (when no digit follows) mean John’s own commands instead.</li>'+
+          '<li><span class="mono">vNX</span> (hashcat’s insert-every-N) isn’t listed here: John always reads '+
+            '<span class="mono">v</span> as “assign a variable”, so it can’t run in John.</li>'+
+        '</ul>'+
       '</div>';
     } else if (TARGET === 'john_native'){
       topCallout = '<div class="callout small" style="margin-bottom:14px">'+
