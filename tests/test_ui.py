@@ -1548,6 +1548,33 @@ def test_batch_box_line_number_gutter(driver, r):
     set_value(driver, driver.find_element('id', 'batchInput'), 'password\ndragon\nsunshine\nletmein\nprincess')
 
 
+def test_lists_keep_their_scroll_position(driver, r):
+    """Re-fitting the columns used to throw a scrolled step list (and the
+    trace) back to the top, because measuring briefly lifts each list's
+    height cap. Toggling the batch wrap and editing an argument both
+    re-fit, and neither may move a list the user has scrolled."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1 $2 $3 $4 $5', debounced=True)
+
+    def pos():
+        return driver.execute_script("return [Math.round(document.getElementById('chain').scrollTop), Math.round(document.getElementById('trace').scrollTop)];")
+
+    driver.execute_script("document.getElementById('chain').scrollTop = 150; document.getElementById('trace').scrollTop = 70;")
+    time.sleep(0.15)
+    before = pos()
+    r.check(before[0] > 0 and before[1] > 0, 'sanity: both lists are scrolled', f'{before}')
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    r.check(pos() == before, 'toggling "Wrap long lines" does not move either list', f'{before} -> {pos()}')
+    driver.execute_script("document.getElementById('batchWrap').click();")
+    time.sleep(0.3)
+    driver.execute_script("var i = document.querySelectorAll('#chain .step')[3].querySelector('.p-arg'); if (i){ i.value = '7'; i.dispatchEvent(new Event('input', {bubbles: true})); }")
+    time.sleep(0.3)
+    r.check(pos() == before, 'editing an argument in a scrolled list does not move either list', f'{before} -> {pos()}')
+    driver.execute_script("document.getElementById('chain').scrollTop = 0; document.getElementById('trace').scrollTop = 0;")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -1587,6 +1614,7 @@ def main():
         test_batch_rows_keep_their_line_numbers(driver, r)
         test_batch_wrap_toggle(driver, r)
         test_batch_box_line_number_gutter(driver, r)
+        test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

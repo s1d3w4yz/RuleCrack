@@ -1998,6 +1998,11 @@ d $1$2$3"></textarea>
       [chainEl, traceEl, cheatCard].forEach(function(el){ el.style.maxHeight = ''; el.style.minHeight = ''; });
       return;
     }
+    // Measuring lifts each list's height cap for a moment, and a list with
+    // nothing to scroll snaps back to scrollTop 0 — so remember where each
+    // one was and put it back afterwards (otherwise any re-fit, even editing
+    // an argument, would throw a scrolled list to the top).
+    var scrolled = [chainEl.scrollTop, traceEl.scrollTop];
     var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
     var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN, cols);
     cols.forEach(function(c){
@@ -2008,6 +2013,7 @@ d $1$2$3"></textarea>
       if (!c.list.classList.contains('expanded')) c.list.style.maxHeight = box + 'px';
       c.list.style.minHeight = (box > c.content) ? box + 'px' : '';
     });
+    chainEl.scrollTop = scrolled[0]; traceEl.scrollTop = scrolled[1];
     if (!cheatCard.classList.contains('expanded')){
       // min-height too: a search leaving only a few rows must not collapse the card
       cheatCard.style.maxHeight = total + 'px'; cheatCard.style.minHeight = total + 'px';
