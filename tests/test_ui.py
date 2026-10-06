@@ -939,6 +939,60 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
+def test_delete_can_be_undone(driver, r):
+    """Deleting a step shows a toast with Undo; Undo (button or Ctrl+Z)
+    restores the same step, with its arguments, at its old position;
+    several deletes undo in reverse order; Ctrl+Z inside a text field is
+    left to that field; and typing a new rule clears the undo history."""
+    from selenium.webdriver.common.action_chains import ActionChains
+    from selenium.webdriver.common.keys import Keys
+
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 $!', debounced=True)
+
+    def chain():
+        return driver.execute_script(
+            "return [].map.call(document.querySelectorAll('#chain .step'), function(r){"
+            "  return r.querySelector('.s-type').value + ':' + [].map.call(r.querySelectorAll('.p-arg'), function(a){ return a.value; }).join(''); });")
+
+    def toast():
+        return driver.execute_script("var t = document.getElementById('undoToast'); return t.hidden ? null : t.textContent.replace(/\\s+/g, ' ').trim();")
+
+    original = chain()
+    r.check(toast() is None, 'no undo toast before anything is deleted')
+
+    driver.execute_script("document.querySelectorAll('#chain .step .del')[2].click();")   # delete 'se3'
+    r.check(len(chain()) == len(original) - 1 and 'Step 3 deleted' in (toast() or ''), 'deleting a step shows an undo toast', f'{toast()!r}')
+    driver.find_element('id', 'undoBtn').click()
+    r.check(chain() == original, 'the Undo button restores the step at its old position, arguments intact', f'{chain()} vs {original}')
+    r.check(toast() is None, 'the toast goes away once there is nothing left to undo', f'{toast()!r}')
+
+    driver.execute_script("document.querySelectorAll('#chain .step .del')[1].click();")   # delete 'sa4'
+    driver.execute_script("document.querySelectorAll('#chain .step .del')[1].click();")   # then 'se3'
+    r.check(len(chain()) == len(original) - 2 and '2 can be undone' in (toast() or ''), 'two deletes can both be undone', f'{toast()!r}')
+    ActionChains(driver).key_down(Keys.CONTROL).send_keys('z').key_up(Keys.CONTROL).perform()
+    time.sleep(0.2)
+    ActionChains(driver).key_down(Keys.CONTROL).send_keys('z').key_up(Keys.CONTROL).perform()
+    time.sleep(0.2)
+    r.check(chain() == original, 'Ctrl+Z twice restores both, in reverse order', f'{chain()} vs {original}')
+
+    # Ctrl+Z in a text field must stay that field's own undo
+    driver.execute_script("document.querySelectorAll('#chain .step .del')[0].click();")
+    rule = driver.find_element('id', 'ruleTextInput')
+    rule.click()
+    ActionChains(driver).key_down(Keys.CONTROL).send_keys('z').key_up(Keys.CONTROL).perform()
+    time.sleep(0.2)
+    r.check(len(chain()) == len(original) - 1, 'Ctrl+Z inside the rule line does not restore a deleted step', f'{len(chain())} steps')
+
+    # typing a rule replaces the chain: the history no longer applies
+    set_value(driver, rule, 'c sa4', debounced=True)
+    r.check(toast() is None, 'typing a new rule clears the undo history and hides the toast', f'{toast()!r}')
+    driver.find_element('tag name', 'body').click()
+    ActionChains(driver).key_down(Keys.CONTROL).send_keys('z').key_up(Keys.CONTROL).perform()
+    time.sleep(0.2)
+    r.check(chain() == ['lrest_ufirst:', 'replace:a4'], 'Ctrl+Z after typing a rule restores nothing', f'{chain()}')
+
+
 def test_page_has_no_phantom_scroll(driver, r):
     """The page ends right after its content (the body's own 12px padding
     and nothing more) in every target and with the cheat sheet expanded.
@@ -995,6 +1049,7 @@ def main():
         test_toggle_groups_expose_pressed_state(driver, r)
         test_live_announcements(driver, r)
         test_click_targets_are_big_enough(driver, r)
+        test_delete_can_be_undone(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
         test_columns_stay_equal_height(driver, r)

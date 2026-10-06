@@ -235,6 +235,13 @@ label.field textarea{
   background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;
   padding:8px 10px;
 }
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:900;display:flex;align-items:center;gap:14px;
+  padding:10px 14px;background:var(--surface);color:var(--ink);border:1px solid var(--accent);border-radius:8px;
+  box-shadow:0 6px 24px rgba(0,0,0,.35);font-size:.9rem;max-width:calc(100vw - 32px)}
+.toast[hidden]{display:none}
+.toast button{font-family:'IBM Plex Mono',monospace;font-size:.85rem;color:var(--accent);background:none;border:1px solid var(--accent);
+  border-radius:6px;padding:4px 12px;min-height:28px;cursor:pointer}
+.toast button:hover{background:var(--accent);color:var(--bg)}
 .chain-empty{margin:auto;padding:14px 12px;text-align:center;font-size:.85rem;line-height:1.45;color:var(--dim)}
 .step.disabled{opacity:.5}
 .step.rejecty{border-color:var(--danger)}
@@ -543,6 +550,10 @@ try{
   <a href="#h-batch" class="skip-builder">Skip to batch test</a>
   <a href="#h-cheat" class="skip-builder">Skip to cheat sheet</a>
 </nav>
+<div class="toast" id="undoToast" hidden>
+  <span id="undoToastText"></span>
+  <button type="button" id="undoBtn">Undo</button>
+</div>
 <div class="sr-only" id="liveStatus" role="status" aria-live="polite" aria-atomic="true"></div>
 <div class="wrap">
   <header class="page">
@@ -2187,7 +2198,7 @@ d $1$2$3"></textarea>
       wireStepDrag(row, i);
       row.querySelector('.up').addEventListener('click', function(){ if (i>0){ steps.splice(i-1,0,steps.splice(i,1)[0]); renderAllKeepFocus(step.id, i-1>0 ? '.up' : '.down'); announce('Step moved up to position ' + i + ' of ' + steps.length); } });
       row.querySelector('.down').addEventListener('click', function(){ if (i<steps.length-1){ steps.splice(i+1,0,steps.splice(i,1)[0]); renderAllKeepFocus(step.id, i+1<steps.length-1 ? '.down' : '.up'); announce('Step moved down to position ' + (i+2) + ' of ' + steps.length); } });
-      row.querySelector('.del').addEventListener('click', function(){ steps.splice(i,1); renderAll(); announce('Deleted step ' + (i+1) + '. ' + steps.length + (steps.length===1 ? ' step' : ' steps') + ' left.'); });
+      row.querySelector('.del').addEventListener('click', function(){ deleteStep(i); });
 
       chainEl.appendChild(row);
     });
@@ -2712,6 +2723,53 @@ d $1$2$3"></textarea>
     syncColumnFit();
   });
 
+  // ---------- delete with undo ----------
+  // A deleted step is kept on a small stack so a slip isn't costly: the toast's
+  // Undo button, or Ctrl/Cmd+Z while focus isn't in a text field (those keep
+  // their own text undo), puts the most recent one back where it was. Typing
+  // a new rule replaces the whole chain, so that clears the stack.
+  var undoStack = [], undoTimer = null;
+  var undoToast = document.getElementById('undoToast');
+  var undoToastText = document.getElementById('undoToastText');
+  function hideUndoToast(){ clearTimeout(undoTimer); undoToast.hidden = true; }
+  function showUndoToast(){
+    var top = undoStack[undoStack.length - 1];
+    if (!top){ hideUndoToast(); return; }
+    undoToastText.textContent = 'Step ' + (top.index + 1) + ' deleted' + (undoStack.length > 1 ? ' (' + undoStack.length + ' can be undone)' : '');
+    undoToast.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(hideUndoToast, 8000);
+  }
+  function clearUndo(){ undoStack.length = 0; hideUndoToast(); }
+  function deleteStep(i){
+    undoStack.push({step: steps[i], index: i});
+    if (undoStack.length > 20) undoStack.shift();
+    steps.splice(i, 1);
+    renderAll();
+    showUndoToast();
+    announce('Deleted step ' + (i+1) + '. ' + steps.length + (steps.length===1 ? ' step' : ' steps') + ' left. Press Control Z to undo.');
+  }
+  function undoDelete(focusRestored){
+    var item = undoStack.pop();
+    if (!item) return false;
+    steps.splice(Math.min(item.index, steps.length), 0, item.step);
+    if (focusRestored) renderAllKeepFocus(item.step.id, '.s-enabled'); else renderAll();
+    announce('Restored step ' + (steps.indexOf(item.step) + 1) + ': ' + OPS[item.step.type].label);
+    showUndoToast();
+    return true;
+  }
+  document.getElementById('undoBtn').addEventListener('click', function(){ undoDelete(false); });
+  undoToast.addEventListener('mouseenter', function(){ clearTimeout(undoTimer); });
+  undoToast.addEventListener('mouseleave', function(){ if (!undoToast.hidden) undoTimer = setTimeout(hideUndoToast, 4000); });
+  document.addEventListener('keydown', function(e){
+    if (!((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z')) return;
+    var t = e.target;
+    if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable ||
+        (t.tagName === 'INPUT' && t.type !== 'checkbox' && t.type !== 'button'))) return; // text fields keep their own undo
+    if (builderView.hidden) return;
+    if (undoDelete(true)) e.preventDefault();
+  });
+
   // renderAll() rebuilds every step card, which would drop keyboard focus
   // (and the focus ring) from the control you just used — put it back on
   // the same control of the same step.
@@ -2945,6 +3003,7 @@ d $1$2$3"></textarea>
     }
     var parseFn = TARGET==='john_native' ? parseRuleLineJohn : parseRuleLine;
     var parsed = parseFn(text, mkStep);
+    clearUndo();
     steps.length = 0;
     parsed.steps.forEach(function(s){ steps.push(s); });
     syncingFromText = true;
