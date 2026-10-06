@@ -33,7 +33,8 @@ body{
   color:var(--ink);
   font-family:'Source Sans 3',system-ui,sans-serif;
   padding-inline:20px;
-  padding-block:32px 48px;
+  padding-block:32px 12px;
+  margin-bottom:0; /* short bottom edge so the columns can sit centered when scrolled to the end */
 }
 h1,h2,h3{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0}
 .mono{font-family:'IBM Plex Mono','SF Mono',monospace}
@@ -172,7 +173,7 @@ label.field textarea{
 
 /* step chain */
 /* max-height is set inline by JS (syncColumnFit) to whatever makes the
-   column fit the viewport by default, clamped to MIN_LIST_HEIGHT — see
+   column fit the viewport by default, clamped to MIN_CHAIN_HEIGHT/MIN_TRACE_HEIGHT — see
    that function's comment for why this is done via direct measurement
    rather than a pure CSS flex/grid stretch (which was tried first and
    reliably mis-sized things in ways that were hard to predict). The
@@ -1736,39 +1737,40 @@ d $1$2$3"></textarea>
   // fixed content rendered past its own card's background/border, or
   // (once that was fixed) stopped shrinking anything at all and the
   // mechanism went fully inert. Explicit arithmetic avoids all of that.
-  var MIN_LIST_HEIGHT = 300;
+  // Floors are roughly "2-3 rows visible" for each list's own row size (a
+  // chain step with X/Y args is ~107px, a trace row ~55px), so a short
+  // window shows a few rows and a tall one shows many. A floor, not a
+  // cap: on a very short window the columns may exceed the viewport.
+  var MIN_CHAIN_HEIGHT = 200;
+  var MIN_TRACE_HEIGHT = 110;
+  // Columns are sized to the viewport as it was when the page loaded;
+  // resizing the window afterwards deliberately does not re-fit them.
+  var LOAD_VIEWPORT_HEIGHT = window.innerHeight;
+  var VIEWPORT_MARGIN = 24; // breathing room so a column ends just inside the viewport
   // col1 and col2 carry different amounts of fixed (non-list) content —
   // section 03's add-step row + callout isn't the same size as section
   // 04's checkbox + section 05's export box + section 06's batch test —
   // so sizing each column's list independently from the same "available"
   // figure doesn't actually produce equal column heights: whichever
   // column has MORE fixed content around its list ends up with a taller
-  // total once both lists hit the MIN_LIST_HEIGHT floor (there's nothing
+  // total once both lists hit their own floor (there's nothing
   // left to take the difference out of). Work out what each column would
   // need on its own first, then apply the larger of the two totals to
   // BOTH — the one with less fixed content just gets a taller list than
   // its own floor would otherwise ask for, to make up the difference.
-  function fitListHeight(card, listEl, available){
+  function fitListHeight(card, listEl, available, minHeight){
     if (listEl.classList.contains('expanded')) return null; // left at its natural/full size
     var fixedOverhead = card.getBoundingClientRect().height - listEl.getBoundingClientRect().height;
-    var listHeight = Math.max(MIN_LIST_HEIGHT, available - fixedOverhead);
+    var listHeight = Math.max(minHeight, available - fixedOverhead);
     return {fixedOverhead: fixedOverhead, total: fixedOverhead + listHeight};
   }
   function syncColumnFit(){
     if (document.getElementById('builderView').hidden) return;
-    // getBoundingClientRect().top is relative to the CURRENT scroll
-    // position, not a fixed point in the document — adding window.scrollY
-    // back converts it to an absolute, scroll-independent document
-    // position (builderView's distance below the header never changes
-    // just because the page happens to be scrolled somewhere, or because
-    // a sibling column is taller/shorter at this exact moment). Without
-    // this, the computed "available" space — and so the collapsed
-    // height every column lands on — silently depended on exactly where
-    // the page was scrolled to when Collapse was clicked.
-    var top = document.getElementById('builderView').getBoundingClientRect().top + window.scrollY;
-    var available = window.innerHeight - top - 48; // 48 = body's own bottom padding
-    var fit1 = fitListHeight(col1Card, chainEl, available);
-    var fit2 = fitListHeight(col2Card, traceEl, available);
+    // Each column's total height is capped at the load-time viewport
+    // height, so scrolling down once shows a whole column on screen.
+    var available = LOAD_VIEWPORT_HEIGHT - VIEWPORT_MARGIN;
+    var fit1 = fitListHeight(col1Card, chainEl, available, MIN_CHAIN_HEIGHT);
+    var fit2 = fitListHeight(col2Card, traceEl, available, MIN_TRACE_HEIGHT);
     var rawTarget = Math.max(fit1 ? fit1.total : 0, fit2 ? fit2.total : 0);
     var targetTotal;
     if (fit1 && fit2){
@@ -1817,7 +1819,6 @@ d $1$2$3"></textarea>
     cheatHeightObserver.observe(col1Card);
     cheatHeightObserver.observe(col2Card);
   }
-  window.addEventListener('resize', syncColumnFit);
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
     if (expanded){ cheatCard.style.maxHeight = ''; } // CSS .expanded{max-height:none} takes over
     else { syncCheatHeight(); }
