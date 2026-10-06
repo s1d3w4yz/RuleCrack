@@ -333,7 +333,8 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
 .trace-row.rejected .num{background:var(--danger)}
 .trace-row.rejected .word{color:var(--danger);font-weight:600}
 
-.locktoggle{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--dim);margin:-8px 0 8px;cursor:pointer;user-select:none}
+.traceopts{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;margin:-8px 0 8px}
+.locktoggle{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--dim);cursor:pointer;user-select:none}
 .locktoggle input{accent-color:var(--accent);width:13px;height:13px;cursor:pointer}
 /* With locking on, the first row (starting word) and last row (the final
    result, or a reject) stay pinned to the top/bottom of the scroll area
@@ -598,7 +599,7 @@ try{
         <h2><span class="n">02</span>Rule line</h2>
         <button class="hdrbtn" id="copyRuleBtn" type="button" title="Copy the rule the chain applies — disabled steps are left out, even though the line above still shows them struck through">Copy Hashcat rule</button>
       </div>
-      <p class="sub" id="ruleLineSub">The rule as plain text, kept in step with the chain below. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to replace the chain.</p>
+      <p class="sub" id="ruleLineSub">The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.</p>
       <label class="field">
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1">
@@ -630,12 +631,10 @@ try{
       </div>
 
       <div class="callout small">
-        <b>Reject steps</b> don't transform the word — they decide whether the
-        candidate survives at all (e.g. "reject unless length ≥ 8"). Once one
-        rejects, the chain stops and the candidate is discarded.
-        <br><b>Memory steps</b>
-        (<span class="mono">M 4 6 X Q</span>) only matter in attack modes that keep
-        a memory slot between rules; here they demonstrate the mechanic.
+        <b>Reject steps</b> don't transform the word — they decide whether it
+        survives (e.g. "reject unless length ≥ 8"); once one rejects, the chain stops.
+        <br><b>Memory steps</b> (<span class="mono">M 4 6 X Q</span>) matter in
+        attack modes that keep a memory slot between rules; here they demonstrate it.
       </div>
     </div>
 
@@ -645,15 +644,13 @@ try{
         <h2><span class="n">04</span>Step-by-step trace</h2>
         <button class="expandbtn" id="traceExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
-      <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked autocomplete="off"> Lock start/end rows while scrolling</label>
+      <div class="traceopts">
+        <label class="locktoggle"><input type="checkbox" id="traceLockToggle" checked autocomplete="off"> Lock start/end rows while scrolling</label>
+        <button class="hdrbtn" id="copyResultBtn" type="button" title="Copy the final word the chain produces">Copy final result</button>
+      </div>
       <div class="trace locked" id="trace"></div>
 
-      <h2 style="margin-top:4px"><span class="n">05</span>Export</h2>
-      <div class="copyrow">
-        <button class="copy" id="copyResultBtn">Copy final result</button>
-      </div>
-
-      <h2 style="margin-top:4px"><span class="n">06</span>Batch test</h2>
+      <h2 style="margin-top:4px"><span class="n">05</span>Batch test</h2>
       <p class="sub">Run the same chain against a list of words — one per line — to see how it generalizes.</p>
       <!-- autocomplete="off" on the page's own fields: otherwise Firefox restores whatever was typed
            into them on a normal reload while the rest of the app resets, so a cleared box stays
@@ -674,7 +671,7 @@ princess</textarea>
     <!-- FAR RIGHT: cheat sheet -->
     <div class="card cheat" id="cheatCard">
       <div class="sectionhead">
-        <h2><span class="n">07</span>Rule syntax cheat sheet</h2>
+        <h2><span class="n">06</span>Rule syntax cheat sheet</h2>
         <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="cheat-legend" id="cheatLegend"></div>
@@ -1876,7 +1873,7 @@ d $1$2$3"></textarea>
   var VIEWPORT_MARGIN = 24; // breathing room so a column ends just inside the viewport
   // col1 and col2 carry different amounts of fixed (non-list) content —
   // section 03's add-step row + callout isn't the same size as section
-  // 04's checkbox + section 05's export box + section 06's batch test —
+  // 04's checkbox row + section 05's batch test —
   // so sizing each column's list independently from the same "available"
   // figure doesn't actually produce equal column heights: whichever
   // column has MORE fixed content around its list ends up with a taller
@@ -2291,6 +2288,8 @@ d $1$2$3"></textarea>
     var word = wordInput.value || '';
     var result = runChain(word);
     markRejectingStep(result);
+    copyResultBtn.disabled = result.rejected;
+    copyResultBtn.title = result.rejected ? 'This word is rejected by the chain, so there is no final result to copy' : 'Copy the final word the chain produces';
 
     traceEl.innerHTML = result.trace.map(function(row, i){
       var isFirst = i===0;
@@ -2326,7 +2325,7 @@ d $1$2$3"></textarea>
         noteEl.textContent = '✗ Won’t run in John the Ripper — ' + incompatible.length + ' step(s) are hashcat-only: ' + names;
         noteEl.className = 'sub warn';
       } else {
-        noteEl.textContent = '✓ Portable — every enabled step also runs identically in John the Ripper’s hashcat-compat mode.';
+        noteEl.textContent = '✓ Portable — also runs in John’s hashcat-compat mode.';
         noteEl.className = 'sub ok';
       }
     }
@@ -2619,7 +2618,7 @@ d $1$2$3"></textarea>
 
   // Sends one validator row's raw text into the full chain builder (same
   // dialect it was written in) for the full trace/cheat-sheet diagnostic
-  // treatment, and leaves a "Save fix & return" box in section 05 so the
+  // treatment, and leaves a "Save fix & return" box in section 02 so the
   // fixed rule line goes back into the right validator row afterward
   // instead of just getting lost in the builder.
   function startFixInBuilder(idx){
@@ -2957,7 +2956,7 @@ d $1$2$3"></textarea>
   }
   copyResultBtn.addEventListener('click', function(){
     var result = runChain(wordInput.value||'');
-    copyText(result.rejected ? '(rejected)' : result.final, copyResultBtn);
+    if (!result.rejected) copyText(result.final, copyResultBtn);
   });
   copyRuleBtn.addEventListener('click', function(){
     if (ruleHasTokens()) copyText(buildRuleString(), copyRuleBtn);
@@ -2967,10 +2966,10 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax, kept in step with the chain below. Paste or type one to replace the chain — hashcat-only tokens like <span class="mono">~</span>-class ops won’t parse here.';
+      ruleLineSub.innerHTML = 'The rule as plain text, in <b>John-native</b> syntax and in step with the chain. Paste or type one to replace it — hashcat-only <span class="mono">~</span>-class ops won’t parse.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = 'The rule as plain text, kept in step with the chain below. Paste or type one (your own, or a line from a <span class="mono">.rule</span> file) to replace the chain.';
+      ruleLineSub.innerHTML = 'The rule as plain text, in step with the chain below. Paste or type one (or a <span class="mono">.rule</span> line) to replace it.';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }

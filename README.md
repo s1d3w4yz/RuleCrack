@@ -32,8 +32,10 @@ existing `.rule` file line by line.
 - **Step-by-step trace**: see the word after each individual step, with the
   part that changed highlighted. Reject steps stop the chain and mark the
   candidate as discarded, matching real hashcat behavior.
-- **Hashcat rule export**: the chain renders as a standard Hashcat rule line
-  (e.g. `c sa4 se3 si1 so0 ss5 $! $1`), ready to drop into a `.rule` file.
+- **Copying**: the rule line (section 02) is a standard Hashcat rule line
+  (e.g. `c sa4 se3 si1 so0 ss5 $! $1`) — its button copies it, ready to drop
+  into a `.rule` file, and a note under it says whether it also runs in John
+  the Ripper. Section 04 has a button for the final word.
 - **Batch test**: run the whole chain against a list of words (one per line)
   to see how it generalizes beyond a single example.
 - **Cheat sheet**: every operator listed with its abstract syntax
@@ -92,11 +94,8 @@ existing `.rule` file line by line.
   hashcat-only syntax token is always red, a John-only one always teal,
   and a shared one stays the default color — so a dense reference list of
   70+ rows stays scannable instead of growing a text pill on every line.
-  A small color key pins at the top of the cheat sheet card. The same
-  colors carry through to the actual rule-line export in section 05: an
-  incompatible token in the copyable rule string itself is colored, so
-  compatibility is visible on the literal thing you copy, not just in the
-  reference list above it.
+  A small color key pins at the top of the cheat sheet card, and the
+  note under the rule line names any step that isn't portable.
 - **Rulefile validator**: a separate top-level view (toggle at the very top
   of the page, next to the title) for checking an entire existing `.rule`
   file instead of building one chain — paste it in, pick which dialect it's
