@@ -40,7 +40,12 @@ existing `.rule` file line by line.
   (`sXY`, `TN`, `~s?CY`, …) and a concrete, clickable example built from the
   same engine that runs the chain — click one to drop it straight into the
   rule line, for learning the syntax by typing instead of clicking through
-  the chain builder.
+  the chain builder. A search box filters by operator or description
+  (with an "Operators only" option).
+- **Display options**: a Dark / Light theme and three text sizes (every size in
+  the page scales together). Both are remembered per browser. The default
+  size is compact enough for the three columns to fit one screen; the
+  larger sizes are there when you need more readable text.
 - **Hashcat / John the Ripper compatibility**: a three-way target switch,
   since John's rule engine and hashcat's overlap but neither is a subset of
   the other — hashcat has 13 operators John never implements at all, and

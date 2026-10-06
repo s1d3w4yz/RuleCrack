@@ -28,6 +28,11 @@
 }
 
 *{box-sizing:border-box}
+/* Text size control: every font size in the page is in rem, so scaling the
+   root scales everything. Default stays dense (it's what lets the three
+   columns fit one screen); larger sizes are opt-in and remembered. */
+:root[data-textsize="lg"]{font-size:112.5%}
+:root[data-textsize="xl"]{font-size:125%}
 :root{--intro-w:48rem} /* shared width for the intro lead and the syntax lines under it (rem, not ch, so both match despite different font sizes) */
 /* Thin, theme-colored scrollbars everywhere (the lists, the cheat sheet,
    the textareas and the page itself): a quiet thumb until you hover a
@@ -491,6 +496,8 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 // handler) lives in the main script at the bottom with everything else.
 try{
   if (localStorage.getItem('theme') === 'light') document.documentElement.dataset.theme = 'light';
+  var savedSize = localStorage.getItem('textsize');
+  if (savedSize === 'lg' || savedSize === 'xl') document.documentElement.dataset.textsize = savedSize;
 }catch(e){}
 </script>
 
@@ -507,6 +514,11 @@ try{
       <div class="modetoggle themeswitch" id="themeSwitch" role="group" aria-label="Color theme">
         <button class="mbtn" data-theme-set="dark" type="button" title="Dark theme">&#9790; Dark</button>
         <button class="mbtn" data-theme-set="light" type="button" title="Light theme">&#9728; Light</button>
+      </div>
+      <div class="modetoggle sizeswitch" id="sizeSwitch" role="group" aria-label="Text size">
+        <button class="mbtn" data-size-set="" type="button" title="Default text size" aria-label="Default text size" style="font-size:.8rem">A</button>
+        <button class="mbtn" data-size-set="lg" type="button" title="Larger text" aria-label="Larger text" style="font-size:1rem">A</button>
+        <button class="mbtn" data-size-set="xl" type="button" title="Largest text" aria-label="Largest text" style="font-size:1.25rem;line-height:1">A</button>
       </div>
     </div>
     <div id="builderIntro">
@@ -1869,7 +1881,9 @@ d $1$2$3"></textarea>
   function fitListHeight(card, listEl, available, minHeight){
     if (listEl.classList.contains('expanded')) return null; // left at its natural/full size
     var fixedOverhead = card.getBoundingClientRect().height - listEl.getBoundingClientRect().height;
-    var listHeight = Math.max(minHeight, available - fixedOverhead);
+    // the floors are "about N rows", so they grow with the text size setting
+    var textScale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
+    var listHeight = Math.max(minHeight * textScale, available - fixedOverhead);
     return {fixedOverhead: fixedOverhead, total: fixedOverhead + listHeight};
   }
   function syncColumnFit(){
@@ -2438,6 +2452,31 @@ d $1$2$3"></textarea>
     applyThemeButtonLabel();
   });
   applyThemeButtonLabel();
+
+  // Text size: sets data-textsize on <html> (see the CSS), remembers it, and
+  // re-measures the things that depend on text size — the viewport-fit sizing
+  // of the lists and which step labels the dropdowns clip.
+  var sizeSwitch = document.getElementById('sizeSwitch');
+  function applySizeButtons(){
+    var cur = document.documentElement.dataset.textsize || '';
+    sizeSwitch.querySelectorAll('.mbtn').forEach(function(b){
+      b.classList.toggle('active', b.dataset.sizeSet === cur);
+      b.setAttribute('aria-pressed', b.dataset.sizeSet === cur ? 'true' : 'false');
+    });
+  }
+  sizeSwitch.addEventListener('click', function(e){
+    var btn = e.target.closest('.mbtn');
+    if (!btn) return;
+    var size = btn.dataset.sizeSet;
+    if (size) document.documentElement.dataset.textsize = size;
+    else delete document.documentElement.dataset.textsize;
+    try{ localStorage.setItem('textsize', size); }catch(err){}
+    applySizeButtons();
+    syncColumnFit();
+    flagClippedLabels();
+    paintRuleHl();
+  });
+  applySizeButtons();
 
   function classifyLine(raw){
     var trimmed = raw.trim();

@@ -543,6 +543,26 @@ def test_rule_line_follows_chain_edits(driver, r):
     r.check(n == 3, 'typed text still rebuilds the chain (3 steps)', f"{n} steps")
 
 
+def test_text_size_control(driver, r):
+    """The A / A / A switch scales the whole page (every font size is in
+    rem) and is exclusive: exactly one size is active at a time."""
+    def root_px():
+        return driver.execute_script("return parseFloat(getComputedStyle(document.documentElement).fontSize);")
+
+    def active():
+        return driver.execute_script(
+            "return [].map.call(document.querySelectorAll('#sizeSwitch .active'), function(b){return b.dataset.sizeSet;});")
+
+    r.check(root_px() == 16 and active() == [''], 'default text size is 16px with the default button active',
+            f"{root_px()}px, active {active()!r}")
+    for size, expected in (('lg', 18), ('xl', 20)):
+        driver.execute_script("document.querySelector('#sizeSwitch [data-size-set=\"' + arguments[0] + '\"]').click();", size)
+        r.check(root_px() == expected and active() == [size], f"'{size}' scales the page to {expected}px and is the only active size",
+                f"{root_px()}px, active {active()!r}")
+    driver.execute_script("document.querySelector('#sizeSwitch [data-size-set=\"\"]').click();")
+    r.check(root_px() == 16 and active() == [''], 'choosing the default returns to 16px', f"{root_px()}px, active {active()!r}")
+
+
 def main():
     r = Results()
     driver = make_driver()
@@ -566,6 +586,7 @@ def main():
         test_min_max_length_fields_affect_john_native_reject(driver, r)
         test_position_arg_clamping(driver, r)
         test_rule_line_follows_chain_edits(driver, r)
+        test_text_size_control(driver, r)
         test_validator_inline_edit_live_reparse(driver, r)
         test_validator_restore(driver, r)
         test_validator_dialect_switch_reparses_and_preserves_deletions(driver, r)
