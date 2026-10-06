@@ -1829,41 +1829,26 @@ d $1$2$3"></textarea>
       if (onToggle) onToggle(expanded);
     });
   }
-  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(expanded){
-    if (expanded) chainEl.style.maxHeight = ''; else syncColumnFit(); // keep min-height: expanded is never shorter than the synced height
-  });
-  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(expanded){
-    if (expanded) traceEl.style.maxHeight = ''; else syncColumnFit();
-  });
+  wireExpandBtn(document.getElementById('chainExpandBtn'), chainEl, function(){ syncColumnFit(); });
+  wireExpandBtn(document.getElementById('traceExpandBtn'), traceEl, function(){ syncColumnFit(); });
 
-  // Column 3 (cheat sheet) should match whichever of columns 1/2 is
-  // taller, WITHOUT ever influencing columns 1/2's own height back — a
-  // plain CSS align-items:stretch can't do that one-way match (a grid
-  // row's auto height is based on every item's own natural/full-content
-  // size, so the cheat sheet's ~90-operator list — taller than either
-  // other column — ended up setting the row height itself and never
-  // actually got clipped/scrolled, which is the opposite of what was
-  // wanted). Instead, measure columns 1/2 with a ResizeObserver and set
-  // the cheat card's max-height to match in JS; #cheatBody's own
-  // overflow-y:auto then scrolls its content within that imposed height.
-  var cheatCard = document.getElementById('cheatCard');
-  var col1Card = document.getElementById('col1Card');
-  var col2Card = document.getElementById('col2Card');
-
-  // Shrinks .chain/.trace, via an inline max-height, so columns 1/2 fit
-  // within the viewport by default — direct measurement, not a flex/grid
-  // stretch. A pure-CSS version was tried first (the whole chain-builder
-  // grid stretched to .wrap's viewport-driven height, with .chain/.trace
-  // as flex:1 children); it reliably mis-sized things in ways that were
-  // hard to predict and worse to debug — automatic-minimum-size rules
-  // for nested flex/grid containers either squeezed every sibling
-  // (inputs, the callout, the batch table) along with the lists, so
-  // fixed content rendered past its own card's background/border, or
-  // (once that was fixed) stopped shrinking anything at all and the
-  // mechanism went fully inert. Explicit arithmetic avoids all of that.
+  // ---------- column sizing ----------
+  // The three columns of the builder view end at one shared height. Two
+  // pure-CSS attempts (a stretched grid; flex:1 lists) mis-sized things in
+  // hard-to-debug ways — nested min-size rules either squeezed the fixed
+  // content or stopped shrinking anything — so this is plain arithmetic:
+  // measure, work out the shared height, apply it. Nothing is remembered
+  // between runs; every run starts from a fresh measurement, so it can be
+  // called any time something might have changed a column's height.
+  //
+  //   measure   per list: overhead (everything in its card that is NOT the
+  //             list: inputs, callouts, headings — very different in the two
+  //             columns) and content (the list at its natural height)
+  //   plan      one number: the shared column height (planColumnHeight)
+  //   apply     cap the collapsed lists to it; the cheat sheet takes it too
+  //
   // Floors are roughly "2-3 rows visible" for each list's own row size (a
-  // chain step with X/Y args is ~107px, a trace row ~55px), so a short
-  // window shows a few rows and a tall one shows many. A floor, not a
+  // chain step with X/Y args is ~107px, a trace row ~55px). A floor, not a
   // cap: on a very short window the columns may exceed the viewport.
   var MIN_CHAIN_HEIGHT = 165;
   var MIN_TRACE_HEIGHT = 110;
@@ -1871,97 +1856,65 @@ d $1$2$3"></textarea>
   // resizing the window afterwards deliberately does not re-fit them.
   var LOAD_VIEWPORT_HEIGHT = window.innerHeight;
   var VIEWPORT_MARGIN = 24; // breathing room so a column ends just inside the viewport
-  // The shared height of columns 1 and 2 is the SMALLEST of: what fits the
-  // viewport, what column 1 can fill with its own content, and what column
-  // 2 can fill with its own — so whichever list has fewer rows than room
-  // decides the height, and the other list is shrunk (it scrolls) to match,
-  // instead of the short one being padded out with empty space. Two limits:
-  // a column's fixed content + its list floor (about 2-3 rows) can't be
-  // shrunk further, and only if that alone is taller than the shared height
-  // is the other column's list padded (min-height) to keep them equal.
-  //
-  // To measure, a list's inline max/min height is cleared first so it takes
-  // its natural height; overhead is everything in the card that is NOT the
-  // list (inputs, callouts, headings...), which differs a lot between the
-  // two columns.
+  var cheatCard = document.getElementById('cheatCard');
+  var col1Card = document.getElementById('col1Card');
+  var col2Card = document.getElementById('col2Card');
+
+  // The shared height is the SMALLEST of: what fits the viewport, and what
+  // each column can fill with its own content — so whichever list has fewer
+  // rows than room decides it, and the other list shrinks (it scrolls)
+  // instead of the short one being padded with empty space. It can't go
+  // below any column's fixed content plus its list floor; only if that
+  // alone is taller than everyone else's natural height is a list padded.
+  function planColumnHeight(available, cols){
+    var lower = Math.max.apply(null, cols.map(function(c){ return c.overhead + c.floor; }));
+    var wanted = Math.min.apply(null, [available].concat(cols.map(function(c){ return c.overhead + c.content; })));
+    return Math.max(lower, wanted);
+  }
   function measureColumn(card, listEl, minHeight){
-    if (listEl.classList.contains('expanded')) return null; // left at its natural/full size
     // 'none', not '': clearing the inline value would fall back to the
     // stylesheet's pre-JS cap (420px / 560px) instead of the real content height
     listEl.style.maxHeight = 'none'; listEl.style.minHeight = '';
-    var listH = listEl.getBoundingClientRect().height;
-    var overhead = card.getBoundingClientRect().height - listH;
+    var content = listEl.getBoundingClientRect().height;
     // the floors are "about N rows", so they grow with the text size setting
     var textScale = parseFloat(getComputedStyle(document.documentElement).fontSize) / 16;
-    var floor = Math.min(minHeight * textScale, listH); // never taller than the content
-    return {list: listEl, overhead: overhead, content: listH, floor: floor, natural: overhead + listH};
-  }
-  function applyColumnHeight(m, total){
-    var box = total - m.overhead;
-    m.list.style.maxHeight = box + 'px';
-    // pad only when the content truly can't reach the shared height
-    m.list.style.minHeight = (total > m.natural) ? box + 'px' : '';
+    return {list: listEl, content: content,
+            overhead: card.getBoundingClientRect().height - content,
+            floor: Math.min(minHeight * textScale, content)}; // never taller than the content
   }
   function syncColumnFit(){
-    if (document.getElementById('builderView').hidden) return;
-    // Each column's total height is capped at the load-time viewport
-    // height, so scrolling down once shows a whole column on screen.
-    var available = LOAD_VIEWPORT_HEIGHT - VIEWPORT_MARGIN;
-    var m1 = measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT);
-    var m2 = measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT);
-    var ms = [m1, m2].filter(Boolean);
-    var targetTotal = 0;
-    if (ms.length){
-      var lower = Math.max.apply(null, ms.map(function(m){ return m.overhead + m.floor; }));
-      var wanted = Math.min.apply(null, [available].concat(ms.map(function(m){ return m.natural; })));
-      targetTotal = Math.max(lower, wanted);
+    if (builderView.hidden) return;
+    var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
+    var total = planColumnHeight(LOAD_VIEWPORT_HEIGHT - VIEWPORT_MARGIN, cols);
+    cols.forEach(function(c){
+      var box = total - c.overhead;
+      // a manually expanded list stays uncapped (it shows everything, and its
+      // column may be taller on purpose); the others are capped to the shared
+      // height. Either is padded only if its content truly can't reach it.
+      if (!c.list.classList.contains('expanded')) c.list.style.maxHeight = box + 'px';
+      c.list.style.minHeight = (box > c.content) ? box + 'px' : '';
+    });
+    if (!cheatCard.classList.contains('expanded')){
+      // min-height too: a search leaving only a few rows must not collapse the card
+      cheatCard.style.maxHeight = total + 'px'; cheatCard.style.minHeight = total + 'px';
     }
-    if (m1 && m2){
-      // Neither column is manually expanded — this is a real, authoritative
-      // measurement of what both should match, so remember it.
-      lastColumnTarget = targetTotal;
-    } else if (lastColumnTarget){
-      // One column is expanded and doesn't take part (it shows everything) —
-      // but the OTHER one must still match the real baseline, not be sized
-      // from its own numbers alone. E.g. expand column 1, expand column 2,
-      // then collapse column 1: column 2 is still excluded.
-      targetTotal = lastColumnTarget;
-    }
-    ms.forEach(function(m){ if (targetTotal > 0) applyColumnHeight(m, targetTotal); });
-    syncCheatHeight();
   }
-  var lastColumnTarget = null; // last target height measured with neither chain nor trace expanded
-  var lastCheatHeight = null; // last height measured with neither chain nor trace expanded
-  // min-height as well as max-height: a search that leaves only a few rows
-  // would otherwise let the card collapse to its content and jump the layout.
-  function setCheatHeight(h){ cheatCard.style.maxHeight = h + 'px'; cheatCard.style.minHeight = h + 'px'; }
-  function syncCheatHeight(){
-    if (cheatCard.classList.contains('expanded')) return;
-    if (document.getElementById('builderView').hidden) return;
-    // Manually expanding the chain (03) or trace (04) grows its own
-    // column well past its normal height — that's a one-off "show me
-    // everything" action on that column alone, not a new baseline the
-    // cheat sheet should chase. While either is expanded, re-apply the
-    // last *real* measurement instead of a fresh one (and instead of
-    // just doing nothing — collapsing the cheat sheet itself calls this
-    // same function, and bailing out here with no fallback used to leave
-    // column 3 with no inline max-height at all, so it fell all the way
-    // back to the generic CSS cap instead of the synced height).
-    if (chainEl.classList.contains('expanded') || traceEl.classList.contains('expanded')){
-      if (lastCheatHeight != null) setCheatHeight(lastCheatHeight);
-      return;
-    }
-    var h = Math.max(col1Card.getBoundingClientRect().height, col2Card.getBoundingClientRect().height);
-    if (h > 0){ lastCheatHeight = h; setCheatHeight(h); }
+  // Safety net: if a column's size changes for a reason no code path calls
+  // syncColumnFit for (web fonts arriving late, say), re-fit on the next
+  // frame. Idempotent, so it settles after one pass.
+  var fitFrame = null;
+  function scheduleFit(){
+    if (fitFrame) return;
+    fitFrame = requestAnimationFrame(function(){ fitFrame = null; syncColumnFit(); });
   }
   if (window.ResizeObserver){
-    var cheatHeightObserver = new ResizeObserver(syncCheatHeight);
-    cheatHeightObserver.observe(col1Card);
-    cheatHeightObserver.observe(col2Card);
+    var columnObserver = new ResizeObserver(scheduleFit);
+    columnObserver.observe(col1Card);
+    columnObserver.observe(col2Card);
   }
   wireExpandBtn(document.getElementById('cheatExpandBtn'), cheatCard, function(expanded){
     if (expanded){ cheatCard.style.maxHeight = ''; cheatCard.style.minHeight = ''; } // CSS .expanded{max-height:none} takes over
-    else { syncCheatHeight(); }
+    else syncColumnFit();
   });
   var copyResultBtn = document.getElementById('copyResultBtn');
   var copyRuleBtn = document.getElementById('copyRuleBtn');
