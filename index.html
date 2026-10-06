@@ -1867,9 +1867,9 @@ d $1$2$3"></textarea>
 
   var TARGET = 'hashcat'; // 'hashcat' | 'both' | 'john_native'
   var TARGET_NOTES = {
-    hashcat:     'The recommended default — unambiguous, what most public rule lists use, and John runs it identically. Operators tagged [Hashcat only] in the add-step menu (colored red in the cheat sheet) only run in hashcat — John has no equivalent at all.',
-    both:        'Hashcat syntax, restricted to the 57 operators John’s own hashcat-compat engine also implements (via "!! hashcat logic ON") — everything here runs identically in both. See the reference list below for what John can do that hashcat can’t.',
-    john_native: 'Only switch here when hashcat genuinely can’t do what you need — pluralization, John’s own classes, etc. Builds John’s OWN syntax instead; commands tagged [John only] in the add-step menu (colored teal in the cheat sheet) have no hashcat equivalent at all.'
+    hashcat:     'The full hashcat operator set. Those tagged [Hashcat only] (red in the cheat sheet) run in hashcat but have no John equivalent.',
+    both:        'Limited to the 57 operators that hashcat and John’s hashcat-compat mode (“!! hashcat logic ON”) both implement, so the rule behaves identically in either tool.',
+    john_native: 'Builds John’s own syntax instead of hashcat’s. Steps tagged [John only] (teal in the cheat sheet) have no hashcat equivalent, so the rule won’t run in hashcat.'
   };
   // Which target each op is buildable in. hashcat-only ops (JOHN_UNSUPPORTED)
   // are excluded from both/john_native; johnOnly ops are excluded from
