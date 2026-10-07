@@ -960,6 +960,10 @@ d $1$2$3"></textarea>
   // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
   // and case operators only touch the ASCII letters a-z / A-Z. Inside the engine a word is a
   // "byte string" (every char code is 0-255); toBytes/fromBytes convert at the edges.
+  // Hashcat holds a word in a 256-byte buffer: an operation that would take the result past 255
+  // bytes does nothing (all or nothing, never a partial result), and a word that already arrives
+  // longer than 256 bytes is skipped before any rule runs.
+  var MAX_WORD = 255, MAX_INPUT = 256;
   function asciiUpper(s){ return s.replace(/[a-z]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-32); }); }
   function asciiLower(s){ return s.replace(/[A-Z]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)+32); }); }
   function toBytes(str){
@@ -1215,11 +1219,12 @@ d $1$2$3"></textarea>
   // --- Insert / delete / replace ---
   def('append',        {label:'Append char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'append',
     multibyte:true,
-    hashcat:function(a){ return perByte(a.X, function(b){ return '$'+byteTok(b); }); }, run:function(w,a){ return {word: w+a.X}; },
+    hashcat:function(a){ return perByte(a.X, function(b){ return '$'+byteTok(b); }); },
+    run:function(w,a){ for (var i=0;i<a.X.length;i++) if (w.length < MAX_WORD) w += a.X[i]; return {word:w}; },
     caption:function(a){ return "Append '"+a.X+"'"; }});
   def('prepend',       {label:'Prepend char', group:'Insert / delete / replace', args:[{n:'X',t:'char'}], kind:'prepend',
     multibyte:true,
-    hashcat:function(a){ return perByte(a.X, function(b){ return '^'+byteTok(b); }, true); }, run:function(w,a){ return {word: a.X+w}; },
+    hashcat:function(a){ return perByte(a.X, function(b){ return '^'+byteTok(b); }, true); }, run:function(w,a){ for (var i=a.X.length-1;i>=0;i--) if (w.length < MAX_WORD) w = a.X[i]+w; return {word:w}; },
     caption:function(a){ return "Prepend '"+a.X+"'"; }});
   def('delete_first',     {label:'Delete first char', group:'Insert / delete / replace', args:[], kind:'normal',
     hashcat:function(){ return '['; }, run:function(w){ return {word: w.slice(1)}; },
@@ -1243,7 +1248,7 @@ d $1$2$3"></textarea>
     multibyte:true,
     hashcat:function(a){ return perByte(a.X, function(b,i){ return 'i'+posChar(a.N+i)+byteTok(b); }); },
     run:function(w,a){   // a multi-byte character is one insert per byte, each one place further along
-      for (var i=0;i<a.X.length;i++){ var p=a.N+i; if (p<=w.length) w = w.slice(0,p)+a.X[i]+w.slice(p); }
+      for (var i=0;i<a.X.length;i++){ var p=a.N+i; if (p<=w.length && w.length < MAX_WORD) w = w.slice(0,p)+a.X[i]+w.slice(p); }
       return {word:w};
     },
     caption:function(a){ return "Insert '"+a.X+"' at position "+a.N+' (no-op if beyond the end)'; }});
@@ -1251,7 +1256,7 @@ d $1$2$3"></textarea>
     multibyte:true,
     hashcat:function(a){ return perByte(a.X, function(b,i){ return 'v'+posChar(a.N+i)+byteTok(b); }); },
     run:function(w,a){   // one byte at a time, the interval one longer for each
-      for (var i=0;i<a.X.length;i++) w = insertEvery(w,a.N+i,a.X[i]);
+      for (var i=0;i<a.X.length;i++){ var grown = insertEvery(w,a.N+i,a.X[i]); if (grown.length <= MAX_WORD) w = grown; }
       return {word:w};
     },
     caption:function(a){ return "Insert '"+a.X+"' after every "+a.N+' characters'; }});
@@ -2684,6 +2689,10 @@ d $1$2$3"></textarea>
     var ctx = {memory: null};
     var current = toBytes(word);
     var trace = [{word: word, caption:'Starting word', changedHtml: escapeHtml(word), rejected:false}];
+    if (current.length > MAX_INPUT){
+      trace.push({word: word, caption: '✗ Skipped — hashcat ignores words longer than '+MAX_INPUT+' bytes (this one is '+current.length+')', changedHtml: escapeHtml(word), rejected:true});
+      return {final: null, trace: trace, rejected: true};
+    }
     var rejected = false, rejectCaption = '';
 
     for (var s=0; s<stepList.length; s++){
@@ -2697,6 +2706,7 @@ d $1$2$3"></textarea>
       });
       var res = badArg ? {reject:true, note:'“'+argDisplay(step.args[badArg])+'” is '+bargs[badArg].length+' bytes, but this operator takes a single byte — write each byte as \\xNN'}
                        : op.run(before, bargs, ctx);
+      if (!op.multibyte && res.word !== undefined && res.word.length > MAX_WORD && res.word.length > before.length) res = {word: before};
 
       if (res.reject){
         rejected = true;
@@ -2760,7 +2770,7 @@ d $1$2$3"></textarea>
     var result = runChain(word);
     markRejectingStep(result);
     var lastRow = result.trace[result.trace.length-1];
-    announceSoon('result', result.rejected ? 'Rejected by step ' + lastRow.stepNum + ': ' + lastRow.caption.replace(/^✗ Rejected — /, '') : 'Result: ' + result.final);
+    announceSoon('result', result.rejected ? (lastRow.stepNum ? 'Rejected by step ' + lastRow.stepNum + ': ' : '') + lastRow.caption.replace(/^✗ (Rejected|Skipped) — /, '') : 'Result: ' + result.final);
     copyResultBtn.disabled = result.rejected;
     copyResultBtn.title = result.rejected ? 'This word is rejected by the chain, so there is no final result to copy' : 'Copy the final word the chain produces';
 
@@ -2782,11 +2792,12 @@ d $1$2$3"></textarea>
       var n = k + 1, idx = -1;
       result.trace.forEach(function(row, ti){ if (row.stepNum === n) idx = ti; });
       if (idx >= 0){ rowsHtml.push(rowHtml(result.trace[idx], idx)); return; }
-      var why = !st.enabled ? 'Not run — this step is switched off' : 'Not run — the chain stopped at step ' + rejectedAt;
+      var why = !st.enabled ? 'Not run — this step is switched off' : rejectedAt ? 'Not run — the chain stopped at step ' + rejectedAt : 'Not run — the word was skipped';
       rowsHtml.push('<div class="trace-row skipped" data-step="'+n+'"><span class="num" title="Step '+n+' in the chain below"><span class="sr-only">Step </span>'+n+'</span>'+
         '<div class="content"><div class="word">'+escapeHtml(OPS[st.type].label)+'</div>'+
         '<div class="caption">'+escapeHtml(why)+'</div></div></div>');
     });
+    if (lastRow.rejected && !lastRow.stepNum) rowsHtml.push(rowHtml(lastRow, result.trace.length-1));   // a word hashcat skips before any step
     traceEl.innerHTML = rowsHtml.join('');
 
     if (typeof linkTraceRow === 'function') linkTraceRow(false); // keep the hover link across a re-render

@@ -191,6 +191,13 @@ def run_regression_checks(driver, results):
         ('hashcat', '$\\x41', 'ab', 'abA'),
         ('hashcat', 's\\xc3\\xa9', 'café', 'caf\\xA9\\xA9'),   # replaces the first byte of é
         ('john', '$\\xc2 $\\xb5', 'ab', 'abµ'),
+        # hashcat's 256-byte buffer: a growing operation that would pass 255 bytes does nothing
+        ('hashcat', 'd', 'a' * 128, 'a' * 128),
+        ('hashcat', 'd', 'a' * 127, 'a' * 254),
+        ('hashcat', '$x', 'a' * 255, 'a' * 255),
+        ('hashcat', '$x', 'a' * 254, 'a' * 254 + 'x'),
+        ('hashcat', 'p2', 'a' * 100, 'a' * 100),
+        ('hashcat', 'h', 'a' * 128, 'a' * 128),
     ]
     for dialect, rule, word, want in cases:
         r = run_rule(driver, dialect, rule, word)
