@@ -1658,10 +1658,18 @@ d $1$2$3"></textarea>
     ['v','vowel'],['c','consonant'],['w','whitespace'],['p','punctuation'],
     ['s','symbol'],['l','lowercase'],['u','uppercase'],['d','digit'],
     ['a','letter'],['x','letter or digit'],['o','control'],['y','"valid" (approx.)'],
-    ['z','any'],['b','8th-bit set']
+    ['z','any'],['b','8th-bit set'],
+    // John uppercases a class letter for its complement ("not this class"); z and b have none
+    // (z already means "any" and has no opposite, and ? isn't a letter in the first place).
+    ['V','not vowel'],['C','not consonant'],['W','not whitespace'],['P','not punctuation'],
+    ['S','not symbol'],['L','not lowercase'],['U','not uppercase'],['D','not digit'],
+    ['A','not letter'],['X','not letter or digit'],['O','not control'],['Y','not "valid"']
   ];
-  var JOHN_CLASS_LABEL = {v:'vowel',c:'consonant',w:'whitespace',p:'punctuation',s:'symbol',l:'lowercase letter',u:'uppercase letter',d:'digit',a:'letter',x:'letter or digit',o:'control char',y:'"valid" char',z:'any char',b:'8th-bit-set byte'};
+  var JOHN_CLASS_LABEL = {v:'vowel',c:'consonant',w:'whitespace',p:'punctuation',s:'symbol',l:'lowercase letter',u:'uppercase letter',d:'digit',a:'letter',x:'letter or digit',o:'control char',y:'"valid" char',z:'any char',b:'8th-bit-set byte',
+    V:'non-vowel',C:'non-consonant',W:'non-whitespace char',P:'non-punctuation char',S:'non-symbol',L:'char that isn’t lowercase',U:'char that isn’t uppercase',D:'non-digit',A:'non-letter',X:'char that isn’t a letter or digit',O:'non-control char',Y:'"invalid" char'};
   function johnClassMatch(ch, cls){
+    // an uppercase class letter (other than Z/B, which have no opposite) is the complement
+    if (cls.length === 1 && /[A-Z]/.test(cls) && cls !== 'Z' && cls !== 'B') return !johnClassMatch(ch, cls.toLowerCase());
     switch(cls){
       case 'v': return /[aeiouAEIOU]/.test(ch);
       case 'c': return /[bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ]/.test(ch);
@@ -3053,7 +3061,7 @@ d $1$2$3"></textarea>
   };
   J_CHARS.a = J_CHARS.l + J_CHARS.u; J_CHARS.x = J_CHARS.a + J_CHARS.d;
   var J_CONTROL = '\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\n\u000b\u000c\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\u007f';
-  J_CHARS.o = J_CONTROL; J_CHARS.y = '';
+  J_CHARS.o = J_CONTROL;   // y and z are set directly in jClasses(), not via this table
   var J_CONV_SOURCE = "`1234567890-=\\qwertyuiop[]asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?";
   var J_CONV_SHIFT   = "~!@#$%^&*()_+|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?`1234567890-=\\qwertyuiop[]asdfghjkl;'zxcvbnm,./";
   var J_CONV_INVERT  = "`1234567890-=\\QWERTYUIOP[]ASDFGHJKL;'ZXCVBNM,./~!@#$%^&*()_+|qwertyuiop{}asdfghjkl:\"zxcvbnm<>?";
@@ -3086,8 +3094,14 @@ d $1$2$3"></textarea>
     }
     add('?', '?');
     var eight = ''; for (var i=0;i<128;i++) eight += String.fromCharCode(i + 128);
-    add('b', eight); add('z', '');
+    add('b', eight);
     for (var name in J_CHARS) add(name, J_CHARS[name]);
+    // z and y are defined as the COMPLEMENT of Z and Y in the real rules_init_classes() (Z and Y
+    // are the ones built directly, both empty outside UTF-8 mode) — not the other way around, as
+    // the generic lower-to-upper derivation above assumes. So z (matches "all characters" per
+    // doc/RULES) and y ("valid" characters) both end up matching every byte by default here.
+    var all = new Uint8Array(256).fill(1), none = new Uint8Array(256);
+    cls.z = all; cls.Z = none; cls.y = all.slice(); cls.Y = none.slice();
     return jClassCache = cls;
   }
   function jStrlen(a, o){ o = o|0; var n = 0; while (a[o + n]) n++; return n; }

@@ -273,6 +273,10 @@ def run_john_engine_checks(driver, results):
     for rule, word, min_len, max_len, want in (
         ('Zz', 'a', 0, 28, J_RC_REJECT),      # same bug as above, reached via the real parser this time
         ("'l", 'hello', 0, 28, 'hello'),      # truncate-at-length(l) is a no-op: l is already the length
+        ('@?z', 'abc123', 0, 28, J_RC_REJECT),  # z ("all characters") is a complement: Z is the one
+        ('@?Z', 'abc123', 0, 28, 'abc123'),     # defined directly, as empty, so z ends up matching everything
+        ('@?y', 'abc123', 0, 28, J_RC_REJECT),  # same relationship for y ("valid") / Y
+        ('@?Y', 'abc123', 0, 28, 'abc123'),
     ):
         got = driver.execute_script(
             "var T=window.__test; T.setTarget('john_native');"
