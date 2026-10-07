@@ -3607,6 +3607,26 @@ d $1$2$3"></textarea>
       } else {
         noteEl.textContent = '✓ Portable — also runs in John’s hashcat-compat mode.';
         noteEl.className = 'sub ok';
+        // "Portable" means every step has a hashcat form John accepts under "!! hashcat logic ON" —
+        // not that John gives the same result for every word. A handful of shared operators (length
+        // rejects, X, 3, e, R/L's CPU-vs-kernel split…) read this exact word differently, so check it
+        // for real rather than assume: build the same tokens and run them through the John engine too.
+        if (TARGET === 'both'){
+          var tokens = enabledSteps.map(function(s){ return hashcatToken(s.type, s.args); }).filter(function(t){ return t !== null; });
+          if (tokens.length){
+            var jres = jRulesApply(tokens.join(' '), toBytes(word), {hc: true, minLen: MIN_LEN, maxLen: MAX_LEN});
+            var jFinal = jres.rc === 0 ? fromBytes(jres.word) : null;
+            var hcFinal = result.rejected ? null : result.final;
+            if (jFinal !== hcFinal){
+              var diffMsg = jres.rc === J_RC_SYNTAX
+                ? 'John refuses this exact rule as a syntax error, for a reason hashcat allows'
+                : 'differs in John for this word: hashcat gives ' + (hcFinal === null ? '(rejected)' : '“' + hcFinal + '”') +
+                  ', John gives ' + (jFinal === null ? '(rejected)' : '“' + jFinal + '”');
+              noteEl.textContent += ' · ⚠ ' + diffMsg;
+              noteEl.className = 'sub warn';
+            }
+          }
+        }
       }
     }
     // Memory and reject operators (and the p position) exist only in hashcat's CPU engine.

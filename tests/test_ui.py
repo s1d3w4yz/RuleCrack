@@ -1646,6 +1646,25 @@ def test_target_views_are_consistent(driver, r):
     r.check('Won’t run in John' in note and 'vNX' in note, 'in the Hashcat view, a rule using v loads and warns that it won\'t run in John', repr(note))
 
 
+def test_both_view_warns_when_john_would_differ(driver, r):
+    """"Portable" in the Both view means every step has a hashcat form John accepts, not that John
+    gives the same result for this word — a handful of shared operators do differ (here: John's
+    final max-length check, which hashcat's kernel engine doesn't have). The tool checks the actual
+    word through both engines and warns when they disagree, rather than just asserting portability."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    note = lambda: driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    set_value(driver, driver.find_element('id', 'wordInput'), 'abcdefghijklmnopqrstuvwxyz', debounced=True)
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'd d', debounced=True)   # 26 * 4 = 104 bytes
+    n = note()
+    r.check('Portable' in n and 'differs in John' in n and 'rejected' in n,
+            'the Both view warns when a portable rule still gives a different result in John', repr(n))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    n2 = note()
+    r.check('Portable' in n2 and 'differs in John' not in n2, 'an ordinary rule gets no such warning', repr(n2))
+    set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
+
+
 def test_both_callout_is_a_code_block(driver, r):
     """The Both setup callout is a 4-line code block plus three short
     points (not one dense paragraph)."""
@@ -2390,6 +2409,7 @@ def main():
         test_compat_operators_have_a_non_color_marker(driver, r)
         test_target_views_are_consistent(driver, r)
         test_section_gaps_are_consistent(driver, r)
+        test_both_view_warns_when_john_would_differ(driver, r)
         test_both_callout_is_a_code_block(driver, r)
         test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
