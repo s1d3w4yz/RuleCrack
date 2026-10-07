@@ -2617,9 +2617,13 @@ d $1$2$3"></textarea>
             // outside 0-9 while targeting John produces text that doesn't parse back the way it
             // was built, so the UI doesn't offer that combination in the first place.
             var digitOnly = TARGET === 'john_native' && AMBIGUOUS_RL_P[step.type];
+            // John's own ambiguity check for 'p' (dupeword_times) requires 1-9, not 0-9 like R/L —
+            // 'p0' isn't recognized as the digit form at all, so it reads as bare pluralize + a
+            // stray '0' command and fails to parse. 0 isn't offered as a choice for p under John.
+            var pMin = (TARGET === 'john_native' && step.type === 'dupeword_times') ? 1 : 0;
             if (vt === 'p' && TARGET !== 'john_native') v = 'p';
             else if (!digitOnly && TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+abcdefghijk'.indexOf(vt) >= 0) v = vt;
-            else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(digitOnly ? 9 : 35, v)); }
+            else { v = parseInt(v,10); if (isNaN(v)) v = pMin; v = Math.max(pMin, Math.min(digitOnly ? 9 : 35, v)); }
           }
           else if (spec.t==='char'){   // one character, or a byte written \xNN
             v = /^\\x[0-9a-fA-F]{2}$/.test(v) ? loneByte(parseInt(v.slice(2),16)) : (Array.from(v)[0] || ''); }
