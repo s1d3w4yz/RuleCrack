@@ -955,7 +955,14 @@ d $1$2$3"></textarea>
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-  function posChar(n){ if (n === 'p') return 'p'; n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
+  // A position argument is normally 0-9/A-Z (0-35), but hashcat's CPU engine also accepts 'p' (the
+  // position the last / or % found), and John accepts its own wider set of named constants — z
+  // (the symbolic "end of word"), m (last char position), l (word length) and the target's
+  // min/max-length family (# @ $ * - +, using this tool's Min/Max length fields as the target).
+  // Any of those passes through as the literal character; what's actually valid where is gated at
+  // the argument box, not here.
+  var POS_SYMBOLS = 'pzml#@$*-+';
+  function posChar(n){ if (typeof n === 'string' && POS_SYMBOLS.indexOf(n) >= 0) return n; n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
   // Hashcat (and John without a --encoding) work on raw bytes, not characters: a word is run
   // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
   // and case operators only touch the ASCII letters a-z / A-Z. Inside the engine a word is a
@@ -1581,8 +1588,8 @@ d $1$2$3"></textarea>
     {syntax:'V',   label:'Uppercase consonants, lowercase vowels', note:'', promoted:true},
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
     {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ followed by ?l ?u ?d ?s ?h ?H), and John never accepts the '~' prefix at all.", promoted:true},
-    {syntax:'vVNM',label:'Set a variable V to N − M, to use as a position in later steps', note:''},
-    {syntax:'# @ $ * - + a-k l m p z', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:''},
+    {syntax:'# @ $ * - + z m l', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:'buildable: type one of these into any position argument above, in place of a number.', promoted:true},
+    {syntax:'vVNM / a-k', label:"A user-defined variable (set by v, then used as a position elsewhere)", note:'this tool has no concept of a variable set mid-chain and read back later as a position.'},
     {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Flags written before a rule that skip it depending on the hash type', note:''},
     {syntax:'1 2 +', label:'Combine the words of a full-name entry (single-crack mode only)', note:''}
   ];
@@ -1945,6 +1952,7 @@ d $1$2$3"></textarea>
       var ch = str[i];
       if (/[0-9]/.test(ch)){ i++; return ch.charCodeAt(0) - 48; }
       if (/[A-Z]/.test(ch)){ i++; return 10 + (ch.charCodeAt(0) - 65); }
+      if ('zml#@$*-+'.indexOf(ch) >= 0){ i++; return ch; }   // John's own named positions/lengths
       return null;
     }
     function readChar(){
@@ -2576,7 +2584,12 @@ d $1$2$3"></textarea>
           var argName = e.target.dataset.arg;
           var spec = op.args.filter(function(s){return s.n===argName;})[0];
           var v = e.target.value;
-          if (spec.t==='pos'){ if (v.trim() === 'p' && TARGET !== 'john_native') v = 'p'; else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); } }
+          if (spec.t==='pos'){
+            var vt = v.trim();
+            if (vt === 'p' && TARGET !== 'john_native') v = 'p';
+            else if (TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+'.indexOf(vt) >= 0) v = vt;
+            else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
+          }
           else if (spec.t==='char'){   // one character, or a byte written \xNN
             v = /^\\x[0-9a-fA-F]{2}$/.test(v) ? loneByte(parseInt(v.slice(2),16)) : (Array.from(v)[0] || ''); }
           step.args[argName] = v;
@@ -3084,9 +3097,20 @@ d $1$2$3"></textarea>
   // loop itself lands on gets spliced out). This matters: writing "L 6" to keep John's native L
   // (keyboard-shift) separate from a following digit does not work, since the normalized rule
   // the real run sees is "L6" — the digit right after L, which hashcat mode reads as a position.
+  // John's own rule preprocessor (rpp_process_rule(), src/rpp.c) decodes \xNN escapes before the
+  // interpreter ever sees the rule — but only outside "!! hashcat logic ON" (hc skips the whole
+  // preprocessor and passes the raw line through, and hashcat's own \xNN handling lives in its own
+  // engine instead). It also leaves a literal \x00 undecoded (its sscanf check requires a nonzero
+  // byte), matched here by excluding '00'.
+  function jDecodeHexEscapes(rule){
+    return rule.replace(/\\x([0-9a-fA-F]{2})/g, function(m, hex){
+      return hex.toLowerCase() === '00' ? m : String.fromCharCode(parseInt(hex, 16));
+    });
+  }
   function jRulesApply(rule, word, opts){
     var hc = !!opts.hc;
-    var norm = jRunEngine(rule, '', {hc: hc, minLen: 0, maxLen: 638, normalize: true});
+    if (!hc) rule = jDecodeHexEscapes(rule);
+    var norm = jRunEngine(rule, '', {hc: hc, minLen: 0, maxLen: 255, normalize: true});
     if (norm.rc === J_RC_SYNTAX) return {rc: J_RC_SYNTAX};
     return jRunEngine(norm.rule, word, {hc: hc, minLen: opts.minLen || 0, maxLen: opts.maxLen != null ? opts.maxLen : 28, normalize: false});
   }
@@ -3402,6 +3426,34 @@ d $1$2$3"></textarea>
     }
     return {final: rejected ? null : fromBytes(before), trace: trace, rejected: rejected};
   }
+  // Evaluates a John-native chain through the jRulesApply port (src/rules.c), the same way
+  // runChainCpu uses hashcat's own CPU engine for hashcat chains: each step's word is the result
+  // of running the John rule text up to and including that step, from the original word.
+  function runChainJohn(startBytes, trace, stepList){
+    var ctx = {memory: null}, items = [], tokens = [];
+    stepList.forEach(function(st, k){
+      if (!st.enabled) return;
+      var tok = johnToken(st.type, st.args);
+      if (tok === null) return;
+      items.push({st: st, idx: k}); tokens.push(tok);
+    });
+    var before = startBytes, rejected = false;
+    for (var n = 0; n < items.length; n++){
+      var st = items[n].st, op = OPS[st.type], stepNum = items[n].idx + 1;
+      var res = jRulesApply(tokens.slice(0, n + 1).join(' '), startBytes, {hc: false, minLen: MIN_LEN, maxLen: MAX_LEN});
+      if (res.rc !== 0){
+        rejected = true;
+        var why = res.rc === J_RC_SYNTAX ? 'syntax error for this word' : (op.caption(captionArgs(op, st.args), before, before, ctx) || 'Rejected');
+        trace.push({word: fromBytes(before), caption: '✗ Rejected — ' + why, changedHtml: escapeHtml(fromBytes(before)), rejected: true, stepNum: stepNum});
+        break;
+      }
+      if (op.kind === 'memorize') ctx.memory = res.word;
+      var caption = op.caption(captionArgs(op, st.args), before, res.word, ctx);
+      trace.push({word: fromBytes(res.word), caption: caption, changedHtml: highlightAfter(op, before, res.word), rejected: false, stepNum: stepNum});
+      before = res.word;
+    }
+    return {final: rejected ? null : fromBytes(before), trace: trace, rejected: rejected};
+  }
   function captionArgs(op, args){      // arguments as they should read in a caption (raw bytes as \xNN)
     var out = {};
     Object.keys(args).forEach(function(k){ out[k] = args[k]; });
@@ -3420,6 +3472,7 @@ d $1$2$3"></textarea>
       return {final: null, trace: trace, rejected: true};
     }
     var rejected = false, rejectCaption = '';
+    if (TARGET === 'john_native') return runChainJohn(current, trace, stepList);
     if (chainNeedsCpuEngine(stepList)) return runChainCpu(current, trace, stepList);
 
     for (var s=0; s<stepList.length; s++){
@@ -4673,6 +4726,7 @@ d $1$2$3"></textarea>
     buildRuleString: buildRuleString,
     hcCpuApply: hcCpuApply,
     jRulesApply: jRulesApply,
+    setTarget: function(t){ TARGET = t; },   // test-only: lets run_tests.py exercise a target's own runChain path
     toBytes: toBytes,
     fromBytes: fromBytes
   };

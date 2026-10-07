@@ -59,14 +59,15 @@ def run_rule(driver, dialect, rule, word):
     parse_fn = 'parseRuleLine' if dialect == 'hashcat' else 'parseRuleLineJohn'
     return driver.execute_script(
         """
-        var rule = arguments[0], word = arguments[1], parseFn = arguments[2];
+        var rule = arguments[0], word = arguments[1], parseFn = arguments[2], dialect = arguments[3];
         var T = window.__test;
+        T.setTarget(dialect === 'hashcat' ? 'hashcat' : 'john_native');
         var parsed = T[parseFn](rule, T.mkStep);
         if (parsed.errors.length) return {error: parsed.errors.join('; ')};
         var result = T.runChain(word, parsed.steps);
         return {rejected: result.rejected, final: result.rejected ? null : result.final};
         """,
-        rule, word, parse_fn,
+        rule, word, parse_fn, dialect,
     )
 
 
@@ -268,6 +269,18 @@ def run_john_engine_checks(driver, results):
         got = jrun(rule, word, False, min_len, max_len)
         ok = got == want
         results.append((ok, f'regression [john] {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
+    # John's own named positions (z/m/l/#/@/$/*/-/+), now accepted by the rule-line parser too
+    for rule, word, min_len, max_len, want in (
+        ('Zz', 'a', 0, 28, J_RC_REJECT),      # same bug as above, reached via the real parser this time
+        ("'l", 'hello', 0, 28, 'hello'),      # truncate-at-length(l) is a no-op: l is already the length
+    ):
+        got = driver.execute_script(
+            "var T=window.__test; T.setTarget('john_native');"
+            "var p=T.parseRuleLineJohn(arguments[0],T.mkStep); if(p.errors.length) return 'PARSE_ERROR:'+p.errors.join(';');"
+            "var r=T.runChain(arguments[1],p.steps); return r.rejected?1:r.final;",
+            rule, word)
+        ok = got == want
+        results.append((ok, f'regression [john] named position in {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
     # the doc/RULES worked examples, run straight through jRulesApply (independent of the per-op JS)
     for rule, word, want in (('S', 'Crack96', 'cRACK(^'), ('V', 'Crack96', 'CRaCK96'),
                               ('R', 'Crack96', 'Vtsvl07'), ('L', 'Crack96', 'Xeaxj85'),
