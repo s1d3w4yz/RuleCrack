@@ -962,6 +962,11 @@ d $1$2$3"></textarea>
   // Any of those passes through as the literal character; what's actually valid where is gated at
   // the argument box, not here.
   var POS_SYMBOLS = 'pzml#@$*-+abcdefghijk';
+  // R / L / p are ambiguous between a hashcat op and a John-native command, and John resolves it
+  // by checking only whether the very next rule byte is a plain digit 0-9 (doc/RULES-hashcat).
+  // Letters (A-Z) and the named positions (z m l # @ $ * - + a-k) don't satisfy that check, so
+  // building one of these three for John with such an argument doesn't round-trip.
+  var AMBIGUOUS_RL_P = {chr_shiftr: true, chr_shiftl: true, dupeword_times: true};
   function posChar(n){ if (typeof n === 'string' && POS_SYMBOLS.indexOf(n) >= 0) return n; n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
   // Hashcat (and John without a --encoding) work on raw bytes, not characters: a word is run
   // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
@@ -2606,9 +2611,15 @@ d $1$2$3"></textarea>
           var v = e.target.value;
           if (spec.t==='pos'){
             var vt = v.trim();
+            // John itself disambiguates R / L / p from its own keyboard-shift/pluralize commands
+            // by checking whether the very next rule byte is a plain digit 0-9 — not A-Z, and not
+            // any of the named positions either. Building one of these three with an argument
+            // outside 0-9 while targeting John produces text that doesn't parse back the way it
+            // was built, so the UI doesn't offer that combination in the first place.
+            var digitOnly = TARGET === 'john_native' && AMBIGUOUS_RL_P[step.type];
             if (vt === 'p' && TARGET !== 'john_native') v = 'p';
-            else if (TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+abcdefghijk'.indexOf(vt) >= 0) v = vt;
-            else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
+            else if (!digitOnly && TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+abcdefghijk'.indexOf(vt) >= 0) v = vt;
+            else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(digitOnly ? 9 : 35, v)); }
           }
           else if (spec.t==='char'){   // one character, or a byte written \xNN
             v = /^\\x[0-9a-fA-F]{2}$/.test(v) ? loneByte(parseInt(v.slice(2),16)) : (Array.from(v)[0] || ''); }
@@ -3116,7 +3127,7 @@ d $1$2$3"></textarea>
 
   // `rule` and `word` are byte strings (toBytes()'d already). `opts`: {hc, minLen, maxLen}.
   // Returns {rc:0, word} or {rc:J_RC_REJECT|J_RC_SYNTAX, err}.
-  var J_RC_REJECT = 1, J_RC_SYNTAX = 2;
+  var J_RC_REJECT = 1, J_RC_SYNTAX = 2, J_RC_LENGTH = 3;   // 3: rejected only by the final min/max-length check
   // John strips ':', ' ' and '\t' out of a rule once, when it is loaded (rules_reject()'s
   // optimization pass, which replays the whole interpreter below with reject turned off, so a
   // space swallowed as some other command's argument is untouched — only a space the dispatch
@@ -3133,12 +3144,63 @@ d $1$2$3"></textarea>
       return hex.toLowerCase() === '00' ? m : String.fromCharCode(parseInt(hex, 16));
     });
   }
+  // The reject flags before the first real command (rules_reject() in src/rules.c). Outside
+  // "!! hashcat logic ON" a leading '-' is a flag unless a digit other than 8 follows (the "HC hack"
+  // that lets -3 still mean hashcat's decrement). Flags that depend on the target hash type are
+  // evaluated the way a plain `john --stdout` run behaves (probed against the real binary):
+  // -: -c -8 -S -u pass, -s -p -R -U reject every word, ->N / -<N compare N with the length limits,
+  // anything else is an error. Returns {rule: rest, rc: 0|J_RC_SYNTAX|J_RC_REJECT, flag: true}.
+  function jRejectFlags(rule, opts){
+    var i = 0, vars = jPositionVars(opts);
+    while (i < rule.length){
+      var c = rule[i];
+      if (c === ':' || c === ' ' || c === '\t'){ i++; continue; }
+      if (c !== '-') break;
+      var next = rule[i + 1];
+      if (!(next === undefined || next < '0' || next === '8' || next > '9')) break;   // -3 etc: a command
+      var f = rule[i + 2];
+      i += 2;
+      if (next === undefined) return {rc: J_RC_SYNTAX, flag: true};
+      if (next === ':' || next === 'c' || next === '8' || next === 'S' || next === 'u') continue;
+      if (next === 's' || next === 'p' || next === 'R' || next === 'U') return {rc: J_RC_REJECT, flag: true};
+      if (next === '>' || next === '<'){
+        if (f === undefined) return {rc: J_RC_SYNTAX, flag: true};
+        var v = vars[f.charCodeAt(0)]; i++;
+        if (v === undefined) return {rc: J_RC_SYNTAX, flag: true};
+        if (next === '>' ? v <= (opts.maxLen != null ? opts.maxLen : 28) : v >= (opts.minLen || 0)) continue;
+        return {rc: J_RC_REJECT, flag: true};
+      }
+      if (next === '-') return {rc: J_RC_REJECT, flag: true};
+      return {rc: J_RC_SYNTAX, flag: true};
+    }
+    return {rc: 0, rule: rule.slice(i)};
+  }
+  function jPositionVars(opts){
+    var v = {}, mn = opts.minLen || 0, mx = opts.maxLen != null ? opts.maxLen : 28;
+    for (var d=0; d<=9; d++) v[48+d] = d;
+    for (var A=0; A<26; A++) v[65+A] = 10 + A;
+    v[42] = mx; v[45] = mx - 1; v[43] = mx + 1; v[35] = mn; v[64] = mn ? mn - 1 : 0; v[36] = mn + 1; v[122] = 255;
+    return v;
+  }
+  // The rule text as John's interpreter will actually read it: hex escapes decoded, flags removed,
+  // stray ':' / ' ' / tab spliced out. Used to check a chain's text still means the chain.
+  function jNormalizeRule(rule, hc){
+    if (!hc) rule = jDecodeHexEscapes(rule);
+    if (!hc){ var f = jRejectFlags(rule, {}); if (f.rc !== 0) return null; rule = f.rule; }
+    var norm = jRunEngine(rule, '', {hc: !!hc, minLen: 0, maxLen: 255, normalize: true});
+    return norm.rc === J_RC_SYNTAX ? null : norm.rule;
+  }
   function jRulesApply(rule, word, opts){
     var hc = !!opts.hc;
     if (!hc) rule = jDecodeHexEscapes(rule);
+    if (!hc){
+      var fl = jRejectFlags(rule, opts);
+      if (fl.rc !== 0) return {rc: fl.rc, flag: true};
+      rule = fl.rule;
+    }
     var norm = jRunEngine(rule, '', {hc: hc, minLen: 0, maxLen: 255, normalize: true});
     if (norm.rc === J_RC_SYNTAX) return {rc: J_RC_SYNTAX};
-    return jRunEngine(norm.rule, word, {hc: hc, minLen: opts.minLen || 0, maxLen: opts.maxLen != null ? opts.maxLen : 28, normalize: false});
+    return jRunEngine(norm.rule, word, {hc: hc, minLen: opts.minLen || 0, maxLen: opts.maxLen != null ? opts.maxLen : 28, normalize: false, finalCheck: opts.finalCheck});
   }
   function jRunEngine(rule, word, opts){
     var st = {
@@ -3156,7 +3218,7 @@ d $1$2$3"></textarea>
     function REJ(){ if (!st.normalize) st.reject = true; }
     st.memory.set(st.in);
     var convs = jConvs();
-    if (!rule.length) return {rc: 0, word: word};
+    if (!rule.length) return st.normalize ? {rc: 0, rule: rule} : {rc: 0, word: word};
     if (!st.length && !st.hc && !st.normalize) return {rc: J_RC_REJECT};
     var rp = {i: 0};
     function VALUE(){ var c = rule.charCodeAt(rp.i); rp.i++; if (c !== c){ st.err = J_ERR_END; return null; } return c; }
@@ -3314,7 +3376,7 @@ d $1$2$3"></textarea>
           in_[0] = 0; break;
         }
         case 'R': {
-          if (st.hc || /[0-9]/.test(rule[rp.i] || '')){ var n1 = POSITION(); if (n1 === null) break; if (n1 < st.length) in_[n1] = ((in_[n1] << 24 >> 24) >> 1) & 255; break; }
+          if (st.hc || /[0-9]/.test(rule[rp.i] || '')){ var n1 = POSITION(); if (n1 === null) break; if (n1 < st.length) in_[n1] = in_[n1] >> 1; break; }   // John shifts an unsigned char (hashcat's CPU engine sign-extends; John does not)
           for (i=0;in_[i];i++) in_[i] = convs.right[in_[i]]; break;
         }
         case 'L': {
@@ -3400,8 +3462,11 @@ d $1$2$3"></textarea>
     if (st.normalize) return {rc: 0, rule: rule};
     if (st.reject) return {rc: J_RC_REJECT};
     // rules_apply()'s out_OK: final length limits (skipped only for stacked rules, out of scope here)
-    if (st.minLen && st.length < st.minLen) return {rc: J_RC_REJECT};
-    if (st.maxLen && st.length > st.maxLen) return {rc: J_RC_REJECT};
+    // (Only the finished rule is length-checked; a step-by-step trace evaluates prefixes with finalCheck off.)
+    if (opts.finalCheck !== false){
+      if (st.minLen && st.length < st.minLen) return {rc: J_RC_LENGTH};
+      if (st.maxLen && st.length > st.maxLen) return {rc: J_RC_LENGTH};
+    }
     return {rc: 0, word: jToStr(st.in)};
   }
 
@@ -3466,10 +3531,12 @@ d $1$2$3"></textarea>
     var before = startBytes, rejected = false;
     for (var n = 0; n < items.length; n++){
       var st = items[n].st, op = OPS[st.type], stepNum = items[n].idx + 1;
-      var res = jRulesApply(tokens.slice(0, n + 1).join(' '), startBytes, {hc: false, minLen: MIN_LEN, maxLen: MAX_LEN});
+      var res = jRulesApply(tokens.slice(0, n + 1).join(' '), startBytes, {hc: false, minLen: MIN_LEN, maxLen: MAX_LEN, finalCheck: n === items.length - 1});
       if (res.rc !== 0){
         rejected = true;
-        var why = res.rc === J_RC_SYNTAX ? 'syntax error for this word' : (op.caption(captionArgs(op, st.args), before, before, ctx) || 'Rejected');
+        var why = res.rc === J_RC_SYNTAX ? 'syntax error for this word'
+          : res.rc === J_RC_LENGTH ? 'the result is outside the Min/Max length (' + MIN_LEN + '–' + MAX_LEN + ')'
+          : (op.caption(captionArgs(op, st.args), before, before, ctx) || 'Rejected');
         trace.push({word: fromBytes(before), caption: '✗ Rejected — ' + why, changedHtml: escapeHtml(fromBytes(before)), rejected: true, stepNum: stepNum});
         break;
       }

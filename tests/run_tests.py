@@ -241,14 +241,14 @@ def run_john_engine_checks(driver, results):
             " {hc: arguments[2], minLen: arguments[3], maxLen: arguments[4]});"
             "return r.rc === 0 ? window.__test.fromBytes(r.word) : r.rc;",
             rule, word, hc, min_len, max_len)
-    J_RC_REJECT, J_RC_SYNTAX = 1, 2
+    J_RC_REJECT, J_RC_SYNTAX, J_RC_LENGTH = 1, 2, 3   # 3: rejected only by the final Min/Max-length check
     cases = [
         # RULE_WORD_SIZE is 128 in this release (0x80), not the 320 of the current john/ checkout
-        ('M 46', 'abcdefghijklmnopqrstuvwxyz', 0, 28, J_RC_REJECT),   # tripled = 78 bytes > max-length 28
+        ('M 46', 'abcdefghijklmnopqrstuvwxyz', 0, 28, J_RC_LENGTH),   # tripled = 78 bytes > max-length 28
         ('M 46', 'abc', 0, 28, 'abcabcabc'),
         # 'z' (a position/length argument) is the symbolic "infinite" length, 255 here (0xFF) —
         # not (MAX_PLAINTEXT_LENGTH*2) as in the current checkout
-        ('Zz', 'a', 0, 28, J_RC_REJECT),    # Z has no overflow guard at all; length grows by 255
+        ('Zz', 'a', 0, 28, J_RC_LENGTH),    # Z has no overflow guard at all; length grows by 255
         ('Y9', 'ab', 0, 28, 'ab'),           # Y does guard (n <= length): 9 > 2, so unlike Z this is a no-op
         ('Y2', 'ab', 0, 28, 'abab'),         # an in-range N duplicates the last N chars, appended once
         # 'v' writes into an unsigned byte array: a negative (N - M) wraps mod 256 instead of going
@@ -264,6 +264,20 @@ def run_john_engine_checks(driver, results):
         ('L6', 'ab', 0, 28, 'ab'),
         ('e f', 'a', 0, 28, 'AA'),     # space not swallowed here: 'e' takes its own separator, then f (reflect) runs
         ('ef', 'a', 0, 28, 'A'),       # no space: 'f' is swallowed as e's separator argument instead
+        ('R0', 'abcd', 0, 28, '0bcd'),   # a logical (unsigned) shift: John does not sign-extend as hashcat's CPU engine does
+        ('M 46', 'abc', 0, 28, 'abcabcabc'),         # fits within 28 bytes: not rejected
+        ('d', 'a' * 20, 0, 28, J_RC_LENGTH),         # doubled = 40 bytes, over the 28-byte limit: the *finished* rule is checked
+        ('d l', 'a' * 15, 0, 28, J_RC_LENGTH),         # the length check is on the finished rule's output, not per-step
+        # the line-level reject flags this tool can evaluate without target-format context (probed
+        # against a real `john --stdout` run): -: -c -8 -S -u pass through; -s -p -R -U always
+        # reject; ->N / -<N compare N against the Min/Max length fields.
+        ('-: l', 'ABC', 0, 28, 'abc'), ('-c l', 'ABC', 0, 28, 'abc'), ('-8 l', 'ABC', 0, 28, 'abc'),
+        ('-S l', 'ABC', 0, 28, 'abc'), ('-u l', 'ABC', 0, 28, 'abc'),
+        ('-s l', 'ABC', 0, 28, J_RC_REJECT), ('-p l', 'ABC', 0, 28, J_RC_REJECT),
+        ('-R l', 'ABC', 0, 28, J_RC_REJECT), ('-U l', 'ABC', 0, 28, J_RC_REJECT),
+        ('->3 l', 'ABC', 0, 28, 'abc'), ('->U l', 'ABC', 0, 28, J_RC_REJECT),   # U = 30 > max-length 28
+        ('-<3 l', 'ABC', 0, 28, 'abc'), ('-<Z l', 'ABC', 0, 28, 'abc'),         # min-length 0: -< almost never rejects
+        ('-x l', 'ABC', 0, 28, J_RC_SYNTAX),   # not a recognized flag
     ]
     for rule, word, min_len, max_len, want in cases:
         got = jrun(rule, word, False, min_len, max_len)

@@ -1756,6 +1756,26 @@ def test_cpu_engine_chains(driver, r):
     set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
 
 
+def test_rl_p_position_clamped_to_a_digit_for_john(driver, r):
+    """R / L / p are ambiguous in John's own syntax between a hashcat op and a native command, and
+    John resolves it by checking only whether the very next byte is a plain digit 0-9
+    (doc/RULES-hashcat) — not a letter, not one of the named positions. Building one of these three
+    for John with a letter argument would silently produce text that reads back differently, so the
+    position box clamps to 0-9 there, while the same op under hashcat still allows the full 0-35."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'R0', debounced=True)
+    set_value(driver, driver.find_element('css selector', '#chain .step .p-arg[data-arg="N"]'), '15')
+    rule = driver.execute_script("return document.getElementById('ruleTextInput').value;")
+    r.check(rule == 'R9', 'R\'s position clamps to 9 (a digit) for John, not 15', repr(rule))
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'R0', debounced=True)
+    set_value(driver, driver.find_element('css selector', '#chain .step .p-arg[data-arg="N"]'), '15')
+    rule2 = driver.execute_script("return document.getElementById('ruleTextInput').value;")
+    r.check(rule2 == 'RF', 'the same op under hashcat still allows the full 0-35 range', repr(rule2))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def test_byte_escapes_in_the_rule_line(driver, r):
     """Words run as UTF-8 bytes and a rule can write a byte as \\xNN (hashcat's escape, the way to
     append a multi-byte character such as µ = c2 b5): the escapes parse, the trace shows the
@@ -2420,6 +2440,7 @@ def main():
         test_auto_theme_follows_the_system(driver, r)
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
+        test_rl_p_position_clamped_to_a_digit_for_john(driver, r)
         test_byte_escapes_in_the_rule_line(driver, r)
         test_cpu_engine_chains(driver, r)
         test_cheat_legend_is_aligned(driver, r)
