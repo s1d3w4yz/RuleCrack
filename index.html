@@ -3013,6 +3013,348 @@ d $1$2$3"></textarea>
     return {rc: 0, word: res};
   }
 
+
+  // ---------- John the Ripper rule engine ----------
+  // A direct port of rules_apply () and the class-test macros in John the Ripper jumbo's
+  // src/rules.c (default settings: no --encoding, no --internal-codepage, no user classes, no
+  // single-crack word pairs, not inside stacked rules). `hc` is John's "!! hashcat logic ON"
+  // switch — it turns off class syntax (?v etc.) on the shared letters and switches p/R/L/i/x to
+  // their hashcat meanings. Buffers are NUL-terminated byte arrays, exactly as in C, so the odd
+  // corners (a byte decremented to 0 ends the word, `[[[` counted together) behave as in John.
+  var J_WORD = 128, J_INVALID = NaN;   // RULE_WORD_SIZE for this John release (0x80, not the 320 of newer trees)
+  var J_ERR_NONE = 0, J_ERR_END = 1, J_ERR_UNKNOWN = 2, J_ERR_POSITION = 3, J_ERR_CLASS = 4, J_ERR_UNALLOWED = 5;
+  var J_CHARS = {
+    v: 'aeiouAEIOU', c: 'bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ', w: ' \t', p: '.,:;\'"?!`',
+    s: '$%^&*()-_+=|\\<>[]{}#@/~', l: 'abcdefghijklmnopqrstuvwxyz', u: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', d: '0123456789'
+  };
+  J_CHARS.a = J_CHARS.l + J_CHARS.u; J_CHARS.x = J_CHARS.a + J_CHARS.d;
+  var J_CONTROL = '\u0001\u0002\u0003\u0004\u0005\u0006\u0007\u0008\n\u000b\u000c\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a\u001b\u001c\u001d\u001e\u001f\u007f';
+  J_CHARS.o = J_CONTROL; J_CHARS.y = '';
+  var J_CONV_SOURCE = "`1234567890-=\\qwertyuiop[]asdfghjkl;'zxcvbnm,./~!@#$%^&*()_+|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?";
+  var J_CONV_SHIFT   = "~!@#$%^&*()_+|QWERTYUIOP{}ASDFGHJKL:\"ZXCVBNM<>?`1234567890-=\\qwertyuiop[]asdfghjkl;'zxcvbnm,./";
+  var J_CONV_INVERT  = "`1234567890-=\\QWERTYUIOP[]ASDFGHJKL;'ZXCVBNM,./~!@#$%^&*()_+|qwertyuiop{}asdfghjkl:\"zxcvbnm<>?";
+  var J_CONV_VOWELS  = "`1234567890-=\\QWeRTYuioP[]aSDFGHJKL;'ZXCVBNM,./~!@#$%^&*()_+|QWeRTYuioP{}aSDFGHJKL:\"ZXCVBNM<>?";
+  var J_CONV_RIGHT   = "1234567890-=\\\\wertyuiop[]]sdfghjkl;''xcvbnm,./\\!@#$%^&*()_+||WERTYUIOP{}}SDFGHJKL:\"\"XCVBNM<>?|";
+  var J_CONV_LEFT    = "``1234567890-=qqwertyuiop[aasdfghjkl;zzxcvbnm,.~~!@#$%^&*()_+QQWERTYUIOP{AASDFGHJKL:ZZXCVBNM<>";
+  function jMakeConv(src, dst){ var conv = new Uint8Array(256); for (var i=0;i<256;i++) conv[i] = i; for (i=0;i<src.length;i++) conv[src.charCodeAt(i)] = dst.charCodeAt(i); return conv; }
+  var J_LOWER_ALPHA = J_CHARS.l, J_UPPER_ALPHA = J_CHARS.u, jConvsOnce = null;
+  function jConvs(){
+    if (jConvsOnce) return jConvsOnce;
+    return jConvsOnce = {
+      tolower: jMakeConv(J_UPPER_ALPHA, J_LOWER_ALPHA), toupper: jMakeConv(J_LOWER_ALPHA, J_UPPER_ALPHA),
+      shift: jMakeConv(J_CONV_SOURCE, J_CONV_SHIFT), invert: jMakeConv(J_CONV_SOURCE, J_CONV_INVERT),
+      vowels: jMakeConv(J_CONV_SOURCE, J_CONV_VOWELS), right: jMakeConv(J_CONV_SOURCE, J_CONV_RIGHT), left: jMakeConv(J_CONV_SOURCE, J_CONV_LEFT)
+    };
+  }
+  var jClassCache = null;
+  function jClasses(){
+    if (jClassCache) return jClassCache;
+    var cls = {};
+    function add(n, valid){
+      var set = new Uint8Array(256);
+      for (var k=0;k<valid.length;k++) set[valid.charCodeAt(k) & 255] = 1;
+      cls[n] = set;
+      if (/[a-z]/.test(n)){
+        var inv = n.toUpperCase(), cset = new Uint8Array(256).fill(1);
+        for (var m=0;m<valid.length;m++) cset[valid.charCodeAt(m) & 255] = 0;
+        cls[inv] = cset;
+      }
+    }
+    add('?', '?');
+    var eight = ''; for (var i=0;i<128;i++) eight += String.fromCharCode(i + 128);
+    add('b', eight); add('z', '');
+    for (var name in J_CHARS) add(name, J_CHARS[name]);
+    return jClassCache = cls;
+  }
+  function jStrlen(a, o){ o = o|0; var n = 0; while (a[o + n]) n++; return n; }
+  function jStrnzcpy(dst, d, src, s, size){ var i = 0; while (i < size - 1 && src[s + i]){ dst[d + i] = src[s + i]; i++; } dst[d + i] = 0; }
+  function jMemmove(dst, d, src, s, n){ var tmp = []; for (var i=0;i<n;i++) tmp.push(src[s + i]); for (i=0;i<n;i++) dst[d + i] = tmp[i]; }
+  // Sized well past J_WORD*2 so a symbolic "infinite" (z = 255) argument to an unguarded command
+  // (z/Z have none in this John release) never runs off the end of the array — those are caught
+  // by the ordinary final max-length check on `st.length`, not by running out of buffer here.
+  function jBuf(str){ var b = new Uint8Array(2048); for (var i=0;i<str.length;i++) b[i] = str.charCodeAt(i) & 255; return b; }
+  function jToStr(b, o){ var s = '', i = o|0; while (b[i]){ s += String.fromCharCode(b[i]); i++; } return s; }
+
+  // `rule` and `word` are byte strings (toBytes()'d already). `opts`: {hc, minLen, maxLen}.
+  // Returns {rc:0, word} or {rc:J_RC_REJECT|J_RC_SYNTAX, err}.
+  var J_RC_REJECT = 1, J_RC_SYNTAX = 2;
+  // John strips ':', ' ' and '\t' out of a rule once, when it is loaded (rules_reject()'s
+  // optimization pass, which replays the whole interpreter below with reject turned off, so a
+  // space swallowed as some other command's argument is untouched — only a space the dispatch
+  // loop itself lands on gets spliced out). This matters: writing "L 6" to keep John's native L
+  // (keyboard-shift) separate from a following digit does not work, since the normalized rule
+  // the real run sees is "L6" — the digit right after L, which hashcat mode reads as a position.
+  function jRulesApply(rule, word, opts){
+    var hc = !!opts.hc;
+    var norm = jRunEngine(rule, '', {hc: hc, minLen: 0, maxLen: 638, normalize: true});
+    if (norm.rc === J_RC_SYNTAX) return {rc: J_RC_SYNTAX};
+    return jRunEngine(norm.rule, word, {hc: hc, minLen: opts.minLen || 0, maxLen: opts.maxLen != null ? opts.maxLen : 28, normalize: false});
+  }
+  function jRunEngine(rule, word, opts){
+    var st = {
+      in: jBuf(word), length: word.length, memory: jBuf(''), alt: jBuf(''),
+      vars: {}, hc: !!opts.hc, minLen: opts.minLen || 0, maxLen: opts.maxLen != null ? opts.maxLen : 28,
+      normalize: !!opts.normalize, err: 0, reject: false
+    };
+    st.vars['m'.charCodeAt(0)] = st.length - 1;
+    st.vars['l'.charCodeAt(0)] = st.length;
+    st.vars['*'.charCodeAt(0)] = st.maxLen; st.vars['-'.charCodeAt(0)] = st.maxLen - 1; st.vars['+'.charCodeAt(0)] = st.maxLen + 1;
+    st.vars['#'.charCodeAt(0)] = st.minLen; st.vars['@'.charCodeAt(0)] = st.minLen ? st.minLen - 1 : 0; st.vars['$'.charCodeAt(0)] = st.minLen + 1;
+    st.vars['z'.charCodeAt(0)] = 255;   // INFINITE_LENGTH in this John release (0xFF, not (MAX_PLAINTEXT_LENGTH*2) of newer trees)
+    for (var d=0;d<=9;d++) st.vars[48+d] = d;
+    for (var A=0;A<26;A++) st.vars[65+A] = 10 + A;
+    function REJ(){ if (!st.normalize) st.reject = true; }
+    st.memory.set(st.in);
+    var convs = jConvs();
+    if (!rule.length) return {rc: 0, word: word};
+    if (!st.length && !st.hc && !st.normalize) return {rc: J_RC_REJECT};
+    var rp = {i: 0};
+    function VALUE(){ var c = rule.charCodeAt(rp.i); rp.i++; if (c !== c){ st.err = J_ERR_END; return null; } return c; }
+    function POSITION(){ var key = rule.charCodeAt(rp.i); rp.i++; var v = st.vars[key]; if (v === undefined){ st.err = J_ERR_POSITION; return null; } return v; }
+    function readClassArg(){
+      // mirrors CLASS_export_pos's opening: value=RULE; if value=='?' and !hc, read a class letter too
+      var value = rule.charCodeAt(rp.i); rp.i++;
+      if (value !== value){ st.err = J_ERR_END; return null; }
+      if (value === 63 && !st.hc){
+        var letter = rule[rp.i]; rp.i++;
+        if (letter === undefined){ st.err = J_ERR_CLASS; return null; }
+        var set = jClasses()[letter];
+        if (!set){ st.err = J_ERR_CLASS; return null; }
+        return {isClass: true, test: function(ch){ return !!set[ch]; }};
+      }
+      return {isClass: false, value: value, test: function(ch){ return ch === value; }};
+    }
+    while (rp.i < rule.length && !st.reject && !st.err){
+      if (st.normalize && (rule[rp.i] === ':' || rule[rp.i] === ' ' || rule[rp.i] === '\t')){
+        rule = rule.slice(0, rp.i) + rule.slice(rp.i + 1); continue;
+      }
+      var in_ = st.in;
+      if (st.length >= J_WORD) in_[st.length = J_WORD - 1] = 0;
+      var ch = rule[rp.i]; rp.i++;
+      var pos, pos2, i, out, cls;
+      switch (ch){
+        case ':': case ' ': case '\t': break;
+        case '<': { pos = POSITION(); if (pos === null) break; if (st.length >= pos) REJ(); break; }
+        case '>': { pos = POSITION(); if (pos === null) break; if (st.length <= pos) REJ(); break; }
+        case 'l': for (i=0;in_[i];i++) in_[i] = convs.tolower[in_[i]]; break;
+        case 'u': for (i=0;in_[i];i++) in_[i] = convs.toupper[in_[i]]; break;
+        case 'c': if ((in_[0] = convs.toupper[in_[0]])) for (i=1;in_[i];i++) in_[i] = convs.tolower[in_[i]]; break;
+        case 'C': if ((in_[0] = convs.tolower[in_[0]])) for (i=1;in_[i];i++) in_[i] = convs.toupper[in_[i]]; break;
+        case 't': for (i=0;in_[i];i++) in_[i] = convs.invert[in_[i]]; break;
+        case 'S': for (i=0;in_[i];i++) in_[i] = convs.shift[in_[i]]; break;
+        case 'V': for (i=0;in_[i];i++) in_[i] = convs.vowels[in_[i]]; break;
+        case 'r': { out = st.alt; st.alt = st.in; var oi = st.length; out[oi] = 0; var ii = 0; while (in_[ii]) out[--oi] = in_[ii++]; st.in = out; break; }
+        case 'd': jMemmove(in_, st.length, in_, 0, st.length); st.length <<= 1; in_[st.length] = 0; break;
+        case 'f': { pos = st.length <<= 1; in_[pos] = 0; var p2 = 0; while (in_[p2]) in_[--pos] = in_[p2++]; break; }
+        case 'p': {
+          if (st.hc || /[1-9]/.test(rule[rp.i] || '')){
+            var x = POSITION(); if (x === null) break;
+            if (x > J_WORD - 1 || (st.length && x * st.length > J_WORD - 1)) x = st.length ? Math.floor((J_WORD - 1) / st.length) : 0;
+            var y = x; in_[st.length * (x + 1)] = 0;
+            while (x){ jMemmove(in_, st.length * x, in_, 0, st.length); x--; }
+            st.length *= (y + 1); break;
+          }
+          if (st.length < 2) break;
+          var pz = st.length - 1, w = jToStr(in_);
+          if ('sxz'.indexOf(w[pz]) >= 0 || (pz > 1 && w[pz] === 'h' && (w[pz-1] === 'c' || w[pz-1] === 's'))) w += 'es';
+          else if (w[pz] === 'f' && w[pz-1] !== 'f') w = w.slice(0, pz) + 'ves';
+          else if (pz > 1 && w[pz] === 'e' && w[pz-1] === 'f') w = w.slice(0, pz-1) + 'ves';
+          else if (pz > 1 && w[pz] === 'y') w = 'aeiou'.indexOf(w[pz-1]) >= 0 ? w + 's' : w.slice(0, pz) + 'ies';
+          else w += 's';
+          st.in = jBuf(w); st.length = w.length; break;
+        }
+        case '$': {
+          var a1 = VALUE(); if (a1 === null) break; in_[st.length++] = a1;
+          if (rule[rp.i] === '$'){ rp.i++; var a2 = VALUE(); if (a2 === null) break; in_[st.length++] = a2;
+            if (rule[rp.i] === '$'){ rp.i++; var a3 = VALUE(); if (a3 === null) break; in_[st.length++] = a3; } }
+          in_[st.length] = 0; break;
+        }
+        case '^': {
+          out = st.alt; st.alt = st.in; var ca = VALUE(); if (ca === null) break;
+          if (rule[rp.i] !== '^'){ out[0] = ca; jMemmove(out, 1, in_, 0, ++st.length); st.in = out; break; }
+          rp.i++; var cb = VALUE(); if (cb === null) break;
+          if (rule[rp.i] !== '^'){ out[0] = cb; out[1] = ca; jMemmove(out, 2, in_, 0, st.length + 1); st.length += 2; st.in = out; break; }
+          rp.i++; var cc0 = VALUE(); if (cc0 === null) break; out[0] = cc0; out[1] = cb; out[2] = ca;
+          jMemmove(out, 3, in_, 0, st.length + 1); st.length += 3; st.in = out; break;
+        }
+        case 'x': {
+          if (st.hc){
+            pos = POSITION(); if (pos === null) break; pos2 = POSITION(); if (pos2 === null) break;
+            if (pos < st.length && pos + pos2 <= st.length){ out = st.alt; st.alt = st.in; jStrnzcpy(out, 0, in_, pos, pos2 + 1); st.length = jStrlen(out); st.in = out; }
+            break;
+          }
+          pos = POSITION(); if (pos === null) break;
+          if (pos < st.length){ out = st.alt; st.alt = st.in; var base = pos; pos2 = POSITION(); if (pos2 === null) break; jStrnzcpy(out, 0, in_, base, pos2 + 1); st.length = jStrlen(out); st.in = out; break; }
+          pos2 = POSITION(); if (pos2 === null) break; st.length = 0; in_[0] = 0; break;
+        }
+        case 'i': {
+          pos = POSITION(); if (pos === null) break;
+          if (pos < st.length){ jMemmove(in_, pos + 1, in_, pos, st.length++ - pos); var v = VALUE(); if (v === null) break; in_[pos] = v; in_[st.length] = 0; break; }
+          if (st.hc){ var vx = VALUE(); if (vx === null) break; if (pos === st.length){ in_[st.length++] = vx; in_[st.length] = 0; } break; }
+          var v2 = VALUE(); if (v2 === null) break; in_[st.length++] = v2; in_[st.length] = 0; break;
+        }
+        case 'o': { pos = POSITION(); if (pos === null) break; var ov = VALUE(); if (ov === null) break; if (pos < st.length) in_[pos] = ov; break; }
+        case 's': {
+          cls = readClassArg(); if (!cls) break;
+          var yCode = rule.charCodeAt(rp.i);
+          for (var p5 = 0; in_[p5]; p5++) if (cls.test(in_[p5])) in_[p5] = yCode;
+          var vFinal = VALUE(); if (vFinal === null) break; break;
+        }
+        case '@': {
+          cls = readClassArg(); if (!cls) break;
+          var newLen = 0; for (var p6 = 0; in_[p6]; p6++) if (!cls.test(in_[p6])) in_[newLen++] = in_[p6];
+          st.length = newLen; in_[st.length] = 0; break;
+        }
+        case '!': {
+          cls = readClassArg(); if (!cls) break;
+          for (var p7 = 0; in_[p7]; p7++) if (cls.test(in_[p7])) { REJ(); break; }
+          break;
+        }
+        case '/': {
+          cls = readClassArg(); if (!cls) break;
+          var p8 = 0; while (in_[p8] && !cls.test(in_[p8])) p8++;
+          st.vars['p'.charCodeAt(0)] = p8; if (!in_[p8]) REJ(); break;
+        }
+        case '(': {
+          cls = readClassArg(); if (!cls) break;
+          if (in_[0]) { if (!cls.test(in_[0])) REJ(); } break;
+        }
+        case ')': {
+          if (!st.length){ cls = readClassArg(); REJ(); break; }
+          cls = readClassArg(); if (!cls) break;
+          if (!cls.test(in_[st.length - 1])) REJ(); break;
+        }
+        case '=': {
+          pos = POSITION(); if (pos === null) break;
+          if (pos >= st.length){ cls = readClassArg(); REJ(); break; }
+          cls = readClassArg(); if (!cls) break;
+          if (cls.test(in_[pos])) st.vars['p'.charCodeAt(0)] = pos; else REJ(); break;
+        }
+        case '[': { var cnt = 1; while (rule[rp.i] === '['){ rp.i++; cnt++; } if ((st.length -= cnt) > 0){ out = st.alt; st.alt = st.in; jMemmove(out, 0, in_, cnt, st.length + 1); st.in = out; } else { st.length = 0; in_[0] = 0; } break; }
+        case ']': { var cnt2 = 1; while (rule[rp.i] === ']'){ rp.i++; cnt2++; } st.length -= cnt2; if (st.length < 0) st.length = 0; in_[st.length] = 0; break; }
+        case '\'': { pos = POSITION(); if (pos === null) break; if (pos < st.length) st.length = pos; in_[st.length] = 0; break; }
+        case '%': {
+          var required = POSITION(); if (required === null) break;
+          cls = readClassArg(); if (!cls) break;
+          var count = 0, p3 = 0; while (in_[p3]) { if (cls.test(in_[p3])) { count++; if (count >= required) break; } p3++; }
+          if (count < required) { REJ(); break; }
+          st.vars['p'.charCodeAt(0)] = p3; break;
+        }
+        case 'A': {
+          pos = POSITION(); if (pos === null) break; var term = VALUE(); if (term === null) break;
+          var str = [];
+          for (;;){ var c2 = rule.charCodeAt(rp.i); rp.i++; if (c2 !== c2){ st.err = J_ERR_END; break; } if (c2 === term) break; str.push(c2); }
+          if (st.err) break;
+          if (pos >= st.length){ for (i=0;i<str.length && st.length < J_WORD - 1;i++) in_[st.length++] = str[i]; in_[st.length] = 0; break; }
+          out = st.alt; st.alt = st.in; jMemmove(out, 0, in_, 0, pos);
+          for (i=0;i<str.length && pos + i < J_WORD - 1;i++) out[pos + i] = str[i];
+          var tailLen = jStrlen(in_, pos); jMemmove(out, pos + str.length, in_, pos, tailLen + 1);
+          st.length += str.length; st.in = out; break;
+        }
+        case 'T': { pos = POSITION(); if (pos === null) break; if (pos < st.length) in_[pos] = convs.invert[in_[pos]]; break; }
+        case 'D': { pos = POSITION(); if (pos === null) break; if (pos < st.length){ jMemmove(in_, pos, in_, pos + 1, st.length - pos); st.length--; } break; }
+        case '{': {
+          if (st.length){ var count3 = 1; while (rule[rp.i] === '{'){ rp.i++; count3++; } while (count3 >= st.length) count3 -= st.length;
+            if (!count3) break; out = st.alt; st.alt = st.in; jMemmove(out, 0, in_, count3, st.length - count3); jMemmove(out, st.length - count3, in_, 0, count3); out[st.length] = 0; st.in = out; break; }
+          in_[0] = 0; break;
+        }
+        case '}': {
+          if (st.length){ var count4 = 1; while (rule[rp.i] === '}'){ rp.i++; count4++; } while (count4 >= st.length) count4 -= st.length;
+            if (!count4) break; out = st.alt; st.alt = st.in; var pz2 = st.length - count4; jMemmove(out, 0, in_, pz2, count4); jMemmove(out, count4, in_, 0, pz2); out[st.length] = 0; st.in = out; break; }
+          in_[0] = 0; break;
+        }
+        case 'R': {
+          if (st.hc || /[0-9]/.test(rule[rp.i] || '')){ var n1 = POSITION(); if (n1 === null) break; if (n1 < st.length) in_[n1] = ((in_[n1] << 24 >> 24) >> 1) & 255; break; }
+          for (i=0;in_[i];i++) in_[i] = convs.right[in_[i]]; break;
+        }
+        case 'L': {
+          if (st.hc || /[0-9]/.test(rule[rp.i] || '')){ var n2 = POSITION(); if (n2 === null) break; if (n2 < st.length) in_[n2] = (in_[n2] << 1) & 255; break; }
+          for (i=0;in_[i];i++) in_[i] = convs.left[in_[i]]; break;
+        }
+        case 'P': {
+          var pz3 = st.length - 1; if (pz3 < 2) break; var w2 = jToStr(in_);
+          if (w2[pz3] === 'd' && w2[pz3-1] === 'e') break;
+          if (w2[pz3] === 'y') w2 = w2.slice(0, pz3) + 'i';
+          else if ('bgp'.indexOf(w2[pz3]) >= 0 && 'bgp'.indexOf(w2[pz3-1]) < 0) w2 = w2 + w2[pz3];
+          w2 += (w2[w2.length-1] === 'e') ? 'd' : 'ed';
+          st.in = jBuf(w2); st.length = w2.length; break;
+        }
+        case 'I': {
+          var pz4 = st.length - 1; if (pz4 < 2) break; var w3 = jToStr(in_);
+          if (w3[pz4] === 'g' && w3[pz4-1] === 'n' && w3[pz4-2] === 'i') break;
+          if ('aeiou'.indexOf(w3[pz4]) >= 0) w3 = w3.slice(0, pz4) + 'ing';
+          else { if ('bgp'.indexOf(w3[pz4]) >= 0 && 'bgp'.indexOf(w3[pz4-1]) < 0) w3 += w3[pz4]; w3 += 'ing'; }
+          st.in = jBuf(w3); st.length = w3.length; break;
+        }
+        case 'M': jMemmove(st.memory, 0, in_, 0, st.length + 1); st.vars['m'.charCodeAt(0)] = st.length - 1; break;
+        case 'Q': { if (jToStr(in_) === jToStr(st.memory)) REJ(); break; }
+        case 'X': {
+          var mpos = POSITION(); if (mpos === null) break; var count5 = POSITION(); if (count5 === null) break; var ipos = POSITION(); if (ipos === null) break;
+          var mleft = st.vars['m'.charCodeAt(0)] + 1; if (mleft < mpos) break; mleft -= mpos;
+          if (count5 > mleft) count5 = mleft; if (count5 <= 0) break;
+          if (ipos >= st.length){ jMemmove(in_, st.length, st.memory, mpos, count5); st.length += count5; in_[st.length] = 0; break; }
+          jMemmove(in_, ipos + count5, in_, ipos, st.length - ipos); st.length += count5; in_[st.length] = 0; jMemmove(in_, ipos, st.memory, mpos, count5); break;
+        }
+        case 'v': {
+          var varc = VALUE(); if (varc === null) break; if (varc < 97 || varc > 107){ st.err = J_ERR_POSITION; break; }
+          st.vars['l'.charCodeAt(0)] = st.length; var va = POSITION(); if (va === null) break; var vs = POSITION(); if (vs === null) break;
+          st.vars[varc] = (va - vs) & 255; break;   // rules_vars[] is unsigned char in this John release: a-s wraps, never goes negative
+        }
+        case '+': { pos = POSITION(); if (pos === null) break; if (pos < st.length) in_[pos] = (in_[pos] + 1) & 255; break; }
+        case '-': { pos = POSITION(); if (pos === null) break; if (pos < st.length) in_[pos] = (in_[pos] - 1) & 255; break; }
+        case 'k': if (st.length > 1){ var t1=in_[1]; in_[1]=in_[0]; in_[0]=t1; } break;
+        case 'K': if (st.length > 1){ var t2=in_[st.length-2]; in_[st.length-2]=in_[st.length-1]; in_[st.length-1]=t2; } break;
+        case '*': { var sx = POSITION(); if (sx === null) break; var sy = POSITION(); if (sy === null) break; if (st.length > sx && st.length > sy){ var t3=in_[sy]; in_[sy]=in_[sx]; in_[sx]=t3; } break; }
+        // z/Z have no bounds guard in this John release at all (unlike y/Y, which check n<=length) — an
+        // oversized N (as large as 'z' = 255) grows `length` hugely and is caught by the ordinary
+        // final max-length check below, not by any check here.
+        case 'z': { var zx = POSITION(); if (zx === null) break; var zy = st.length; while (zy){ in_[zy + zx] = in_[zy]; zy--; } st.length += zx; in_[st.length] = 0; while (zx){ in_[zx] = in_[0]; zx--; } break; }
+        case 'Z': { var zx2 = POSITION(); if (zx2 === null) break; while (zx2){ in_[st.length] = in_[st.length-1]; st.length++; zx2--; } in_[st.length] = 0; break; }
+        case 'q': { var qx = st.length << 1; in_[qx--] = 0; while (qx > 0){ in_[qx] = in_[qx-1] = in_[qx >> 1]; qx -= 2; } st.length <<= 1; break; }
+        case '.': { var dn = POSITION(); if (dn === null) break; if (dn < st.length - 1 && st.length > 1) in_[dn] = in_[dn+1]; break; }
+        case ',': { var cn = POSITION(); if (cn === null) break; if (cn >= 1 && st.length > 1 && cn < st.length) in_[cn] = in_[cn-1]; break; }
+        case 'y': { var yn = POSITION(); if (yn === null) break; if (yn <= st.length){ jMemmove(in_, yn, in_, 0, st.length); st.length += yn; in_[st.length] = 0; } break; }
+        case 'Y': { var Yn = POSITION(); if (Yn === null) break; if (Yn <= st.length){ jMemmove(in_, st.length, in_, st.length - Yn, Yn); st.length += Yn; in_[st.length] = 0; } break; }
+        case '4': { var m4 = st.vars['m'.charCodeAt(0)] + 1; jMemmove(in_, st.length, st.memory, 0, m4); st.length += m4; in_[st.length] = 0; break; }
+        case '6': { var m6 = st.vars['m'.charCodeAt(0)] + 1; jMemmove(in_, m6, in_, 0, st.length); jMemmove(in_, 0, st.memory, 0, m6); st.length += m6; in_[st.length] = 0; break; }
+        case 'O': {
+          var op1 = POSITION(); if (op1 === null) break; var op2 = POSITION(); if (op2 === null) break;
+          if (op1 < st.length && op2 <= st.length && op1 + op2 <= st.length){ out = st.alt; st.alt = st.in; jMemmove(out, 0, in_, 0, op1); jStrnzcpy(out, op1, in_, op1 + op2, st.length - (op1 + op2) + 1); st.length -= op2; st.in = out; }
+          break;
+        }
+        case 'E': {
+          var up = 1, idx = 0;
+          while (in_[idx]){
+            if (up){ if (in_[idx] !== 32){ if (in_[idx] >= 97 && in_[idx] <= 122) in_[idx] -= 32; up = 0; } }
+            else { if (in_[idx] === 32) up = 1; else if (in_[idx] >= 65 && in_[idx] <= 90) in_[idx] += 32; }
+            idx++;
+          }
+          break;
+        }
+        case 'e': {
+          cls = readClassArg(); if (!cls) break;
+          var upE = 1;
+          for (var p4 = 0; in_[p4]; p4++) { if (cls.test(in_[p4])) { upE = 1; continue; } in_[p4] = upE ? convs.toupper[in_[p4]] : convs.tolower[in_[p4]]; upE = 0; }
+          break;
+        }
+        case 'a': { pos = POSITION(); if (pos === null) break; if (st.length + pos > st.maxLen || st.length + pos < st.minLen) REJ(); break; }
+        case 'b': { pos = POSITION(); if (pos === null) break; if (st.length - pos > st.maxLen || st.length - pos < st.minLen) REJ(); break; }
+        case 'W': { pos = POSITION(); if (pos === null) break; if (pos < st.length) in_[pos] = convs.shift[in_[pos]]; break; }
+        case 'U': if (!isValidUtf8(jToStr(in_))) REJ(); break;
+        case '_': { pos = POSITION(); if (pos === null) break; if (st.length !== pos) REJ(); break; }
+        default: st.err = J_ERR_UNKNOWN; break;
+      }
+      if (!st.length && !st.hc && !st.reject && !st.err) REJ();
+    }
+    if (st.err) return {rc: J_RC_SYNTAX, rule: rule};
+    if (st.normalize) return {rc: 0, rule: rule};
+    if (st.reject) return {rc: J_RC_REJECT};
+    // rules_apply()'s out_OK: final length limits (skipped only for stacked rules, out of scope here)
+    if (st.minLen && st.length < st.minLen) return {rc: J_RC_REJECT};
+    if (st.maxLen && st.length > st.maxLen) return {rc: J_RC_REJECT};
+    return {rc: 0, word: jToStr(st.in)};
+  }
+
   // A rule file is read byte by byte, so a one-character argument (X, Y) is one byte. Only $ ^ i v o
   // (op.multibyte) take a whole multi-byte character; for any other operator a multi-byte argument
   // can't be written, and the step says so instead of guessing.
@@ -4330,6 +4672,7 @@ d $1$2$3"></textarea>
     runChain: runChain,
     buildRuleString: buildRuleString,
     hcCpuApply: hcCpuApply,
+    jRulesApply: jRulesApply,
     toBytes: toBytes,
     fromBytes: fromBytes
   };

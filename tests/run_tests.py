@@ -225,6 +225,56 @@ def run_regression_checks(driver, results):
     for rule in ('~s?a4', '~@?b', '~!?a'):
         r = run_rule(driver, 'hashcat', rule, 'ab1')
         results.append((bool(r.get('error')), f'regression [hashcat] {rule} is a syntax error', None if r.get('error') else f'parsed: {r}'))
+    run_john_engine_checks(driver, results)
+
+
+def run_john_engine_checks(driver, results):
+    """A direct port of John the Ripper jumbo's rules_apply() (src/rules.c), built against the
+    exact release installed locally (1.9.0-jumbo-1, 2021-11-02) rather than the newer checkout in
+    john/ — the two differ in ways that matter (buffer size, the infinite-length constant, integer
+    signedness). Checked against the real `john` binary via a differential fuzzer (not checked in);
+    these are the specific bugs that fuzzing found, kept as a permanent regression check."""
+    def jrun(rule, word, hc=False, min_len=0, max_len=28):
+        return driver.execute_script(
+            "var r = window.__test.jRulesApply(arguments[0], window.__test.toBytes(arguments[1]),"
+            " {hc: arguments[2], minLen: arguments[3], maxLen: arguments[4]});"
+            "return r.rc === 0 ? window.__test.fromBytes(r.word) : r.rc;",
+            rule, word, hc, min_len, max_len)
+    J_RC_REJECT, J_RC_SYNTAX = 1, 2
+    cases = [
+        # RULE_WORD_SIZE is 128 in this release (0x80), not the 320 of the current john/ checkout
+        ('M 46', 'abcdefghijklmnopqrstuvwxyz', 0, 28, J_RC_REJECT),   # tripled = 78 bytes > max-length 28
+        ('M 46', 'abc', 0, 28, 'abcabcabc'),
+        # 'z' (a position/length argument) is the symbolic "infinite" length, 255 here (0xFF) —
+        # not (MAX_PLAINTEXT_LENGTH*2) as in the current checkout
+        ('Zz', 'a', 0, 28, J_RC_REJECT),    # Z has no overflow guard at all; length grows by 255
+        ('Y9', 'ab', 0, 28, 'ab'),           # Y does guard (n <= length): 9 > 2, so unlike Z this is a no-op
+        ('Y2', 'ab', 0, 28, 'abab'),         # an in-range N duplicates the last N chars, appended once
+        # 'v' writes into an unsigned byte array: a negative (N - M) wraps mod 256 instead of going
+        # negative. va01 sets a = 0-1 = -1, stored as 255. ">a" then rejects unless length > a: with
+        # the wrap, 13 <= 255 rejects; a real negative would make 13 <= -1 false and let it through.
+        ('va01 >a', 'abcdefghijklm', 0, 28, J_RC_REJECT),
+        ('Ta', 'ab', 0, 28, J_RC_SYNTAX),   # 'a' unset (no prior 'v'): a real syntax error, same as hashcat's p
+        # John strips ':'/' '/'\t' out of a rule once, at load time, via a dry run of this same
+        # interpreter with reject turned off — a space swallowed as another command's argument
+        # survives that pass, but a stray one does not, so "L 6" normalizes to "L6" before it
+        # ever runs: the digit right after L, which native mode reads as hashcat's bit-shift-left
+        ('L 6', 'ab', 0, 28, 'ab'),
+        ('L6', 'ab', 0, 28, 'ab'),
+        ('e f', 'a', 0, 28, 'AA'),     # space not swallowed here: 'e' takes its own separator, then f (reflect) runs
+        ('ef', 'a', 0, 28, 'A'),       # no space: 'f' is swallowed as e's separator argument instead
+    ]
+    for rule, word, min_len, max_len, want in cases:
+        got = jrun(rule, word, False, min_len, max_len)
+        ok = got == want
+        results.append((ok, f'regression [john] {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
+    # the doc/RULES worked examples, run straight through jRulesApply (independent of the per-op JS)
+    for rule, word, want in (('S', 'Crack96', 'cRACK(^'), ('V', 'Crack96', 'CRaCK96'),
+                              ('R', 'Crack96', 'Vtsvl07'), ('L', 'Crack96', 'Xeaxj85'),
+                              ('p', 'crack', 'cracks'), ('P', 'crack', 'cracked'), ('I', 'crack', 'cracking')):
+        got = jrun(rule, word)
+        ok = got == want
+        results.append((ok, f'regression [john] doc example {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
 
 
 def main():
