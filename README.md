@@ -92,10 +92,17 @@ existing `.rule` file line by line.
     `B`, `h`, `H`, `v`, the nine `~`-class ops) carry a `[Hashcat only]` tag
     inline, everywhere, all the time — no tab-switching needed to see
     what won't port to John.
-  - **Both (hashcat-compatible)** — those 14 are dropped entirely; what's
-    left (56 ops) behaves the same in hashcat and in John's
-    hashcat-compat mode (`!! hashcat logic ON`). The cheat sheet lists only
-    those shared operators; John-only commands appear under the John target.
+  - **Both (hashcat-compatible)** — those 14 are dropped entirely; the
+    cheat sheet lists only the 56 ops that are at least *buildable* in
+    John's hashcat-compat mode (`!! hashcat logic ON`), since John-only
+    commands appear under the John target. "Buildable" isn't always
+    "identical", though: a handful of these (length rejects, `X`, `3`,
+    `e`, and `R`/`L`'s own CPU-vs-kernel split in hashcat) read some words
+    differently between the two engines, so the tool actually runs the
+    current word through both — hashcat's engine and a port of John's own
+    `rules_apply()` in hashcat-compat mode — and shows a note naming both
+    results when they disagree, rather than asserting portability it
+    can't back up for that word.
   - **John (native rules)** — switches to building rules in **John's own
     syntax** instead. The 20 commands John has that hashcat can't express
     at all — pluralization/past-tense/-ing-form, whole-string insert,
@@ -106,16 +113,24 @@ existing `.rule` file line by line.
     John-native parser understands this syntax too (including the
     `p`/`pN` and `R`/`RN`/`L`/`LN` ambiguity John itself resolves by
     whether a digit follows), and the rule-line export switches to John
-    syntax and relabels its copy button accordingly. The pluralize/past-
-    tense/-ing-form heuristics and the QWERTY keyboard-adjacency tables
-    are ported line-for-line from John's `rules.c`, not approximated —
-    verified against the worked examples in John's own `doc/RULES`
-    (`Crack96` → `cRACK(^` / `CRaCK96` / `Vtsvl07` / `Xeaxj85` for
-    `S`/`V`/`R`/`L`). A handful of John features stay reference-only even
-    here (numeric variables as position arguments, the target-format-
-    dependent line-level reject flags, single-crack word-pair commands) —
-    see the comments above `JOHN_ONLY` in `index.html` for why each one
-    is out of scope.
+    syntax and relabels its copy button accordingly. A position argument
+    also accepts John's own named positions (`z m l # @ $ * - +`) in
+    place of a number, both typed into the rule line and into a step's
+    own argument box. The chain itself runs on a line-for-line port of
+    John's own rule engine (`rules_apply()` in `src/rules.c`), built
+    against the exact John release installed locally rather than
+    approximated or assumed from the newer checkout in `john/` — the two
+    turned out to disagree on real behavior (buffer size, the
+    infinite-length constant, a command's unsigned-byte arithmetic, and
+    John's own once-at-load-time rule normalization) until checked
+    against the installed binary directly. Verified against the worked
+    examples in John's own `doc/RULES` (`Crack96` → `cRACK(^` / `CRaCK96`
+    / `Vtsvl07` / `Xeaxj85` for `S`/`V`/`R`/`L`) and, separately, against
+    the real `john` binary with a one-off differential fuzzer. A handful
+    of John features stay reference-only (a user-defined variable as a
+    position, the target-format-dependent line-level reject flags,
+    single-crack word-pair commands) — see the comments above
+    `JOHN_ONLY` in `index.html` for why each one is out of scope.
   Any chain step already added keeps its own compatibility badge, and its
   type dropdown is filtered by the current target the same way the "+ add
   step" menu is — except the step's own current type always stays in the
@@ -162,7 +177,10 @@ some reject filters) reject the whole candidate instead. John-specific
 semantics (including the hashcat-compat-mode disambiguation rules and the
 native grammar) were verified against `doc/RULES`, `doc/RULES-hashcat`, and
 `src/rules.c` in the [John the Ripper jumbo](https://github.com/openwall/john)
-repository.
+repository — and, where the John engine itself runs (not just documented),
+against the exact 1.9.0-jumbo-1 (2021-11-02) release this was developed
+against, since the `john/` checkout here is a much newer snapshot that
+genuinely disagrees with it in places.
 
 ## Usage
 
