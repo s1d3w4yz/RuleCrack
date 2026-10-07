@@ -955,7 +955,7 @@ d $1$2$3"></textarea>
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-  function posChar(n){ n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
+  function posChar(n){ if (n === 'p') return 'p'; n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
   // Hashcat (and John without a --encoding) work on raw bytes, not characters: a word is run
   // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
   // and case operators only touch the ASCII letters a-z / A-Z. Inside the engine a word is a
@@ -1807,6 +1807,7 @@ d $1$2$3"></textarea>
       var ch = str[i];
       if (/[0-9]/.test(ch)){ i++; return ch.charCodeAt(0) - 48; }
       if (/[A-Z]/.test(ch)){ i++; return 10 + (ch.charCodeAt(0) - 65); }
+      if (ch === 'p'){ i++; return 'p'; }       // hashcat's CPU engine: where the last / or % match was
       return null;
     }
     // `multi`: the operator accepts a whole multi-byte character as its argument ($ ^ i v o);
@@ -2575,7 +2576,7 @@ d $1$2$3"></textarea>
           var argName = e.target.dataset.arg;
           var spec = op.args.filter(function(s){return s.n===argName;})[0];
           var v = e.target.value;
-          if (spec.t==='pos'){ v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
+          if (spec.t==='pos'){ if (v.trim() === 'p' && TARGET !== 'john_native') v = 'p'; else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); } }
           else if (spec.t==='char'){   // one character, or a byte written \xNN
             v = /^\\x[0-9a-fA-F]{2}$/.test(v) ? loneByte(parseInt(v.slice(2),16)) : (Array.from(v)[0] || ''); }
           step.args[argName] = v;
@@ -2663,6 +2664,355 @@ d $1$2$3"></textarea>
   // independent list (e.g. a parsed rulefile line's steps) to run it
   // without touching whatever the chain builder currently has loaded —
   // used by the rulefile validator to preview each line's own output.
+
+  // Operators that exist only in hashcat's CPU engine (docs/rules.txt: "With -j or -k only"): the
+  // memory and reject operators. A chain that has one is evaluated by that engine.
+  ['memorize','append_memory','prepend_memory','extract_memory','reject_memory','reject_less','reject_greater',
+   'reject_equal','reject_contain','reject_not_contain','reject_equal_first','reject_equal_last','reject_equal_at',
+   'reject_contains','cls_reject_contain','cls_reject_not_contain','cls_reject_first','cls_reject_last','cls_reject_at',
+   'cls_reject_contains'].forEach(function(k){ if (OPS[k]) OPS[k].cpuOnly = true; });
+  function stepUsesPPos(st){ return Object.keys(st.args || {}).some(function(k){ return st.args[k] === 'p'; }); }
+  function chainNeedsCpuEngine(list){
+    return TARGET !== 'john_native' && list.some(function(st){ return st.enabled && (OPS[st.type].cpuOnly || stepUsesPPos(st)); });
+  }
+
+  // ---------- hashcat CPU rule engine ----------
+  // A direct port of apply_rule () in hashcat's src/rp_cpu.c, the engine behind -j / -k. It is the
+  // only engine that has the memory (M 4 6 X Q) and reject (< > _ ! / ( ) = % and the ~ class
+  // rejects) operators, and it differs from the kernel engine (-r) in a few corners: the
+  // separator handling of 3 and e, a sign-extending R, a scratch-buffer side effect of X, and the
+  // `p` position (where the last / or % found its match). A rule that uses any of those operators
+  // can only run here, so the chain is evaluated with this port instead of the per-operator code.
+  var HC_RC_SYNTAX = -1, HC_RC_REJECT = -2, HC_RP = 256;
+  var HC_CSHIFT = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,5,16,16,16,17,5,17,25,18,22,16,114,16,16,25,16,114,16,16,16,104,17,18,17,1,1,16,22,16,16,114,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,104,114,30,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,30,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  var hcc = {
+    num:function(c){ return c >= 48 && c <= 57; }, lower:function(c){ return c >= 97 && c <= 122; },
+    upper:function(c){ return c >= 65 && c <= 90; }, lhex:function(c){ return (c >= 48 && c <= 57) || (c >= 97 && c <= 102); },
+    uhex:function(c){ return (c >= 48 && c <= 57) || (c >= 65 && c <= 70); },
+    sym:function(c){ return c === 32 || (c >= 33 && c <= 47) || (c >= 58 && c <= 64) || (c >= 91 && c <= 96) || (c >= 123 && c <= 126); },
+    alpha:function(c){ return (c >= 97 && c <= 122) || (c >= 65 && c <= 90); }
+  };
+  function hcClassTest(letter){
+    switch (letter){
+      case 'l': return hcc.lower; case 'u': return hcc.upper; case 'd': return hcc.num;
+      case 'h': return hcc.lhex; case 'H': return hcc.uhex; case 's': return hcc.sym;
+    }
+    return null;
+  }
+  function hcIsHexNotation(r, p){
+    if (p + 4 > r.length) return false;
+    return r.charAt(p) === '\\' && r.charAt(p+1) === 'x' && /^[0-9a-fA-F]{2}$/.test(r.substr(p+2, 2));
+  }
+  function hcUtf8Len(rn, p){            // how many bytes the operand at p occupies (a whole UTF-8 sequence, else 1)
+    if (p >= rn.length) return 1;
+    var c = rn[p], need;
+    if ((c & 0xe0) === 0xc0) need = 1; else if ((c & 0xf0) === 0xe0) need = 2; else if ((c & 0xf8) === 0xf0) need = 3; else return 1;
+    if (p + need >= rn.length) return 1;
+    for (var i=1;i<=need;i++) if ((rn[p+i] & 0xc0) !== 0x80) return 1;
+    return need + 1;
+  }
+  // `word` and the result are byte strings; returns {rc:0, word} or {rc:HC_RC_REJECT|HC_RC_SYNTAX}
+  // Like hashcat, a rule is first tried on an empty word (the check done when -j / -k is parsed): if
+  // that run is a syntax error — for instance a `p` position used before anything set it — the whole
+  // rule is refused, even for words that would have been rejected before reaching the problem.
+  function hcCpuApply(rule, word){
+    if (hcCpuCore(rule, '').rc === HC_RC_SYNTAX) return {rc: HC_RC_SYNTAX};
+    return hcCpuCore(rule, word);
+  }
+  function hcCpuCore(rule, word){
+    var RP = HC_RP, i;
+    if (word.length > RP) return {rc: HC_RC_REJECT};
+    if (rule.length < 1) return {rc: HC_RC_REJECT};
+    if (rule.length > RP) return {rc: HC_RC_SYNTAX};
+    var out = [], out_len = word.length, mem = [], mem_len = 0, pos_mem = -1;
+    for (i=0;i<out_len;i++) out[i] = word.charCodeAt(i);
+    var rn = [];                          // the rule with \xNN escapes resolved to bytes
+    for (var q=0;q<rule.length;q++){
+      if (hcIsHexNotation(rule, q)){ rn.push(parseInt(rule.substr(q+2,2),16)); q += 3; }
+      else rn.push(rule.charCodeAt(q));
+    }
+    var rl = rn.length, rp;
+    function ctoi(c){ if (c >= 48 && c <= 57) return c - 48; if (c >= 65 && c <= 90) return c - 55; return -1; }
+    function posOf(c){ return c === 112 ? pos_mem : ctoi(c); }          // 'p' = last found position
+    function SYN(){ return {rc: HC_RC_SYNTAX}; }
+    function REJ(){ return {rc: HC_RC_REJECT}; }
+    var u8 = function(v){ return v & 255; };
+    function lowerAt(p){ if (hcc.upper(out[p])) out[p] ^= 0x20; }
+    function upperAt(p){ if (hcc.lower(out[p])) out[p] ^= 0x20; }
+    function toggleAt(p){ if (hcc.alpha(out[p])) out[p] ^= 0x20; }
+    function swap(l, r){ var t = out[r]; out[r] = out[l]; out[l] = t; }
+    function reverseRange(a, n){ for (var l=0;l<n;l++){ var r = n - 1 - l; if (l >= r) break; var t = out[a+r]; out[a+r] = out[a+l]; out[a+l] = t; } }
+    function mAppend(c){ if (out_len + 1 >= RP) return; out[out_len] = c; out_len++; }
+    function mPrepend(c){ if (out_len + 1 >= RP) return; for (var k=out_len-1;k>-1;k--) out[k+1] = out[k]; out[0] = c; out_len++; }
+    function mInsert(p, c){ if (p > out_len) return; if (out_len + 1 >= RP) return; for (var k=out_len-1;k>p-1;k--) out[k+1] = out[k]; out[p] = c; out_len++; }
+    function mInsertEvery(p, c){
+      if (p === 0) return; if (p >= out_len + 1) return;
+      var nl = out_len + ((out_len - (out_len % p)) / p | 0);
+      if (nl >= RP) return;
+      for (var src = out_len, dest = nl; src > 0; src--, dest--){
+        if ((src % p) === 0){ out[dest-1] = c; dest--; }
+        out[dest-1] = out[src-1];
+      }
+      out_len = nl;
+    }
+    function mOverstrike(p, c){ if (p >= out_len) return; out[p] = c; }
+    function titleSep(c){
+      var upper_next = 1;
+      for (var p=0;p<out_len;p++){
+        if (out[p] === c){ upper_next = 1; continue; }
+        if (upper_next){ upper_next = 0; upperAt(p); } else lowerAt(p);
+      }
+      if (out_len) upperAt(0);            // MANGLE_UPPER_AT (arr, 0) acts on a byte even when the word is empty
+    }
+    function titleSepClass(letter){
+      var test = hcClassTest(letter), upper_next = 1;
+      if (letter === 'd' || letter === 's'){
+        for (var p=0;p<out_len;p++){
+          if (test(out[p])){ upper_next = 1; continue; }
+          if (upper_next){ upper_next = 0; upperAt(p); } else lowerAt(p);
+        }
+        if (out_len) upperAt(0);
+      } else {
+        for (var p2=0;p2<out_len;p2++){
+          var up = upper_next; upper_next = test(out[p2]) ? 1 : 0;
+          lowerAt(p2); if (up) upperAt(p2);
+        }
+      }
+    }
+    function purge(pred){ var r = 0; for (var p=0;p<out_len;p++){ if (pred(out[p])) continue; out[r++] = out[p]; } out_len = r; }
+    function rejectContain(pred){ for (var p=0;p<out_len;p++) if (pred(out[p])){ pos_mem = p; return true; } return false; }
+    function rejectContains(pred, n){
+      var cnt = 0;
+      for (var p=0;p<out_len && cnt < n;p++) if (pred(out[p])){ cnt++; pos_mem = p; }
+      return cnt < n;
+    }
+    var eq = function(c){ return function(x){ return x === c; }; };
+    function dupeBlockPrepend(n){
+      if (n > out_len) return; if (out_len + n >= RP) return;
+      var cs = out.slice(0, n);
+      for (var k=0;k<n;k++) mInsert(k, cs[k]);
+    }
+    function dupeBlockAppend(n){
+      if (n > out_len) return; if (out_len + n >= RP) return;
+      var up = out_len - n;
+      for (var k=0;k<n;k++) mAppend(out[up + k]);
+    }
+    function dupeCharAt(p, n){
+      if (out_len === 0) return; if (out_len + n >= RP) return;
+      var c = out[p];
+      for (var k=0;k<n;k++) mInsert(p, c);
+    }
+    var upos, ulen, upos2;
+    for (rp = 0; rp < rl; rp++){
+      var op = rn[rp];
+      var ch = String.fromCharCode(op);
+      // helpers that read the next rule byte(s); they leave rp on the byte just read
+      var need = function(){ if (++rp >= rl) return false; return true; };
+      switch (ch){
+        case ' ': break;
+        case ':': break;
+        case 'l': for (i=0;i<out_len;i++) lowerAt(i); break;
+        case 'u': for (i=0;i<out_len;i++) upperAt(i); break;
+        case 'c': for (i=0;i<out_len;i++) lowerAt(i); if (out_len) upperAt(0); break;
+        case 'C': for (i=0;i<out_len;i++) upperAt(i); if (out_len) lowerAt(0); break;
+        case 't': for (i=0;i<out_len;i++) toggleAt(i); break;
+        case 'S': for (i=0;i<out_len;i++) out[i] ^= HC_CSHIFT[out[i]]; break;
+        case 'T': if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (upos < out_len) toggleAt(upos); break;
+        case '3': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN();
+          var sepc = rn[rp], toggle_next = 0, occ = 0;
+          for (var p3=0;p3<out_len;p3++){
+            if (out[p3] === sepc){ if (occ === upos) toggle_next = 1; else occ++; continue; }
+            if (toggle_next === 1){ toggleAt(p3); break; }
+          }
+          break;
+        }
+        case 'h': case 'H': {
+          if (out_len * 2 >= RP) break;
+          var tbl = ch === 'h' ? '0123456789abcdef' : '0123456789ABCDEF';
+          for (var p4=out_len-1;p4>=0;p4--){ var b = out[p4]; out[p4*2+1] = tbl.charCodeAt(b & 15); out[p4*2] = tbl.charCodeAt((b >> 4) & 15); }
+          out_len *= 2; break;
+        }
+        case 'r': reverseRange(0, out_len); break;
+        case 'd': if (out_len * 2 >= RP) break; for (i=0;i<out_len;i++) out[out_len+i] = out[i]; out_len *= 2; break;
+        case 'p': {
+          if (!need()) return SYN(); if ((ulen = posOf(rn[rp])) === -1) return SYN();
+          if ((out_len * ulen) + out_len >= RP) break;
+          var orig = out_len; for (var k5=0;k5<ulen;k5++){ for (i=0;i<orig;i++) out[out_len+i] = out[i]; out_len += orig; }
+          break;
+        }
+        case 'f': {
+          if (out_len * 2 >= RP) break;
+          for (i=0;i<out_len;i++) out[out_len+i] = out[i];
+          reverseRange(out_len, out_len); out_len *= 2; break;
+        }
+        case '{': for (var r6=out_len-1;r6>0;r6--) swap(0, r6); break;
+        case '}': for (var l7=0,r7=out_len-1;l7<r7;l7++) swap(l7, r7); break;
+        case '$': {
+          if (!need()) return SYN();
+          var mb = hcUtf8Len(rn, rp);
+          for (i=0;i<mb;i++) mAppend(rn[rp+i]);
+          rp += mb - 1; break;
+        }
+        case '^': {
+          if (!need()) return SYN();
+          var mb2 = hcUtf8Len(rn, rp);
+          for (i=0;i<mb2;i++) mPrepend(rn[rp + mb2 - 1 - i]);
+          rp += mb2 - 1; break;
+        }
+        case '[': if (0 < out_len){ for (i=0;i<out_len-1;i++) out[i] = out[i+1]; out_len--; } break;
+        case ']': if (out_len){ out_len--; } break;
+        case 'D': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (upos < out_len){ for (i=upos;i<out_len-1;i++) out[i] = out[i+1]; out_len--; }
+          break;
+        }
+        case 'x': case 'O': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN(); if ((ulen = posOf(rn[rp])) === -1) return SYN();
+          if (upos >= out_len) break; if (upos + ulen > out_len) break;
+          if (ch === 'x'){ for (i=0;i<ulen;i++) out[i] = out[upos+i]; out_len = ulen; }
+          else { for (i=upos;i<out_len-ulen;i++) out[i] = out[i+ulen]; out_len -= ulen; }
+          break;
+        }
+        case 'i': case 'v': case 'o': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN();
+          var mb3 = hcUtf8Len(rn, rp);
+          for (i=0;i<mb3;i++){
+            if (ch === 'i') mInsert(upos + i, rn[rp+i]);
+            else if (ch === 'v') mInsertEvery(upos + i, rn[rp+i]);
+            else mOverstrike(upos + i, rn[rp+i]);
+          }
+          rp += mb3 - 1; break;
+        }
+        case "'": {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (upos < out_len) out_len = upos;
+          break;
+        }
+        case 's': {
+          if (!need()) return SYN(); if (!need()) return SYN();
+          var so = rn[rp-1], sn = rn[rp]; for (i=0;i<out_len;i++) if (out[i] === so) out[i] = sn;
+          break;
+        }
+        case '@': { if (!need()) return SYN(); purge(eq(rn[rp])); break; }
+        case 'z': case 'Z': {
+          if (!need()) return SYN(); if ((ulen = posOf(rn[rp])) === -1) return SYN();
+          dupeCharAt(ch === 'z' ? 0 : out_len - 1, ulen); break;
+        }
+        case 'q': {
+          if (out_len === 0) break; if (out_len + out_len >= RP) break;
+          for (var a8=out_len-1;a8>-1;a8--){ out[a8*2] = out[a8]; out[a8*2+1] = out[a8]; }
+          out_len *= 2; break;
+        }
+        case 'y': case 'Y': {
+          if (!need()) return SYN(); if ((ulen = posOf(rn[rp])) === -1) return SYN();
+          if (ch === 'y') dupeBlockPrepend(ulen); else dupeBlockAppend(ulen); break;
+        }
+        case 'k': if (out_len >= 2) swap(0, 1); break;
+        case 'K': if (out_len >= 2) swap(out_len - 1, out_len - 2); break;
+        case '*': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN(); if ((upos2 = posOf(rn[rp])) === -1) return SYN();
+          if (upos >= out_len || upos2 >= out_len) break; swap(upos, upos2); break;
+        }
+        case 'L': case 'R': case '+': case '-': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (upos >= out_len) break;
+          var v = out[upos];
+          if (ch === 'L') v = v << 1;
+          else if (ch === 'R') v = (v << 24 >> 24) >> 1;        // a signed char: the high bit is copied in
+          else if (ch === '+') v = v + 1; else v = v - 1;
+          out[upos] = v & 255; break;
+        }
+        case 'B': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN();
+          if (upos >= out_len) break; out[upos] = (out[upos] + rn[rp]) & 255; break;
+        }
+        case '.': { if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (upos >= 0 && upos + 1 < out_len) out[upos] = out[upos+1]; break; }
+        case ',': { if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (upos >= 1 && upos < out_len) out[upos] = out[upos-1]; break; }
+        case 'e': { if (!need()) return SYN(); titleSep(rn[rp]); break; }
+        case 'E': titleSep(32); break;
+        case 'a': break;                                         // reserved ("todo") in the source: does nothing here
+        case 'X': {
+          if (mem_len < 1) return REJ();
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN(); if ((ulen = posOf(rn[rp])) === -1) return SYN();
+          if (!need()) return SYN(); if ((upos2 = posOf(rn[rp])) === -1) return SYN();
+          // mangle_insert_multi (): the memory buffer doubles as scratch space, so it changes
+          if (out_len + ulen > RP) return REJ();
+          if (upos2 > out_len) return REJ();
+          if (upos > mem_len) return REJ();
+          if (upos + ulen > mem_len) return REJ();
+          if (ulen < 1) return SYN();
+          var tail = out.slice(upos2, out_len);
+          var moved = mem.slice(upos, mem_len);                  // memmove (arr2, arr2 + N, arr2_len - N)
+          for (i=0;i<moved.length;i++) mem[i] = moved[i];
+          for (i=0;i<tail.length;i++) mem[ulen + i] = tail[i];   // memcpy (arr2 + cpy, arr + pos, ...)
+          var block = mem.slice(0, tail.length + ulen);          // memcpy (arr + pos, arr2, ...)
+          for (i=0;i<block.length;i++) out[upos2 + i] = block[i];
+          out_len += ulen; break;
+        }
+        case '4': if (mem_len < 1) return REJ(); if (out_len + mem_len >= RP) return REJ(); for (i=0;i<mem_len;i++) out[out_len+i] = mem[i]; out_len += mem_len; break;
+        case '6': {
+          if (mem_len < 1) return REJ(); if (mem_len + out_len >= RP) return REJ();
+          var cur = out.slice(0, out_len), pre = mem.slice(0, mem_len);
+          out = pre.concat(cur); out_len += mem_len; break;
+        }
+        case 'M': mem = out.slice(0, out_len); mem_len = out_len; break;
+        case '<': if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (out_len > upos) return REJ(); break;
+        case '>': if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (out_len < upos) return REJ(); break;
+        case '_': if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (out_len !== upos) return REJ(); break;
+        case '!': if (!need()) return SYN(); if (rejectContain(eq(rn[rp]))) return REJ(); break;
+        case '/': if (!need()) return SYN(); if (!rejectContain(eq(rn[rp]))) return REJ(); break;
+        case '(': if (!need()) return SYN(); if (out_len === 0) return REJ(); if (out[0] !== rn[rp]) return REJ(); break;
+        case ')': if (!need()) return SYN(); if (out_len === 0) return REJ(); if (out[out_len-1] !== rn[rp]) return REJ(); break;
+        case '=': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (upos + 1 > out_len) return REJ();
+          if (!need()) return SYN(); if (out[upos] !== rn[rp]) return REJ(); break;
+        }
+        case '%': {
+          if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN();
+          if (upos + 1 > out_len) return REJ();
+          if (!need()) return SYN(); if (rejectContains(eq(rn[rp]), upos)) return REJ(); break;
+        }
+        case 'Q': if (out_len === mem_len) { var same = true; for (i=0;i<out_len;i++) if (out[i] !== mem[i]) { same = false; break; } if (same) return REJ(); } break;
+        case '~': {
+          if (!need()) return SYN();
+          var sub = String.fromCharCode(rn[rp]);
+          var numbered = (sub === '=' || sub === '%');
+          if ('s@e!/()=%'.indexOf(sub) < 0) return SYN();
+          if (numbered){ if (!need()) return SYN(); if ((upos = posOf(rn[rp])) === -1) return SYN(); if (upos + 1 > out_len) return REJ(); }
+          if (!need()) return SYN(); if (rn[rp] !== 63) return SYN();
+          if (sub === '(' || sub === ')'){ /* the empty-word check comes after the '?' is read, before the class letter */ }
+          if (!need()) return SYN();
+          if (sub === '(' || sub === ')'){ if (out_len === 0) return REJ(); }
+          var cl = rn[rp], clc = String.fromCharCode(cl), test = clc === '?' ? eq(63) : hcClassTest(clc);
+          if (!test) return SYN();
+          var isLit = clc === '?';
+          if (sub === 's'){ if (!need()) return SYN(); var y = rn[rp]; for (i=0;i<out_len;i++) if (test(out[i])) out[i] = y; }
+          else if (sub === '@') purge(test);
+          else if (sub === 'e'){ if (isLit) titleSep(63); else titleSepClass(clc); }
+          else if (sub === '!'){ if (rejectContain(test)) return REJ(); }
+          else if (sub === '/'){ if (!rejectContain(test)) return REJ(); }
+          else if (sub === '('){ if (!test(out[0])) return REJ(); }
+          else if (sub === ')'){ if (!test(out[out_len-1])) return REJ(); }
+          else if (sub === '='){ if (!test(out[upos])) return REJ(); }
+          else if (sub === '%'){ if (rejectContains(test, upos)) return REJ(); }
+          break;
+        }
+        default: return SYN();
+      }
+    }
+    var res = '';
+    for (i=0;i<out_len;i++) res += String.fromCharCode(out[i] & 255);
+    return {rc: 0, word: res};
+  }
+
   // A rule file is read byte by byte, so a one-character argument (X, Y) is one byte. Only $ ^ i v o
   // (op.multibyte) take a whole multi-byte character; for any other operator a multi-byte argument
   // can't be written, and the step says so instead of guessing.
@@ -2675,6 +3025,40 @@ d $1$2$3"></textarea>
       if (spec.t === 'char' || spec.t === 'string') out[spec.n] = argBytes(v);
     });
     return out;
+  }
+  // Evaluates the chain with the hashcat CPU engine port: each step's word is the result of running
+  // the rule text up to and including that step on the starting word.
+  function runChainCpu(startBytes, trace, stepList){
+    var ctx = {memory: null}, items = [], tokens = [];
+    stepList.forEach(function(st, k){
+      if (!st.enabled) return;
+      var tok = hashcatToken(st.type, st.args);
+      if (tok === null) return;
+      items.push({st: st, idx: k}); tokens.push(tok);
+    });
+    var before = startBytes, rejected = false;
+    // hashcat refuses the whole rule up front if it is a syntax error on an empty word
+    var bad = -1;
+    if (hcCpuCore(tokens.join(' '), '').rc === HC_RC_SYNTAX){
+      for (var k = 0; k < items.length && bad < 0; k++) if (hcCpuCore(tokens.slice(0, k + 1).join(' '), '').rc === HC_RC_SYNTAX) bad = k;
+    }
+    for (var n = 0; n < items.length; n++){
+      var st = items[n].st, op = OPS[st.type], stepNum = items[n].idx + 1;
+      var res = (bad >= 0 && n === bad) ? {rc: HC_RC_SYNTAX} : hcCpuCore(tokens.slice(0, n + 1).join(' '), startBytes);
+      if (res.rc !== 0){
+        rejected = true;
+        var why = res.rc === HC_RC_SYNTAX
+          ? (bad >= 0 ? 'hashcat refuses the whole rule: this step is a syntax error (a position p is used before any / or % has found a match)' : 'syntax error for this word')
+          : (op.caption(captionArgs(op, st.args), before, before, ctx) || 'Rejected');
+        trace.push({word: fromBytes(before), caption: '✗ Rejected — ' + why, changedHtml: escapeHtml(fromBytes(before)), rejected: true, stepNum: stepNum});
+        break;
+      }
+      if (op.kind === 'memorize') ctx.memory = res.word;
+      var caption = op.caption(captionArgs(op, st.args), before, res.word, ctx);
+      trace.push({word: fromBytes(res.word), caption: caption, changedHtml: highlightAfter(op, before, res.word), rejected: false, stepNum: stepNum});
+      before = res.word;
+    }
+    return {final: rejected ? null : fromBytes(before), trace: trace, rejected: rejected};
   }
   function captionArgs(op, args){      // arguments as they should read in a caption (raw bytes as \xNN)
     var out = {};
@@ -2694,6 +3078,7 @@ d $1$2$3"></textarea>
       return {final: null, trace: trace, rejected: true};
     }
     var rejected = false, rejectCaption = '';
+    if (chainNeedsCpuEngine(stepList)) return runChainCpu(current, trace, stepList);
 
     for (var s=0; s<stepList.length; s++){
       var step = stepList[s];
@@ -2828,6 +3213,12 @@ d $1$2$3"></textarea>
         noteEl.textContent = '✓ Portable — also runs in John’s hashcat-compat mode.';
         noteEl.className = 'sub ok';
       }
+    }
+    // Memory and reject operators (and the p position) exist only in hashcat's CPU engine.
+    if (TARGET !== 'john_native' && chainNeedsCpuEngine(steps)){
+      var cpuMsg = 'CPU engine only: hashcat runs these operators only with -j / -k (combinator attacks); a rule file given with -r skips the rule';
+      noteEl.textContent = noteEl.textContent ? noteEl.textContent + ' · ' + cpuMsg : cpuMsg;
+      if (!noteEl.className) noteEl.className = 'sub';
     }
     // The copy button copies what the rule applies, which leaves disabled
     // steps out even though the rule line above still shows them struck
@@ -3937,7 +4328,10 @@ d $1$2$3"></textarea>
     compatClass: compatClass,
     buildableInTarget: buildableInTarget,
     runChain: runChain,
-    buildRuleString: buildRuleString
+    buildRuleString: buildRuleString,
+    hcCpuApply: hcCpuApply,
+    toBytes: toBytes,
+    fromBytes: fromBytes
   };
 })();
 </script>

@@ -198,6 +198,14 @@ def run_regression_checks(driver, results):
         ('hashcat', '$x', 'a' * 254, 'a' * 254 + 'x'),
         ('hashcat', 'p2', 'a' * 100, 'a' * 100),
         ('hashcat', 'h', 'a' * 128, 'a' * 128),
+        # the CPU engine (memory, reject and p-position rules), checked against hashcat -a 1 -j
+        ('hashcat', '/a Dp', 'banana', 'bnana'),
+        ('hashcat', '/a Dp', 'Password1', 'Pssword1'),
+        ('hashcat', '/a Dp', 'hello world', None),
+        ('hashcat', '%2a Tp', 'banana', 'banAna'),
+        ('hashcat', 'M X012 4', 'banana', 'babnanabnanaa'),
+        ('hashcat', 'M X012 X012', 'banana', 'babbnana'),     # X reuses the memory buffer as scratch
+        ('hashcat', 'M 30a', 'aaaa', 'aaaa'),                 # the CPU engine's 3 differs from the kernel's
     ]
     for dialect, rule, word, want in cases:
         r = run_rule(driver, dialect, rule, word)

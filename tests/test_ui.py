@@ -1717,6 +1717,26 @@ def test_cheat_legend_is_aligned(driver, r):
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
+def test_cpu_engine_chains(driver, r):
+    """Memory, reject and p-position steps run in hashcat's CPU engine: the chain evaluates like
+    hashcat -j (X reuses the memory buffer, p is where the last / matched) and the note says so."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'wordInput'), 'banana', debounced=True)
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), '/a Dp', debounced=True)
+    final = lambda: driver.execute_script("var rows=document.querySelectorAll('#trace .trace-row:not(.skipped)');return rows[rows.length-1].querySelector('.word').textContent;")
+    r.check(final() == 'bnana', 'a p position deletes where the last / found its match', repr(final()))
+    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    r.check('CPU engine only' in note, 'the note says memory / reject / p rules run only in hashcat\'s CPU engine', repr(note))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'M X012 X012', debounced=True)
+    r.check(final() == 'babbnana', 'X reuses the memory buffer, so a second X sees changed memory (as in hashcat)', repr(final()))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
+    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    r.check('CPU engine only' not in note, 'an ordinary rule gets no CPU-only note', repr(note))
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
+
+
 def test_byte_escapes_in_the_rule_line(driver, r):
     """Words run as UTF-8 bytes and a rule can write a byte as \\xNN (hashcat's escape, the way to
     append a multi-byte character such as µ = c2 b5): the escapes parse, the trace shows the
@@ -2381,6 +2401,7 @@ def main():
         test_link_highlighting_switches(driver, r)
         test_help_dialog(driver, r)
         test_byte_escapes_in_the_rule_line(driver, r)
+        test_cpu_engine_chains(driver, r)
         test_cheat_legend_is_aligned(driver, r)
         test_trace_keeps_a_row_for_every_step(driver, r)
         test_rule_line_highlight_with_multibyte_steps(driver, r)
