@@ -1590,6 +1590,7 @@ d $1$2$3"></textarea>
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
     {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ followed by ?l ?u ?d ?s ?h ?H), and John never accepts the '~' prefix at all.", promoted:true},
     {syntax:'# @ $ * - + z m l', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:'buildable: type one of these into any position argument above, in place of a number.', promoted:true},
+    {syntax:'?0 … ?9', label:'A user-defined character class, set in john.conf', note:'needs a [UserClasses] section in a real config file; this tool has no file of its own to read one from.'},
     {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Flags written before a rule that skip it depending on the hash type', note:''},
     {syntax:'1 2 +', label:'Combine the words of a full-name entry (single-crack mode only)', note:''}
   ];
