@@ -1784,7 +1784,7 @@ def test_cheat_search_keeps_john_only_explanation(driver, r):
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
     time.sleep(0.2)
     # searching keeps the John-only box's explanation; no results just says so
-    set_value(driver, driver.find_element('id', 'cheatSearch'), 'variable')
+    set_value(driver, driver.find_element('id', 'cheatSearch'), 'single-crack')
     st = driver.execute_script(
         "var s = document.querySelector('.john-only-section');"
         "return {head: !s.querySelector('.jhead').classList.contains('cf-hide'), rows: s.querySelectorAll('.cheat-row:not(.cf-hide)').length};")

@@ -961,7 +961,7 @@ d $1$2$3"></textarea>
   // min/max-length family (# @ $ * - +, using this tool's Min/Max length fields as the target).
   // Any of those passes through as the literal character; what's actually valid where is gated at
   // the argument box, not here.
-  var POS_SYMBOLS = 'pzml#@$*-+';
+  var POS_SYMBOLS = 'pzml#@$*-+abcdefghijk';
   function posChar(n){ if (typeof n === 'string' && POS_SYMBOLS.indexOf(n) >= 0) return n; n = Math.max(0, Math.min(35, n|0)); return n < 10 ? String(n) : String.fromCharCode(65 + (n - 10)); }
   // Hashcat (and John without a --encoding) work on raw bytes, not characters: a word is run
   // through the rules as its UTF-8 bytes, so "é" is two bytes, positions and lengths count bytes,
@@ -1515,6 +1515,7 @@ d $1$2$3"></textarea>
     j_reject_length:   {syntax:'aN', ex:{N:2}},
     j_reject_length_rm:{syntax:'bN', ex:{N:2}},
     j_reject_utf8:     {syntax:'U', ex:{}},
+    j_set_var: {syntax:'vVNM', ex:{V:'a',N:1,M:0}},
     j_shift_toggle_at: {syntax:'WN', ex:{N:0}},
     j_vowel_consonant: {syntax:'V', ex:{}},
     j_keyboard_right:  {syntax:'R', ex:{}},
@@ -1589,7 +1590,6 @@ d $1$2$3"></textarea>
     {syntax:'U',   label:'Reject the word unless it is valid UTF-8', note:'', promoted:true},
     {syntax:'s?CY  @?C  e?C …', label:"Class ops without a leading '~', using John's own class letters", note:"John's classes (?v ?c ?w ?p ?s ?l ?u ?d ?a ?x ?o ?y ?z ?0–?9) are a different set from hashcat's (~ followed by ?l ?u ?d ?s ?h ?H), and John never accepts the '~' prefix at all.", promoted:true},
     {syntax:'# @ $ * - + z m l', label:'Named positions instead of 0–9 (e.g. D@ deletes the character at min length − 1)', note:'buildable: type one of these into any position argument above, in place of a number.', promoted:true},
-    {syntax:'vVNM / a-k', label:"A user-defined variable (set by v, then used as a position elsewhere)", note:'this tool has no concept of a variable set mid-chain and read back later as a position.'},
     {syntax:'-c -8 -s -p -R -S -u -U ->N -<N', label:'Flags written before a rule that skip it depending on the hash type', note:''},
     {syntax:'1 2 +', label:'Combine the words of a full-name entry (single-crack mode only)', note:''}
   ];
@@ -1737,6 +1737,10 @@ d $1$2$3"></textarea>
     hashcat:function(){ return null; }, john:function(a){ return 'W'+posChar(a.N); },
     run:function(w,a){ if (a.N>=w.length) return {word:w}; var arr=w.split(''); arr[a.N]=shiftCaseChar(arr[a.N]); return {word:arr.join('')}; },
     caption:function(a){ return 'Shift-toggle the key at position '+a.N+' (like Shift held: a\u2194A, 1\u2194!)'; }});
+  def('j_set_var', {label:'Set variable V to N − M, to use as a position in later steps', group:'Grammar (John native)', args:[{n:'V',t:'johnvar'},{n:'N',t:'pos'},{n:'M',t:'pos'}], kind:'normal', johnOnly:true,
+    hashcat:function(){ return null; }, john:function(a){ return 'v'+a.V+posChar(a.N)+posChar(a.M); },
+    run:function(w){ return {word:w}; },   // the real effect (setting a variable) needs the John engine itself, which runs this chain under 'john_native'
+    caption:function(a){ return 'Set '+a.V+' = '+a.N+' − '+a.M+(typeof a.N==='number'&&typeof a.M==='number'?' = '+(a.N-a.M):'')+', usable as a position in a later step'; }});
   def('j_vowel_consonant', {label:'Uppercase consonants, lowercase vowels', group:'Case', args:[], kind:'normal', johnOnly:true,
     hashcat:function(){ return null; }, john:function(){ return 'V'; },
     run:function(w){ return {word: w.split('').map(vowelConsonantSwap).join('')}; },
@@ -1953,6 +1957,7 @@ d $1$2$3"></textarea>
       if (/[0-9]/.test(ch)){ i++; return ch.charCodeAt(0) - 48; }
       if (/[A-Z]/.test(ch)){ i++; return 10 + (ch.charCodeAt(0) - 65); }
       if ('zml#@$*-+'.indexOf(ch) >= 0){ i++; return ch; }   // John's own named positions/lengths
+      if ('abcdefghijk'.indexOf(ch) >= 0){ i++; return ch; } // or a user-defined variable (set by v)
       return null;
     }
     function readChar(){
@@ -2034,6 +2039,7 @@ d $1$2$3"></textarea>
           case ',': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('replace_nm1',{N:N})); break; }
           case 'y': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeblock_first',{N:N})); break; }
           case 'Y': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('dupeblock_last',{N:N})); break; }
+          case 'v': { var V=str[i]; if (V==null || 'abcdefghijk'.indexOf(V)<0){ok=false;break;} i++; var N=readPos(),M=readPos(); if(N==null||M==null){ok=false;break;} steps.push(mkStep('j_set_var',{V:V,N:N,M:M})); break; }
           case 'X': { var N=readPos(),M=readPos(),I=readPos(); if(N==null||M==null||I==null){ok=false;break;} steps.push(mkStep('extract_memory',{N:N,M:M,I:I})); break; }
           case '<': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('reject_less',{N:N})); break; }
           case '>': { var N=readPos(); if(N==null){ok=false;break;} steps.push(mkStep('reject_greater',{N:N})); break; }
@@ -2136,6 +2142,7 @@ d $1$2$3"></textarea>
       else if (spec.t==='char') out[spec.n] = (spec.n==='Y') ? '1' : '!';
       else if (spec.t==='class') out[spec.n] = 'l';
       else if (spec.t==='johnclass') out[spec.n] = 'l';
+      else if (spec.t==='johnvar') out[spec.n] = 'a';
       else if (spec.t==='string') out[spec.n] = '123';
     });
     return out;
@@ -2514,6 +2521,10 @@ d $1$2$3"></textarea>
       var joptions = JOHN_CLASS_OPTIONS.map(function(c){ return '<option value="'+c[0]+'"'+(c[0]===val?' selected':'')+'>'+c[1]+'</option>'; }).join('');
       return '<span class="argwrap">'+spec.n+'=<select class="p-arg" data-arg="'+spec.n+'">'+joptions+'</select></span>';
     }
+    if (spec.t==='johnvar'){
+      var voptions = 'abcdefghijk'.split('').map(function(c){ return '<option value="'+c+'"'+(c===val?' selected':'')+'>'+c+'</option>'; }).join('');
+      return '<span class="argwrap">'+spec.n+'=<select class="p-arg" data-arg="'+spec.n+'">'+voptions+'</select></span>';
+    }
     if (spec.t==='string'){
       return '<span class="argwrap">'+spec.n+'=<input type="text" class="p-arg wide" data-arg="'+spec.n+'" maxlength="24" value="'+escapeHtml(val)+'"></span>';
     }
@@ -2587,7 +2598,7 @@ d $1$2$3"></textarea>
           if (spec.t==='pos'){
             var vt = v.trim();
             if (vt === 'p' && TARGET !== 'john_native') v = 'p';
-            else if (TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+'.indexOf(vt) >= 0) v = vt;
+            else if (TARGET === 'john_native' && vt.length === 1 && 'zml#@$*-+abcdefghijk'.indexOf(vt) >= 0) v = vt;
             else { v = parseInt(v,10); if (isNaN(v)) v = 0; v = Math.max(0, Math.min(35, v)); }
           }
           else if (spec.t==='char'){   // one character, or a byte written \xNN
