@@ -283,6 +283,13 @@ def run_john_engine_checks(driver, results):
         got = jrun(rule, word, False, min_len, max_len)
         ok = got == want
         results.append((ok, f'regression [john] {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
+    # under "!! hashcat logic ON" John skips its own rule preprocessor entirely, so \xNN (which
+    # that preprocessor is what decodes) is never resolved there — the literal backslash is read
+    # as hashcat would read it (a value byte), which real john confirms is a genuine syntax error
+    for rule, word, want in (('$\\xc5 $\\x8d', 'ab', J_RC_SYNTAX),):
+        got = jrun(rule, word, True, 0, 28)
+        ok = got == want
+        results.append((ok, f'regression [john hc] {rule!r} on {word!r}', None if ok else f'got {got!r}, want {want!r}'))
     # John's own named positions (z/m/l/#/@/$/*/-/+), now accepted by the rule-line parser too
     for rule, word, min_len, max_len, want in (
         ('Zz', 'a', 0, 28, J_RC_REJECT),      # same bug as above, reached via the real parser this time
@@ -291,6 +298,8 @@ def run_john_engine_checks(driver, results):
         ('@?Z', 'abc123', 0, 28, 'abc123'),     # defined directly, as empty, so z ends up matching everything
         ('@?y', 'abc123', 0, 28, J_RC_REJECT),  # same relationship for y ("valid") / Y
         ('@?Y', 'abc123', 0, 28, 'abc123'),
+        ('@?D', 'a1b2', 0, 28, '12'),           # the general case, not just y/z: ?D is "not a digit"
+        ('@?d', 'a1b2', 0, 28, 'ab'),
     ):
         got = driver.execute_script(
             "var T=window.__test; T.setTarget('john_native');"

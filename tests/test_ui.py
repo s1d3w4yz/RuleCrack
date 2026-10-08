@@ -1773,6 +1773,18 @@ def test_rl_p_position_clamped_to_a_digit_for_john(driver, r):
     set_value(driver, driver.find_element('css selector', '#chain .step .p-arg[data-arg="N"]'), '15')
     rule2 = driver.execute_script("return document.getElementById('ruleTextInput').value;")
     r.check(rule2 == 'RF', 'the same op under hashcat still allows the full 0-35 range', repr(rule2))
+    # p (dupeword_times) is narrower still: John's own check for it is 1-9, not 0-9 like R/L —
+    # 'p0' isn't recognized as the digit form at all and fails to parse as anything sensible.
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'p1', debounced=True)
+    set_value(driver, driver.find_element('css selector', '#chain .step .p-arg[data-arg="N"]'), '0')
+    rule3 = driver.execute_script("return document.getElementById('ruleTextInput').value;")
+    r.check(rule3 == 'p1', "p's position floors at 1 for John, not 0", repr(rule3))
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'p1', debounced=True)
+    set_value(driver, driver.find_element('css selector', '#chain .step .p-arg[data-arg="N"]'), '0')
+    rule4 = driver.execute_script("return document.getElementById('ruleTextInput').value;")
+    r.check(rule4 == 'p0', 'the same op under hashcat allows 0', repr(rule4))
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
 
 
