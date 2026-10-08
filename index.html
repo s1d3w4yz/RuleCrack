@@ -2261,6 +2261,7 @@ d $1$2$3"></textarea>
   var cheatCard = document.getElementById('cheatCard');
   var col1Card = document.getElementById('col1Card');
   var col2Card = document.getElementById('col2Card');
+  var targetRow = document.querySelector('#builderIntro .targetrow');
 
   // The shared height is the SMALLEST of: what fits the viewport, and what
   // each column can fill with its own content — so whichever list has fewer
@@ -2309,12 +2310,12 @@ d $1$2$3"></textarea>
     batchScroll.classList.remove('expanded');
     fitBatchCap();
     var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
-    // Scroll-position-independent: getBoundingClientRect().top moves as the page scrolls, but
-    // adding the current scroll position back gives the fixed distance from the very top of the
-    // document to the grid — i.e. the header, intro text and the target-syntax row above it —
-    // so the columns are sized to leave exactly that much room, and the whole page (not just the
-    // three columns by themselves) fits one viewport instead of needing a scroll past the top.
-    var aboveGrid = builderView.getBoundingClientRect().top + window.scrollY;
+    // Leave room for the target-syntax row right above the grid, so it and the three columns fit
+    // together in one screen — but NOT for the intro text further up, which is fine to scroll
+    // past on its own; only the gap between the target row and the grid should count. Both
+    // .getBoundingClientRect().top calls happen at the same scroll position, so their difference
+    // is the same fixed gap regardless of where the page happens to be scrolled to right now.
+    var aboveGrid = builderView.getBoundingClientRect().top - targetRow.getBoundingClientRect().top;
     var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN - aboveGrid, cols);
     cols.forEach(function(c){
       var box = total - c.overhead;

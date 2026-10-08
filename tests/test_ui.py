@@ -690,23 +690,24 @@ def test_columns_refit_on_window_resize(driver, r):
             "        chain: h('chain'), trace: h('trace')};")
 
     try:
-        # The columns are now sized to leave room for everything above the grid (header, intro
-        # text, target-syntax row) too, not just to fit the raw window height — so these heights
-        # sit in the range where that leftover room (not a column's own minimum-content floor)
-        # is what's actually driving the size; a shorter window falls back to the floor and holds
-        # steady instead of shrinking further, which would make a false negative out of this test.
-        size(1500, 1500)
+        # The columns are now sized to leave room for the target-syntax row right above the grid
+        # too, not just to fit the raw window height — so these heights sit in the range where
+        # that leftover room (not a column's own minimum-content floor, and not the natural
+        # content height either) is what's actually driving the size; a shorter window falls back
+        # to the floor and holds steady instead of shrinking further, which would make a false
+        # negative out of this test.
+        size(1500, 1000)
         driver.get(INDEX_URL)
         time.sleep(0.8)
         a = cols()
-        r.check(a['c1'] == a['c2'] == a['c3'] and a['c1'] <= a['vh'], 'sanity: equal columns that fit at 1500x1500', f'{a}')
+        r.check(a['c1'] == a['c2'] == a['c3'] and a['c1'] <= a['vh'], 'sanity: equal columns that fit at 1500x1000', f'{a}')
 
-        size(1500, 1700)
+        size(1500, 1150)
         b = cols()
         r.check(b['c1'] == b['c2'] == b['c3'] and b['c1'] > a['c1'],
                 'making the window taller re-fits the columns (equal, and taller than before)', f'{a["c1"]}px -> {b["c1"]}px')
 
-        size(1500, 1450)
+        size(1500, 950)
         c = cols()
         r.check(c['c1'] == c['c2'] == c['c3'] and c['c1'] < b['c1'],
                 'making the window shorter re-fits the columns again (equal, and shorter)', f'{b["c1"]}px -> {c["c1"]}px')
@@ -716,7 +717,7 @@ def test_columns_refit_on_window_resize(driver, r):
         r.check(n['chain'] <= 560 and n['trace'] <= 420,
                 'in the stacked narrow layout the lists use their stylesheet caps, not the column fit', f'{n}')
 
-        size(1500, 1500)
+        size(1500, 1000)
         e = cols()
         r.check(e == a, 'returning to the original size restores the original column heights exactly', f'{a} vs {e}')
     finally:
