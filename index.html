@@ -209,6 +209,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 #validatorReturnBox{margin-top:8px}
 #portabilityNote.ok,#portabilityNote .ok{color:var(--good)}
 #portabilityNote.warn,#portabilityNote .warn{color:var(--danger)}
+#portabilityNote .cpu{color:var(--accent)}
 
 .grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
 .grid[hidden]{display:none}
@@ -507,6 +508,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
   .step.linked,.trace .trace-row.linked{outline:2px solid Highlight;outline-offset:-2px}
   .rulehl .hl-on{outline:2px solid Highlight}
   .rulehl .hl-bad{outline:2px dashed Highlight}
+  .rulehl .hl-cpu{outline:1px dotted Highlight}
   .step .grip::before{forced-color-adjust:none;background-image:radial-gradient(circle,CanvasText 1.3px,transparent 1.7px);opacity:1}
   .step .grip{border-right:1px solid CanvasText}
   .toast{border:2px solid CanvasText}
@@ -599,6 +601,9 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 /* the token(s) the portability note above is complaining about — a wavy underline (not just a
    color) so it reads as "flagged" independent of color vision, and combines with hl-on/hl-off */
 .rulehl .hl-bad{text-decoration:underline wavy var(--danger);text-decoration-thickness:2px;text-underline-offset:2px}
+/* a step that needs hashcat's CPU engine (-j/-k) and won't run from a GPU rule file (-r) — solid,
+   not wavy, since it's not an error so much as "this needs the other engine" */
+.rulehl .hl-cpu{text-decoration:underline solid var(--accent);text-decoration-thickness:2px;text-underline-offset:2px}
 
 .cheat{max-height:calc(100vh - 64px);overflow:hidden}
 .cheat.expanded{max-height:none;overflow:visible}
@@ -3771,12 +3776,15 @@ d $1$2$3"></textarea>
         noteEl.innerHTML = lines.join('<br>');
       }
     }
-    // Memory and reject operators (and the p position) exist only in hashcat's CPU engine.
-    // Appended via innerHTML (not textContent) so it doesn't clobber the colored spans a branch
-    // above may have already written into this element.
+    // Memory and reject operators (and the p position) exist only in hashcat's CPU engine — same
+    // treatment as the Both view's syntax-error case above: its own line, colored (here, the same
+    // accent/yellow as the CPU-only underline below and the cheat sheet's CPU badge), not folded
+    // into another line's color or bullet-joined after it. Appended via innerHTML (not
+    // textContent) so it doesn't clobber colored spans a branch above may have already written.
     if (TARGET !== 'john_native' && chainNeedsCpuEngine(steps)){
-      var cpuMsg = 'CPU engine only: hashcat runs these operators only with -j / -k (combinator attacks); a rule file given with -r skips the rule';
-      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + ' · ' + escapeHtml(cpuMsg) : escapeHtml(cpuMsg);
+      var cpuMsg = 'CPU engine only — these step(s) need hashcat’s -j / -k; a rule file run with -r (GPU) skips them';
+      var cpuLine = '<span class="cpu">⚠ ' + escapeHtml(cpuMsg) + '</span>';
+      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + '<br>' + cpuLine : cpuLine;
       if (!noteEl.className) noteEl.className = 'sub';
     }
     // The copy button copies what the rule applies, which leaves disabled
@@ -3786,7 +3794,8 @@ d $1$2$3"></textarea>
     var offCount = steps.filter(function(st){ return !st.enabled && tokenFnNote(st.type, st.args) !== null; }).length;
     if (offCount){
       var offMsg = offCount + ' disabled step' + (offCount === 1 ? ' is' : 's are') + ' left out of the copy';
-      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + ' · ' + escapeHtml(offMsg) : escapeHtml(offMsg.charAt(0).toUpperCase() + offMsg.slice(1) + '.');
+      var offLine = escapeHtml(offMsg.charAt(0).toUpperCase() + offMsg.slice(1) + '.');
+      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + '<br>' + offLine : offLine;
       if (!noteEl.className) noteEl.className = 'sub';
     }
   }
@@ -4648,14 +4657,19 @@ d $1$2$3"></textarea>
     var text = ruleTextInput.value, marks = [];
     ruleMatches().forEach(function(m){
       var hover = m.step.id == hoverStepId, off = !m.step.enabled, bad = portabilityBadStepIds.indexOf(m.step.id) >= 0;
-      if (hover || off || bad) marks.push({from: m.from, to: m.to, hover: hover, off: off, bad: bad});
+      // CPU-only: needs hashcat's -j/-k engine, not the -r GPU kernel. Skipped when the step is
+      // already marked "bad" (the half-dozen ops that are both hashcat-only and CPU-only already
+      // get the red underline for that; piling a second decoration on top would just look broken),
+      // and irrelevant in John-native view, which has no such CPU/GPU split.
+      var cpu = !off && !bad && TARGET !== 'john_native' && (OPS[m.step.type].cpuOnly || stepUsesPPos(m.step));
+      if (hover || off || bad || cpu) marks.push({from: m.from, to: m.to, hover: hover, off: off, bad: bad, cpu: cpu});
     });
     if (!marks.length){ ruleHl.innerHTML = ''; return; }
     marks.sort(function(a, b){ return a.from - b.from; });
     var html = '', pos = 0;
     marks.forEach(function(m){
       html += escapeHtml(text.slice(pos, m.from)) +
-        '<span class="'+(m.hover ? 'hl-on ' : '')+(m.off ? 'hl-off ' : '')+(m.bad ? 'hl-bad' : '')+'">'+escapeHtml(text.slice(m.from, m.to))+'</span>';
+        '<span class="'+(m.hover ? 'hl-on ' : '')+(m.off ? 'hl-off ' : '')+(m.bad ? 'hl-bad ' : '')+(m.cpu ? 'hl-cpu' : '')+'">'+escapeHtml(text.slice(m.from, m.to))+'</span>';
       pos = m.to;
     });
     html += escapeHtml(text.slice(pos));

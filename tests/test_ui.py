@@ -1833,20 +1833,32 @@ def test_cheat_legend_is_aligned(driver, r):
 
 def test_cpu_engine_chains(driver, r):
     """Memory, reject and p-position steps run in hashcat's CPU engine: the chain evaluates like
-    hashcat -j (X reuses the memory buffer, p is where the last / matched) and the note says so."""
+    hashcat -j (X reuses the memory buffer, p is where the last / matched), the note says so on
+    its own (accent-colored) line, and the rule line underlines the responsible token(s) — same
+    treatment as the Both view's syntax-error case, just a different (non-error, informational)
+    color since a CPU-only step isn't broken, it just needs hashcat's other engine."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
     set_value(driver, driver.find_element('id', 'wordInput'), 'banana', debounced=True)
     set_value(driver, driver.find_element('id', 'ruleTextInput'), '/a Dp', debounced=True)
     final = lambda: driver.execute_script("var rows=document.querySelectorAll('#trace .trace-row:not(.skipped)');return rows[rows.length-1].querySelector('.word').textContent;")
     r.check(final() == 'bnana', 'a p position deletes where the last / found its match', repr(final()))
-    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
-    r.check('CPU engine only' in note, 'the note says memory / reject / p rules run only in hashcat\'s CPU engine', repr(note))
+    note_el = lambda: driver.execute_script(
+        "var n = document.getElementById('portabilityNote');"
+        "var cpuSpan = n.querySelector('.cpu');"
+        "return {text: n.textContent, cpuSpanText: cpuSpan ? cpuSpan.textContent : null};")
+    n = note_el()
+    r.check('CPU engine only' in n['text'], 'the note says memory / reject / p rules run only in hashcat\'s CPU engine', repr(n))
+    r.check(n['cpuSpanText'] and 'CPU engine only' in n['cpuSpanText'],
+            'the CPU-only line is its own accent-colored span, not folded into another line\'s color', repr(n))
+    bad_texts = lambda: driver.execute_script(
+        "return [].map.call(document.querySelectorAll('#ruleHl .hl-cpu'), function(s){ return s.textContent; });")
+    r.check(sorted(bad_texts()) == ['/a', 'Dp'], 'the rule line underlines the CPU-only step(s) (yellow, solid)', f'{bad_texts()}')
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'M X012 X012', debounced=True)
     r.check(final() == 'babbnana', 'X reuses the memory buffer, so a second X sees changed memory (as in hashcat)', repr(final()))
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
-    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
-    r.check('CPU engine only' not in note, 'an ordinary rule gets no CPU-only note', repr(note))
+    n2 = note_el()
+    r.check('CPU engine only' not in n2['text'] and bad_texts() == [], 'an ordinary rule gets no CPU-only note or underline', repr(n2))
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
     set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
 
