@@ -413,6 +413,19 @@ button.add:hover{border-color:var(--accent);color:var(--accent)}
   box-shadow:0 -4px 6px -4px rgba(0,0,0,.35);
 }
 .trace.locked .trace-row:first-child:last-child{box-shadow:none;border-top:none}
+/* The pinned first/last rows set their own background and box-shadow (for the sticky drop
+   shadow), which otherwise wins over .trace-row.linked's tint and inset border by sheer CSS
+   specificity (one more class each) — leaving a hovered/focused step's row looking unhighlighted
+   whenever it happens to be the one pinned in view. Restate both together here, layering the
+   linked inset border alongside the row's own drop shadow instead of losing one to the other. */
+.trace.locked .trace-row:first-child.linked{
+  background:color-mix(in srgb,var(--accent) 10%, var(--surface));
+  box-shadow:inset 3px 0 0 var(--accent), 0 4px 6px -4px rgba(0,0,0,.35);
+}
+.trace.locked .trace-row.outcome.linked{
+  background:color-mix(in srgb,var(--accent) 10%, var(--surface));
+  box-shadow:inset 3px 0 0 var(--accent), 0 -4px 6px -4px rgba(0,0,0,.35);
+}
 
 .copyrow{display:flex;gap:8px;flex-wrap:wrap}
 button.copy{
