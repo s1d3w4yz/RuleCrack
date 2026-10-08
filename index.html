@@ -16,7 +16,7 @@
 :root{
   --bg:#15191C; --surface:#1E2328; --surface-2:#242A2F;
   --ink:#E7E2D3; --dim:#A9AFB6; --accent:#D9A449;
-  --good:#5CB88F; --danger:#E79088; --rule:#323A41;
+  --good:#5CB88F; --danger:#E79088; --info:#7FB2E5; --rule:#323A41;
   --control-border:#707B85;   /* >= 3:1 on every surface: the edge of an input, select or button (WCAG 1.4.11) */
   color-scheme:dark;
 }
@@ -29,6 +29,7 @@
   --accent:#7D5108;
   --good:#1A655B;
   --danger:#9B3A33;
+  --info:#1C5A8A;
   --rule:#D8D0BC;
   --control-border:#787058;
   color-scheme:light;
@@ -37,11 +38,11 @@
    contrast): every text color reaches 7:1 (WCAG AAA) on all surfaces and highlight tints, and
    control edges and dividers reach 4.5:1. */
 :root[data-contrast="high"]{
-  --dim:#C2C6CB; --accent:#E5C081; --good:#97D2B8; --danger:#EFB8B2;
+  --dim:#C2C6CB; --accent:#E5C081; --good:#97D2B8; --danger:#EFB8B2; --info:#9CC6EE;
   --rule:#6B7680; --control-border:#8A949D;
 }
 :root[data-theme="light"][data-contrast="high"]{
-  --dim:#494537; --accent:#603E06; --good:#144E46; --danger:#782D28;
+  --dim:#494537; --accent:#603E06; --good:#144E46; --danger:#782D28; --info:#0A4468;
   --rule:#8A8268; --control-border:#5F5A47;
 }
 
@@ -144,7 +145,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 }
 .badge.hc-only{color:var(--danger);border-color:var(--danger)}
 .badge.john-only{color:var(--good);border-color:var(--good)}
-.badge.cpu-only{color:var(--accent);border-color:var(--accent)}
+.badge.cpu-only{color:var(--info);border-color:var(--info)}
 
 .cheat-row .badge{margin-left:auto}
 
@@ -157,7 +158,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
    engine (-j/-k) because the GPU kernel used by -r doesn't implement it. Not mutually exclusive
    with tok-hc/tok-john (a few ops are both hashcat-only AND CPU-only), so it's its own marker
    rather than a third color sharing the same slot as the hc/john ones. */
-.tok-cpu{color:var(--accent)}
+.tok-cpu{color:var(--info)}
 
 .compat-key{display:flex;gap:6px 12px;flex-wrap:wrap;font-size:.76rem;color:var(--dim);align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule)}
 .compat-key .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -209,7 +210,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 #validatorReturnBox{margin-top:8px}
 #portabilityNote.ok,#portabilityNote .ok{color:var(--good)}
 #portabilityNote.warn,#portabilityNote .warn{color:var(--danger)}
-#portabilityNote .cpu{color:var(--accent)}
+#portabilityNote .cpu{color:var(--info)}
 
 .grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
 .grid[hidden]{display:none}
@@ -603,7 +604,7 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .rulehl .hl-bad{text-decoration:underline wavy var(--danger);text-decoration-thickness:2px;text-underline-offset:2px}
 /* a step that needs hashcat's CPU engine (-j/-k) and won't run from a GPU rule file (-r) — solid,
    not wavy, since it's not an error so much as "this needs the other engine" */
-.rulehl .hl-cpu{text-decoration:underline solid var(--accent);text-decoration-thickness:2px;text-underline-offset:2px}
+.rulehl .hl-cpu{text-decoration:underline solid var(--info);text-decoration-thickness:2px;text-underline-offset:2px}
 
 .cheat{max-height:calc(100vh - 64px);overflow:hidden}
 .cheat.expanded{max-height:none;overflow:visible}
@@ -3778,9 +3779,10 @@ d $1$2$3"></textarea>
     }
     // Memory and reject operators (and the p position) exist only in hashcat's CPU engine — same
     // treatment as the Both view's syntax-error case above: its own line, colored (here, the same
-    // accent/yellow as the CPU-only underline below and the cheat sheet's CPU badge), not folded
-    // into another line's color or bullet-joined after it. Appended via innerHTML (not
-    // textContent) so it doesn't clobber colored spans a branch above may have already written.
+    // blue as the CPU-only underline below and the cheat sheet's CPU badge — a separate hue from
+    // --accent so it stays visible under the hover highlight, which is tinted with --accent),
+    // not folded into another line's color or bullet-joined after it. Appended via innerHTML
+    // (not textContent) so it doesn't clobber colored spans a branch above may have already written.
     if (TARGET !== 'john_native' && chainNeedsCpuEngine(steps)){
       var cpuMsg = 'CPU engine only — these step(s) need hashcat’s -j / -k; a rule file run with -r (GPU) skips them';
       var cpuLine = '<span class="cpu">⚠ ' + escapeHtml(cpuMsg) + '</span>';
