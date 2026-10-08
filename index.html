@@ -3119,7 +3119,8 @@ d $1$2$3"></textarea>
   // switch — it turns off class syntax (?v etc.) on the shared letters and switches p/R/L/i/x to
   // their hashcat meanings. Buffers are NUL-terminated byte arrays, exactly as in C, so the odd
   // corners (a byte decremented to 0 ends the word, `[[[` counted together) behave as in John.
-  var J_WORD = 128, J_INVALID = NaN;   // RULE_WORD_SIZE for this John release (0x80, not the 320 of newer trees)
+  var J_WORD = 320, J_INVALID = NaN;   // RULE_WORD_SIZE as of John 1.9.0-jumbo-1+bleeding-302f52709 (2026-09-30);
+                                        // was 0x80 (128) before the Nov 2025 "lengths beyond 128" rework
   var J_ERR_NONE = 0, J_ERR_END = 1, J_ERR_UNKNOWN = 2, J_ERR_POSITION = 3, J_ERR_CLASS = 4, J_ERR_UNALLOWED = 5;
   var J_CHARS = {
     v: 'aeiouAEIOU', c: 'bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ', w: ' \t', p: '.,:;\'"?!`',
@@ -3266,7 +3267,7 @@ d $1$2$3"></textarea>
     st.vars['l'.charCodeAt(0)] = st.length;
     st.vars['*'.charCodeAt(0)] = st.maxLen; st.vars['-'.charCodeAt(0)] = st.maxLen - 1; st.vars['+'.charCodeAt(0)] = st.maxLen + 1;
     st.vars['#'.charCodeAt(0)] = st.minLen; st.vars['@'.charCodeAt(0)] = st.minLen ? st.minLen - 1 : 0; st.vars['$'.charCodeAt(0)] = st.minLen + 1;
-    st.vars['z'.charCodeAt(0)] = 255;   // INFINITE_LENGTH in this John release (0xFF, not (MAX_PLAINTEXT_LENGTH*2) of newer trees)
+    st.vars['z'.charCodeAt(0)] = 638;   // INFINITE_LENGTH = MAX_PLAINTEXT_LENGTH*2 = (320-1)*2, as of the Nov 2025 rework; was 0xFF (255) before it
     for (var d=0;d<=9;d++) st.vars[48+d] = d;
     for (var A=0;A<26;A++) st.vars[65+A] = 10 + A;
     function REJ(){ if (!st.normalize) st.reject = true; }

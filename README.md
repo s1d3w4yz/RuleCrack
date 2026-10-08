@@ -178,9 +178,15 @@ semantics (including the hashcat-compat-mode disambiguation rules and the
 native grammar) were verified against `doc/RULES`, `doc/RULES-hashcat`, and
 `src/rules.c` in the [John the Ripper jumbo](https://github.com/openwall/john)
 repository — and, where the John engine itself runs (not just documented),
-against the exact 1.9.0-jumbo-1 (2021-11-02) release this was developed
-against, since the `john/` checkout here is a much newer snapshot that
-genuinely disagrees with it in places.
+against a real `john` binary built from the exact
+`1.9.0-jumbo-1+bleeding-302f52709` (2026-09-30) checkout here, and a real
+`hashcat` binary built from the exact `v7.1.2-850-gb3ecf3293` (2026-10-04)
+checkout here. (This tool previously targeted the older 1.9.0-jumbo-1
+(2021-11-02) release; re-verifying against the current checkout found and
+fixed a genuine length-handling gap — John's own `RULE_WORD_SIZE` grew from
+128 to 320 bytes in a November 2025 rework, and this tool's port had kept
+the old 128 ceiling, silently truncating any rule's output past 127
+bytes where real John now allows up to 319.)
 
 ## Usage
 

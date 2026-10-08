@@ -230,11 +230,12 @@ def run_regression_checks(driver, results):
 
 
 def run_john_engine_checks(driver, results):
-    """A direct port of John the Ripper jumbo's rules_apply() (src/rules.c), built against the
-    exact release installed locally (1.9.0-jumbo-1, 2021-11-02) rather than the newer checkout in
-    john/ — the two differ in ways that matter (buffer size, the infinite-length constant, integer
-    signedness). Checked against the real `john` binary via a differential fuzzer (not checked in);
-    these are the specific bugs that fuzzing found, kept as a permanent regression check."""
+    """A direct port of John the Ripper jumbo's rules_apply() (src/rules.c), built against a real
+    `john` binary built from the exact 1.9.0-jumbo-1+bleeding-302f52709 (2026-09-30) checkout in
+    john/ (this tool previously targeted the older, pre-built 1.9.0-jumbo-1 (2021-11-02) release;
+    re-verifying against the current checkout found a genuine gap — see RULE_WORD_SIZE below —
+    since fixed). Checked against the real `john` binary via a differential fuzzer (not checked
+    in); these are the specific bugs that fuzzing found, kept as a permanent regression check."""
     def jrun(rule, word, hc=False, min_len=0, max_len=28):
         return driver.execute_script(
             "var r = window.__test.jRulesApply(arguments[0], window.__test.toBytes(arguments[1]),"
@@ -243,17 +244,24 @@ def run_john_engine_checks(driver, results):
             rule, word, hc, min_len, max_len)
     J_RC_REJECT, J_RC_SYNTAX, J_RC_LENGTH = 1, 2, 3   # 3: rejected only by the final Min/Max-length check
     cases = [
-        # RULE_WORD_SIZE is 128 in this release (0x80), not the 320 of the current john/ checkout
+        # RULE_WORD_SIZE is 320 as of the Nov 2025 "lengths beyond 128" rework (was 128/0x80 before
+        # it) — found by a boundary-focused differential fuzz run (721 disagreements, all of them
+        # this tool's own engine truncating every op's output at 127 bytes where real John now
+        # allows up to 319) after this tool was re-targeted to the current john/ checkout.
         ('M 46', 'abcdefghijklmnopqrstuvwxyz', 0, 28, J_RC_LENGTH),   # tripled = 78 bytes > max-length 28
         ('M 46', 'abc', 0, 28, 'abcabcabc'),
-        # 'z' (a position/length argument) is the symbolic "infinite" length, 255 here (0xFF) —
-        # not (MAX_PLAINTEXT_LENGTH*2) as in the current checkout
-        ('Zz', 'a', 0, 28, J_RC_LENGTH),    # Z has no overflow guard at all; length grows by 255
+        # 'z' (a position/length argument) is the symbolic "infinite" length: MAX_PLAINTEXT_LENGTH*2
+        # = (320-1)*2 = 638 as of the same rework (was 255/0xFF before it) — either way this exceeds
+        # max-length 28, so the expected outcome here doesn't change, only the internal constant.
+        ('Zz', 'a', 0, 28, J_RC_LENGTH),    # Z has no overflow guard at all; length grows by 638
         ('Y9', 'ab', 0, 28, 'ab'),           # Y does guard (n <= length): 9 > 2, so unlike Z this is a no-op
         ('Y2', 'ab', 0, 28, 'abab'),         # an in-range N duplicates the last N chars, appended once
-        # 'v' writes into an unsigned byte array: a negative (N - M) wraps mod 256 instead of going
-        # negative. va01 sets a = 0-1 = -1, stored as 255. ">a" then rejects unless length > a: with
-        # the wrap, 13 <= 255 rejects; a real negative would make 13 <= -1 false and let it through.
+        # 'v' writes into rules_vars[], unsigned char in the old release (so a negative N-M wraps
+        # mod 256) and plain int in the current one (so it's a real negative) — verified this
+        # doesn't actually change any observable outcome: every op that reads a position back out
+        # does so into an unsigned int, so a genuine -1 and a wrapped 255 both end up reinterpreted
+        # as a huge unsigned value at the point of use either way. va01 sets a = 0-1; ">a" then
+        # rejects unless length > a, and does with either representation of "a".
         ('va01 >a', 'abcdefghijklm', 0, 28, J_RC_REJECT),
         ('Ta', 'ab', 0, 28, J_RC_SYNTAX),   # 'a' unset (no prior 'v'): a real syntax error, same as hashcat's p
         # John strips ':'/' '/'\t' out of a rule once, at load time, via a dry run of this same
@@ -268,6 +276,9 @@ def run_john_engine_checks(driver, results):
         ('M 46', 'abc', 0, 28, 'abcabcabc'),         # fits within 28 bytes: not rejected
         ('d', 'a' * 20, 0, 28, J_RC_LENGTH),         # doubled = 40 bytes, over the 28-byte limit: the *finished* rule is checked
         ('d l', 'a' * 15, 0, 28, J_RC_LENGTH),         # the length check is on the finished rule's output, not per-step
+        # RULE_WORD_SIZE regression: a 150-byte word must come through whole (given enough Min/Max
+        # length room) — not silently cut to 127 bytes by a stale internal buffer-size constant.
+        ('l', 'x' * 150, 0, 200, 'x' * 150),
         # the line-level reject flags this tool can evaluate without target-format context (probed
         # against a real `john --stdout` run): -: -c -8 -S -u pass through; -s -p -R -U always
         # reject; ->N / -<N compare N against the Min/Max length fields.
