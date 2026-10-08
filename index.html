@@ -593,6 +593,12 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .hinticon{vertical-align:-2px;margin-right:4px}
 .hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
+/* The .rulehl overlay paints above this input (positioned elements paint above static ones,
+   regardless of DOM order), so .hl-on's translucent amber fill sits on top of the native text
+   caret too. The caret just inherits the input's (pale) text color by default, and loses
+   contrast once that fill lightens the background under it. A distinct hue that isn't used by
+   any highlight stays visible in every state instead of fading into whichever tint is active. */
+#ruleTextInput{caret-color:var(--info)}
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
 .rulehl .hl-on{background:color-mix(in srgb,var(--accent) 18%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
