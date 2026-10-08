@@ -1760,6 +1760,45 @@ def test_rule_line_underlines_the_offending_token(driver, r):
     r.check(bad_texts() == [], 'an ordinary, fully-portable rule has nothing underlined', f'{bad_texts()}')
 
 
+def test_rule_line_has_a_custom_caret(driver, r):
+    """The native text caret has no standard CSS way to be made thicker, and would sit under
+    .rulehl's highlight tint anyway (that overlay paints above the input), so the real caret is
+    hidden (caret-color:transparent) and a custom #fakeCaret bar is positioned in its place —
+    visible, thicker, and in a color no highlight in the rule line uses. It tracks the real
+    caret via the input's own selectionStart, hides during an actual (non-collapsed) selection
+    and on blur, and reappears correctly positioned on refocus."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1', debounced=True)
+    inp = driver.find_element('id', 'ruleTextInput')
+
+    def caret():
+        return driver.execute_script(
+            "var fc = document.getElementById('fakeCaret');"
+            "return {shown: getComputedStyle(fc).display !== 'none', left: parseFloat(fc.style.left) || 0};")
+
+    r.check(driver.execute_script("return getComputedStyle(document.getElementById('ruleTextInput')).caretColor;") == 'rgba(0, 0, 0, 0)',
+            'the native caret is hidden (transparent) now that a custom one replaces it')
+
+    inp.click()
+    driver.execute_script("var i=document.getElementById('ruleTextInput'); i.setSelectionRange(0,0); i.dispatchEvent(new Event('keyup',{bubbles:true}));")
+    at_start = caret()
+    driver.execute_script("var i=document.getElementById('ruleTextInput'); i.setSelectionRange(6,6); i.dispatchEvent(new Event('keyup',{bubbles:true}));")
+    at_6 = caret()
+    r.check(at_start['shown'] and at_6['shown'] and at_6['left'] > at_start['left'],
+            'the fake caret is visible and moves right as the real caret moves right', f'{at_start} -> {at_6}')
+
+    driver.execute_script("var i=document.getElementById('ruleTextInput'); i.setSelectionRange(0,3); i.dispatchEvent(new Event('select',{bubbles:true}));")
+    r.check(not caret()['shown'], 'the fake caret hides during an actual text selection', f"{caret()}")
+
+    driver.execute_script("document.getElementById('ruleTextInput').blur();")
+    r.check(not caret()['shown'], 'the fake caret hides on blur', f"{caret()}")
+
+    inp.click()
+    driver.execute_script("var i=document.getElementById('ruleTextInput'); i.setSelectionRange(2,2); i.dispatchEvent(new Event('focus',{bubbles:true}));")
+    r.check(caret()['shown'], 'the fake caret reappears on refocus', f"{caret()}")
+    driver.execute_script("document.getElementById('ruleTextInput').blur();")
+
+
 def test_both_callout_is_a_code_block(driver, r):
     """The Both setup callout is a 4-line code block plus three short
     points (not one dense paragraph)."""
@@ -2552,6 +2591,7 @@ def main():
         test_section_gaps_are_consistent(driver, r)
         test_both_view_warns_when_john_would_differ(driver, r)
         test_rule_line_underlines_the_offending_token(driver, r)
+        test_rule_line_has_a_custom_caret(driver, r)
         test_both_callout_is_a_code_block(driver, r)
         test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)

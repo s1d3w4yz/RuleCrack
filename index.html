@@ -595,10 +595,15 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 .rulewrap{position:relative;display:block}
 /* The .rulehl overlay paints above this input (positioned elements paint above static ones,
    regardless of DOM order), so .hl-on's translucent amber fill sits on top of the native text
-   caret too. The caret just inherits the input's (pale) text color by default, and loses
-   contrast once that fill lightens the background under it. A distinct hue that isn't used by
-   any highlight stays visible in every state instead of fading into whichever tint is active. */
-#ruleTextInput{caret-color:var(--info)}
+   caret too, and the native caret has no standard way to be drawn any thicker. Hide it and draw
+   our own bar (#fakeCaret, positioned in JS) above the overlay instead — same color, but with a
+   width we control. */
+#ruleTextInput{caret-color:transparent}
+.fakecaret{position:absolute;top:5px;bottom:5px;width:2px;border-radius:1px;background:var(--info);pointer-events:none;display:none}
+.fakecaret.blink{animation:caretblink 1s step-end infinite}
+@keyframes caretblink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){ .fakecaret.blink{animation:none} }
+@media (forced-colors:active){ .fakecaret{background:CanvasText} }
 .rulehl{position:absolute;inset:0;pointer-events:none;overflow:hidden;white-space:pre;
   font-family:'IBM Plex Mono',monospace;font-size:1rem;padding:9px 10px;border:1px solid transparent;border-radius:6px;color:transparent}
 .rulehl .hl-on{background:color-mix(in srgb,var(--accent) 18%, transparent);border-radius:3px;box-shadow:0 0 0 1px var(--accent)}
@@ -815,6 +820,7 @@ try{
         <span class="rulewrap">
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1" aria-labelledby="h-rule" aria-describedby="ruleLineSub ruleParseStatus portabilityNote">
           <span class="rulehl" id="ruleHl" aria-hidden="true"></span>
+          <span class="fakecaret" id="fakeCaret" aria-hidden="true"></span>
         </span>
       </label>
       <div id="ruleParseStatus" class="sub" style="margin-top:-6px" aria-live="polite"></div>
@@ -4629,6 +4635,7 @@ d $1$2$3"></textarea>
   // highlighted, and the token of every disabled step is struck through and
   // dimmed (so the line doesn't claim to apply a step that's switched off).
   var ruleHl = document.getElementById('ruleHl');
+  var fakeCaret = document.getElementById('fakeCaret');
   var hoverStepId = null;
   function argSig(a){ return Object.keys(a||{}).sort().map(function(k){ return k+'='+String(a[k]); }).join('|'); }
   // Which slice of the rule line belongs to which step. The line only
@@ -4817,6 +4824,31 @@ d $1$2$3"></textarea>
   ruleTextInput.addEventListener('blur', function(){
     if (linkSource === 'caret'){ hoverStepId = null; linkSource = null; paintRuleHl(); linkTraceRow(false); linkChainCard(false); }
   });
+  // A thicker, more visible stand-in for the native text caret (which has no standard CSS way
+  // to be made thicker, and would sit under .rulehl's highlight tint anyway — see #ruleTextInput's
+  // caret-color:transparent above). Positioned with the same monospace-character-width trick
+  // ruleStepAt already uses for hover detection, so this adds one multiplication, not a new
+  // measurement pass; the blink itself is a CSS animation, not a JS timer, so it costs nothing
+  // between position updates. Hidden during an actual selection (the native selection highlight
+  // already shows where that is) and restarted (not just repositioned) on every move, so it's
+  // never left stuck invisible mid-blink right after the cursor jumps somewhere new.
+  function updateFakeCaret(){
+    if (document.activeElement !== ruleTextInput || ruleTextInput.selectionStart !== ruleTextInput.selectionEnd){
+      fakeCaret.style.display = 'none';
+      return;
+    }
+    var cs = getComputedStyle(ruleTextInput);
+    measureCtx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    var charW = measureCtx.measureText('0').width;
+    fakeCaret.style.left = (parseFloat(cs.paddingLeft) + ruleTextInput.selectionStart * charW - ruleTextInput.scrollLeft) + 'px';
+    fakeCaret.style.display = 'block';
+    fakeCaret.classList.remove('blink');
+    void fakeCaret.offsetWidth;   // force reflow so removing+re-adding the class actually restarts the animation
+    fakeCaret.classList.add('blink');
+  }
+  ['keyup', 'mouseup', 'focus', 'select', 'input'].forEach(function(ev){ ruleTextInput.addEventListener(ev, updateFakeCaret); });
+  ruleTextInput.addEventListener('blur', function(){ fakeCaret.style.display = 'none'; });
+  ruleTextInput.addEventListener('scroll', updateFakeCaret);
 
   ruleTextInput.addEventListener('input', function(){
     clearTimeout(ruleParseTimer);
