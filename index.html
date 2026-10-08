@@ -144,6 +144,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 }
 .badge.hc-only{color:var(--danger);border-color:var(--danger)}
 .badge.john-only{color:var(--good);border-color:var(--good)}
+.badge.cpu-only{color:var(--accent);border-color:var(--accent)}
 
 .cheat-row .badge{margin-left:auto}
 
@@ -152,6 +153,11 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
    default ink = shared (works identically in both). */
 .tok-hc{color:var(--danger)}
 .tok-john{color:var(--good)}
+/* A separate, independent axis from hc/john: whether the op needs hashcat's pure-CPU rules
+   engine (-j/-k) because the GPU kernel used by -r doesn't implement it. Not mutually exclusive
+   with tok-hc/tok-john (a few ops are both hashcat-only AND CPU-only), so it's its own marker
+   rather than a third color sharing the same slot as the hc/john ones. */
+.tok-cpu{color:var(--accent)}
 
 .compat-key{display:flex;gap:6px 12px;flex-wrap:wrap;font-size:.76rem;color:var(--dim);align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--rule)}
 .compat-key .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
@@ -2594,6 +2600,7 @@ d $1$2$3"></textarea>
             (op.kind==='memorize' || op.group==='Memory (save and reuse the word)' ? '<span class="taglabel">memory</span>' : '')+
             (JOHN_UNSUPPORTED[step.type] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
             (op.johnOnly ? '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>' : '')+
+            (TARGET !== 'john_native' && op.cpuOnly ? '<span class="badge cpu-only" title="Hashcat’s GPU kernel (-r) doesn’t implement this — only the pure-CPU rules engine (-j / -k) does">⚙ CPU-only</span>' : '')+
             (argsHtml ? '<span class="argrow">'+argsHtml+'</span>' : '')+
           '</div>'+
           '<div class="steplabel">'+escapeHtml(OPS[step.type].label)+'</div>'+
@@ -4326,10 +4333,14 @@ d $1$2$3"></textarea>
   // blindness, and tooltips don't exist on touch or for keyboard users), so
   // those rows also get a letter tag — and a spoken prefix. Shared operators,
   // the majority, stay unmarked so the list stays easy to scan.
-  function compatMark(cc){
-    if (cc === 'tok-hc')   return '<span class="sr-only">Hashcat only: </span><span class="mk tok-hc" aria-hidden="true" title="No John the Ripper equivalent at all">HC</span>';
-    if (cc === 'tok-john') return '<span class="sr-only">John only: </span><span class="mk tok-john" aria-hidden="true" title="No hashcat equivalent at all">J</span>';
-    return '';
+  function compatMark(cc, cpuOnly){
+    var mark = '';
+    if (cc === 'tok-hc')   mark = '<span class="sr-only">Hashcat only: </span><span class="mk tok-hc" aria-hidden="true" title="No John the Ripper equivalent at all">HC</span>';
+    if (cc === 'tok-john') mark = '<span class="sr-only">John only: </span><span class="mk tok-john" aria-hidden="true" title="No hashcat equivalent at all">J</span>';
+    // Independent of the mark above — a hashcat-only op can also be CPU-only (a few are both).
+    if (cpuOnly) mark += '<span class="sr-only">CPU only: </span><span class="mk tok-cpu" aria-hidden="true" ' +
+      'title="Hashcat’s GPU kernel (-r) doesn’t implement this — only the pure-CPU rules engine (-j / -k) does">CPU</span>';
+    return mark;
   }
   function renderCheatsheet(){
     var tokenFn = TARGET==='john_native' ? johnToken : hashcatToken;
@@ -4354,6 +4365,9 @@ d $1$2$3"></textarea>
       '<span><span class="dot shared"></span>works in both</span>'+
       '<span><span class="mk tok-hc" aria-hidden="true">HC</span><span class="tok-hc">hashcat-only</span></span>'+
       '<span><span class="mk tok-john" aria-hidden="true">J</span><span class="tok-john">John-only</span></span>'+
+      (TARGET !== 'john_native'
+        ? '<span><span class="mk tok-cpu" aria-hidden="true">CPU</span><span class="tok-cpu">needs -j/-k, not -r (GPU)</span></span>'
+        : '')+
       '</div>';
     // Counted straight from OPS/JOHN_UNSUPPORTED, not hardcoded, so this can't drift
     // out of sync if an operator is ever added or reclassified.
@@ -4423,10 +4437,13 @@ d $1$2$3"></textarea>
         // hovering it shows nothing extra rather than a redundant "works
         // in both" on every single row.
         var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
+        // The CPU/GPU split is a hashcat engine detail (which kernel runs the rule), not a
+        // hashcat-vs-John thing, so it's irrelevant — and not shown — in the John-native view.
+        var cpuOnly = TARGET !== 'john_native' && !!OPS[k].cpuOnly;
         html += '<div class="cheat-row">'+
           '<span class="syntax '+cc+'"'+tip+'>'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" aria-label="Add example '+escapeHtml(example)+' ('+escapeHtml(OPS[k].label)+') to the rule line" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
-          '<span class="desc">'+compatMark(cc)+escapeHtml(OPS[k].label)+'</span>'+
+          '<span class="desc">'+compatMark(cc, cpuOnly)+escapeHtml(OPS[k].label)+'</span>'+
         '</div>';
       });
     });
