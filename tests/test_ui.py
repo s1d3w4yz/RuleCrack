@@ -390,12 +390,15 @@ def test_cross_target_export_and_portability(driver, r):
     # Now drop the hashcat-only step and confirm the "fully portable" note shows.
     driver.execute_script("document.querySelectorAll('.step .del')[1].click();")  # remove to_hex_lower
     n3 = note()
-    r.check(n3['cls'] == 'sub ok' and n3['text'].startswith('✓ Portable'),
+    # No per-word divergence check failed here, so the note is just the single "Portable" line —
+    # class 'sub' (not 'sub ok') since that color now lives on an inner span, not the element itself,
+    # so a later divergence on some other word can color just the warning without recoloring this line.
+    r.check(n3['cls'] == 'sub' and n3['text'].startswith('✓ Portable'),
             '"Both" target with an all-shared chain: portability note confirms it\'s portable', n3)
 
     driver.find_element('css selector', '#targetBtns .tbtn[data-target="john_native"]').click()
     n4 = note()
-    r.check(n4['cls'] == 'sub ok' and n4['text'].startswith('✓ Also valid as plain hashcat syntax'),
+    r.check(n4['cls'] == 'sub ok' and n4['text'].startswith('✓ Portable — also valid as plain hashcat syntax'),
             'John-native target with only shared steps: note confirms it\'s also plain hashcat syntax', n4)
     driver.find_element('css selector', '#targetBtns .tbtn[data-target="hashcat"]').click()
 
@@ -1722,6 +1725,32 @@ def test_both_view_warns_when_john_would_differ(driver, r):
     set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
 
 
+def test_rule_line_underlines_the_offending_token(driver, r):
+    """The portability note names what's wrong, but not where — section 02's rule line now
+    underlines (wavy, red) the exact token(s) responsible, in both of the cases that can point
+    at a specific step: a hashcat-only step (Hashcat view) and a step whose own token doesn't
+    even parse in John's hashcat-compat mode (Both view). A plain shared step, and a step that
+    merely gives a different result for this word (not a parse failure), stay unmarked — the
+    tool only underlines what it can actually attribute to one step."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+
+    def bad_texts():
+        return driver.execute_script(
+            "return [].map.call(document.querySelectorAll('#ruleHl .hl-bad'), function(s){ return s.textContent; });")
+
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'l h', debounced=True)
+    r.check(bad_texts() == ['h'], 'the hashcat-only step (h) is underlined, the shared one (l) is not', f'{bad_texts()}')
+
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 $\\xc2$\\xa3', debounced=True)
+    r.check(sorted(bad_texts()) == ['$\\xa3', '$\\xc2'],
+            'the token(s) John’s hashcat-compat mode refuses to parse are underlined', f'{bad_texts()}')
+
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+    r.check(bad_texts() == [], 'an ordinary, fully-portable rule has nothing underlined', f'{bad_texts()}')
+
+
 def test_both_callout_is_a_code_block(driver, r):
     """The Both setup callout is a 4-line code block plus three short
     points (not one dense paragraph)."""
@@ -2501,6 +2530,7 @@ def main():
         test_target_views_are_consistent(driver, r)
         test_section_gaps_are_consistent(driver, r)
         test_both_view_warns_when_john_would_differ(driver, r)
+        test_rule_line_underlines_the_offending_token(driver, r)
         test_both_callout_is_a_code_block(driver, r)
         test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)

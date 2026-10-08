@@ -201,8 +201,8 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
    closer (26px of visible space under it felt larger than every other gap) */
 #portabilityNote{margin-bottom:-8px}
 #validatorReturnBox{margin-top:8px}
-#portabilityNote.ok{color:var(--good)}
-#portabilityNote.warn{color:var(--danger)}
+#portabilityNote.ok,#portabilityNote .ok{color:var(--good)}
+#portabilityNote.warn,#portabilityNote .warn{color:var(--danger)}
 
 .grid{display:grid;grid-template-columns:1.05fr 1fr 0.85fr;gap:20px;align-items:start}
 .grid[hidden]{display:none}
@@ -500,6 +500,7 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
   .mbtn.active,.tbtn.active{outline:2px solid Highlight;outline-offset:-2px;text-decoration:underline}
   .step.linked,.trace .trace-row.linked{outline:2px solid Highlight;outline-offset:-2px}
   .rulehl .hl-on{outline:2px solid Highlight}
+  .rulehl .hl-bad{outline:2px dashed Highlight}
   .step .grip::before{forced-color-adjust:none;background-image:radial-gradient(circle,CanvasText 1.3px,transparent 1.7px);opacity:1}
   .step .grip{border-right:1px solid CanvasText}
   .toast{border:2px solid CanvasText}
@@ -589,6 +590,9 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 /* a disabled step: veil the token (same color as the input, so the text
    underneath looks dimmed) and strike a line through it */
 .rulehl .hl-off{background:color-mix(in srgb,var(--surface-2) 62%, transparent);text-decoration:line-through;text-decoration-color:var(--dim);text-decoration-thickness:2px}
+/* the token(s) the portability note above is complaining about — a wavy underline (not just a
+   color) so it reads as "flagged" independent of color vision, and combines with hl-on/hl-off */
+.rulehl .hl-bad{text-decoration:underline wavy var(--danger);text-decoration-thickness:2px;text-underline-offset:2px}
 
 .cheat{max-height:calc(100vh - 64px);overflow:hidden}
 .cheat.expanded{max-height:none;overflow:visible}
@@ -820,7 +824,7 @@ try{
       </div>
 
       <div class="callout small">
-        <b>Reject steps</b> don't transform the word — they decide whether it
+        <b>A reject step</b> doesn't transform the word — it decides whether the word
         survives (e.g. "reject unless length ≥ 8"); once one rejects, the chain stops.
         <br><b>Memory steps</b> (<span class="mono">M 4 6 X Q</span>) save a copy of the word and use it
         again later in the same rule. For example, <span class="mono">M u 4</span> turns <span class="mono">abc</span>
@@ -3656,6 +3660,7 @@ d $1$2$3"></textarea>
     badge.textContent = '✗ rejected the word';
     row.querySelector('.toprow').appendChild(badge);
   }
+  var portabilityBadStepIds = [];   // steps the portability note just flagged; paintRuleHl underlines them
   function renderTraceAndRule(){
     var word = wordInput.value || '';
     var result = runChain(word);
@@ -3696,6 +3701,7 @@ d $1$2$3"></textarea>
     copyRuleBtn.disabled = !ruleHasTokens();
 
     var enabledSteps = steps.filter(function(s){ return s.enabled; });
+    portabilityBadStepIds = [];
     var noteEl = document.getElementById('portabilityNote');
     if (!enabledSteps.length){
       noteEl.textContent = '';
@@ -3706,7 +3712,7 @@ d $1$2$3"></textarea>
         var jnames = johnOnlySteps.map(function(s){ return CHEAT[s.type] ? CHEAT[s.type].syntax : s.type; }).join(', ');
         noteEl.textContent = '✓ John-native — ' + johnOnlySteps.length + ' step(s) use John-only syntax, no hashcat equivalent at all: ' + jnames;
       } else {
-        noteEl.textContent = '✓ Also valid as plain hashcat syntax — every enabled step has a hashcat form too.';
+        noteEl.textContent = '✓ Portable — also valid as plain hashcat syntax.';
       }
       noteEl.className = 'sub ok';
     } else {
@@ -3715,35 +3721,55 @@ d $1$2$3"></textarea>
         var names = incompatible.map(function(s){ return CHEAT[s.type] ? CHEAT[s.type].syntax : s.type; }).join(', ');
         noteEl.textContent = '✗ Won’t run in John the Ripper — ' + incompatible.length + ' step(s) are hashcat-only: ' + names;
         noteEl.className = 'sub warn';
+        portabilityBadStepIds = incompatible.map(function(s){ return s.id; });
       } else {
-        noteEl.textContent = '✓ Portable — also runs in John’s hashcat-compat mode.';
-        noteEl.className = 'sub ok';
         // "Portable" means every step has a hashcat form John accepts under "!! hashcat logic ON" —
         // not that John gives the same result for every word. A handful of shared operators (length
         // rejects, X, 3, e, R/L's CPU-vs-kernel split…) read this exact word differently, so check it
         // for real rather than assume: build the same tokens and run them through the John engine too.
+        // The two facts are independent (the rule is still portable even if this one word diverges),
+        // so they're colored and laid out as separate lines rather than one line whose color — and
+        // whose claim — would otherwise flip from "portable" to "warning" depending on the word.
+        var lines = ['<span class="ok">✓ Portable — also runs in John’s hashcat-compat mode.</span>'];
+        noteEl.className = 'sub';
         if (TARGET === 'both'){
           var tokens = enabledSteps.map(function(s){ return hashcatToken(s.type, s.args); }).filter(function(t){ return t !== null; });
           if (tokens.length){
             var jres = jRulesApply(tokens.join(' '), toBytes(word), {hc: true, minLen: MIN_LEN, maxLen: MAX_LEN});
             var jFinal = jres.rc === 0 ? fromBytes(jres.word) : null;
             var hcFinal = result.rejected ? null : result.final;
-            if (jFinal !== hcFinal){
-              var diffMsg = jres.rc === J_RC_SYNTAX
-                ? 'John refuses this exact rule as a syntax error, for a reason hashcat allows'
-                : 'differs in John for this word: hashcat gives ' + (hcFinal === null ? '(rejected)' : '“' + hcFinal + '”') +
-                  ', John gives ' + (jFinal === null ? '(rejected)' : '“' + jFinal + '”');
-              noteEl.textContent += ' · ⚠ ' + diffMsg;
+            if (jres.rc === J_RC_SYNTAX){
+              // Every operator here is individually shared, but John's own parser, in its
+              // hashcat-compat mode, doesn't accept this exact rule text — that's a hard
+              // incompatibility, not a result that merely differs, so it replaces the
+              // "Portable" claim instead of being tacked on alongside it.
+              lines = ['<span class="warn">⚠ Every operator here is shared, but John’s hashcat-compat mode ' +
+                'refuses this exact rule text as a syntax error of its own.</span>'];
               noteEl.className = 'sub warn';
+              // Narrow down which token(s) John's parser actually chokes on: re-run each step's own
+              // token alone through the same John hc-mode check. If the error only emerges from the
+              // combination, none will show it individually, and the note above stands on its own.
+              portabilityBadStepIds = enabledSteps.filter(function(s){
+                var t = hashcatToken(s.type, s.args);
+                if (t === null) return false;
+                return jRulesApply(t, toBytes(word), {hc: true, minLen: MIN_LEN, maxLen: MAX_LEN}).rc === J_RC_SYNTAX;
+              }).map(function(s){ return s.id; });
+            } else if (jFinal !== hcFinal){
+              var diffMsg = 'differs in John for this word: hashcat gives ' + (hcFinal === null ? '(rejected)' : '“' + hcFinal + '”') +
+                ', John gives ' + (jFinal === null ? '(rejected)' : '“' + jFinal + '”');
+              lines.push('<span class="warn">⚠ ' + escapeHtml(diffMsg) + '</span>');
             }
           }
         }
+        noteEl.innerHTML = lines.join('<br>');
       }
     }
     // Memory and reject operators (and the p position) exist only in hashcat's CPU engine.
+    // Appended via innerHTML (not textContent) so it doesn't clobber the colored spans a branch
+    // above may have already written into this element.
     if (TARGET !== 'john_native' && chainNeedsCpuEngine(steps)){
       var cpuMsg = 'CPU engine only: hashcat runs these operators only with -j / -k (combinator attacks); a rule file given with -r skips the rule';
-      noteEl.textContent = noteEl.textContent ? noteEl.textContent + ' · ' + cpuMsg : cpuMsg;
+      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + ' · ' + escapeHtml(cpuMsg) : escapeHtml(cpuMsg);
       if (!noteEl.className) noteEl.className = 'sub';
     }
     // The copy button copies what the rule applies, which leaves disabled
@@ -3753,7 +3779,7 @@ d $1$2$3"></textarea>
     var offCount = steps.filter(function(st){ return !st.enabled && tokenFnNote(st.type, st.args) !== null; }).length;
     if (offCount){
       var offMsg = offCount + ' disabled step' + (offCount === 1 ? ' is' : 's are') + ' left out of the copy';
-      noteEl.textContent = noteEl.textContent ? noteEl.textContent + ' · ' + offMsg : offMsg.charAt(0).toUpperCase() + offMsg.slice(1) + '.';
+      noteEl.innerHTML = noteEl.innerHTML ? noteEl.innerHTML + ' · ' + escapeHtml(offMsg) : escapeHtml(offMsg.charAt(0).toUpperCase() + offMsg.slice(1) + '.');
       if (!noteEl.className) noteEl.className = 'sub';
     }
   }
@@ -4492,6 +4518,7 @@ d $1$2$3"></textarea>
 
   wordInput.addEventListener('input', function(){
     renderTraceAndRule();
+    if (ruleHl) paintRuleHl(); // the portability note's flagged token(s) can depend on the word too
     // the validator's preview column uses this same word as its sample —
     // keep it in sync so switching views never shows a stale preview.
     if (VALIDATOR_LINES.length) renderValidator();
@@ -4603,15 +4630,15 @@ d $1$2$3"></textarea>
   function paintRuleHl(){
     var text = ruleTextInput.value, marks = [];
     ruleMatches().forEach(function(m){
-      var hover = m.step.id == hoverStepId, off = !m.step.enabled;
-      if (hover || off) marks.push({from: m.from, to: m.to, hover: hover, off: off});
+      var hover = m.step.id == hoverStepId, off = !m.step.enabled, bad = portabilityBadStepIds.indexOf(m.step.id) >= 0;
+      if (hover || off || bad) marks.push({from: m.from, to: m.to, hover: hover, off: off, bad: bad});
     });
     if (!marks.length){ ruleHl.innerHTML = ''; return; }
     marks.sort(function(a, b){ return a.from - b.from; });
     var html = '', pos = 0;
     marks.forEach(function(m){
       html += escapeHtml(text.slice(pos, m.from)) +
-        '<span class="'+(m.hover ? 'hl-on ' : '')+(m.off ? 'hl-off' : '')+'">'+escapeHtml(text.slice(m.from, m.to))+'</span>';
+        '<span class="'+(m.hover ? 'hl-on ' : '')+(m.off ? 'hl-off ' : '')+(m.bad ? 'hl-bad' : '')+'">'+escapeHtml(text.slice(m.from, m.to))+'</span>';
       pos = m.to;
     });
     html += escapeHtml(text.slice(pos));
