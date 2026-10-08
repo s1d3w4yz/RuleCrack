@@ -1320,6 +1320,25 @@ def test_trace_row_hover_links_back_to_its_step(driver, r):
     driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
 
 
+def test_final_trace_row_still_highlights_when_pinned(driver, r):
+    """With 'Lock start/end rows' on (the default), the last trace row is sticky-pinned and sets
+    its own background/box-shadow for the drop shadow — one more class than .trace-row.linked, so
+    without the fix a hovered last step's row loses the highlight to that higher-specificity rule."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    last_step = driver.find_elements('css selector', '#chain .step')[-1]
+    driver.execute_script("arguments[0].dispatchEvent(new MouseEvent('mouseover', {bubbles:true}));", last_step)
+    info = driver.execute_script(
+        "var row = document.querySelector('#trace .trace-row.linked'); if (!row) return null;"
+        "var linkedBg = getComputedStyle(row).backgroundColor, hasInset = getComputedStyle(row).boxShadow.indexOf('inset') >= 0;"
+        "row.classList.remove('linked');"   # measure the SAME row's own un-tinted pinned background, theme-independently
+        "var plainBg = getComputedStyle(row).backgroundColor;"
+        "row.classList.add('linked');"
+        "return {locked: document.getElementById('trace').classList.contains('locked'), linkedBg: linkedBg, plainBg: plainBg, hasInset: hasInset};")
+    r.check(info and info['locked'] and info['linkedBg'] != info['plainBg'] and info['hasInset'],
+            "the last (pinned) trace row keeps its accent tint and inset border when linked", f'{info}')
+    driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
+
+
 def test_rule_line_hover_links_its_step(driver, r):
     """Hovering a token in the rule line (a real mouse) links its step: the
     card in section 03, the row in section 04 and the token itself. Gaps
@@ -2430,6 +2449,7 @@ def main():
         test_tooltip_information_is_also_visible(driver, r)
         test_step_hover_links_to_its_trace_row(driver, r)
         test_trace_row_hover_links_back_to_its_step(driver, r)
+        test_final_trace_row_still_highlights_when_pinned(driver, r)
         test_rule_line_hover_links_its_step(driver, r)
         test_rule_line_caret_links_its_step(driver, r)
         test_batch_rows_keep_their_line_numbers(driver, r)
