@@ -162,6 +162,7 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
 .mk{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.75rem;font-weight:700;line-height:1.25;
   padding:0 4px;margin-right:6px;border:1px solid currentColor;border-radius:3px;vertical-align:baseline}
 .compat-key .mk{margin:0 5px 0 0}
+.cheat-counts{font-size:.76rem;color:var(--dim);margin-top:4px}
 
 .john-only-section{
   margin-top:16px;border:1px solid var(--good);border-radius:8px;
@@ -4328,7 +4329,26 @@ d $1$2$3"></textarea>
       '<span><span class="mk tok-hc" aria-hidden="true">HC</span><span class="tok-hc">hashcat-only</span></span>'+
       '<span><span class="mk tok-john" aria-hidden="true">J</span><span class="tok-john">John-only</span></span>'+
       '</div>';
-    cheatLegend.innerHTML = legend + keyHtml;
+    // Counted straight from OPS/JOHN_UNSUPPORTED, not hardcoded, so this can't drift
+    // out of sync if an operator is ever added or reclassified.
+    var nShared = 0, nHcOnly = 0, nJohnOnly = 0;
+    Object.keys(OPS).forEach(function(k){
+      if (OPS[k].johnOnly) nJohnOnly++;
+      else if (JOHN_UNSUPPORTED[k]) nHcOnly++;
+      else nShared++;
+    });
+    // Only the counts relevant to what's actually listed below, not the whole
+    // hashcat+John picture every time — the "both" list, for instance, never
+    // shows hashcat-only ops at all, so citing a count for them there would
+    // describe operators that aren't even on the page.
+    var countsHtml = '<div class="cheat-counts">'+(
+      TARGET === 'both'
+        ? nShared+' operators are hashcat/John compatible.'
+        : TARGET === 'john_native'
+        ? 'John has '+(nShared+nJohnOnly)+' operators — '+nShared+' are hashcat-compatible.'
+        : 'hashcat has '+(nShared+nHcOnly)+' operators — '+nShared+' are John-compatible.'
+    )+'</div>';
+    cheatLegend.innerHTML = legend + keyHtml + countsHtml;
 
     // These two are setup instructions, not reference material — getting
     // them wrong silently changes what several rules below actually do
