@@ -2309,7 +2309,13 @@ d $1$2$3"></textarea>
     batchScroll.classList.remove('expanded');
     fitBatchCap();
     var cols = [measureColumn(col1Card, chainEl, MIN_CHAIN_HEIGHT), measureColumn(col2Card, traceEl, MIN_TRACE_HEIGHT)];
-    var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN, cols);
+    // Scroll-position-independent: getBoundingClientRect().top moves as the page scrolls, but
+    // adding the current scroll position back gives the fixed distance from the very top of the
+    // document to the grid — i.e. the header, intro text and the target-syntax row above it —
+    // so the columns are sized to leave exactly that much room, and the whole page (not just the
+    // three columns by themselves) fits one viewport instead of needing a scroll past the top.
+    var aboveGrid = builderView.getBoundingClientRect().top + window.scrollY;
+    var total = planColumnHeight(window.innerHeight - VIEWPORT_MARGIN - aboveGrid, cols);
     cols.forEach(function(c){
       var box = total - c.overhead;
       // a manually expanded list stays uncapped (it shows everything, and its
