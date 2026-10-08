@@ -4607,12 +4607,17 @@ d $1$2$3"></textarea>
   function scrollToShow(box, el){
     var b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
     var top = b.top, bottom = b.bottom;
-    // with the trace's start/end rows locked, those two sit on top of the
-    // scroll area, so the part where a row can actually be seen is smaller
-    if (box.classList.contains('locked') && box.children.length > 2){
-      if (el !== box.firstElementChild) top = Math.max(top, box.firstElementChild.getBoundingClientRect().bottom);
-      var end = box.querySelector('.trace-row.outcome') || box.lastElementChild, er = end.getBoundingClientRect();
-      if (el !== end && er.bottom >= b.bottom - 1) bottom = Math.min(bottom, er.top);   // only while it is pinned to the bottom
+    // With the trace's start/end rows locked (position:sticky top:0 / bottom:0), those
+    // two permanently cover part of the scroll area, so the part where a row can
+    // actually be seen is smaller. Narrow by their own height, not by checking whether
+    // their current bounding rect "looks" flush against the box edge: that check is
+    // scroll-position-dependent and was failing by sub-pixel rounding at some scroll
+    // positions, silently skipping the narrowing and leaving a row stuck under the
+    // overlay with no further scroll attempted.
+    if (box.classList.contains('locked') && box.children.length > 2 && box.scrollHeight > box.clientHeight + 1){
+      var first = box.firstElementChild, end = box.querySelector('.trace-row.outcome') || box.lastElementChild;
+      if (el !== first) top += first.getBoundingClientRect().height;
+      if (el !== end) bottom -= end.getBoundingClientRect().height;
     }
     if (r.top < top) box.scrollTop -= (top - r.top) + 4;
     else if (r.bottom > bottom) box.scrollTop += (r.bottom - bottom) + 4;
@@ -4858,7 +4863,8 @@ d $1$2$3"></textarea>
     jRulesApply: jRulesApply,
     setTarget: function(t){ TARGET = t; },   // test-only: lets run_tests.py exercise a target's own runChain path
     toBytes: toBytes,
-    fromBytes: fromBytes
+    fromBytes: fromBytes,
+    scrollToShow: scrollToShow
   };
 })();
 </script>

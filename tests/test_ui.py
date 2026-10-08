@@ -1339,6 +1339,44 @@ def test_final_trace_row_still_highlights_when_pinned(driver, r):
     driver.execute_script("document.getElementById('chain').dispatchEvent(new MouseEvent('mouseleave'));")
 
 
+def test_scroll_to_show_clears_row_near_the_end_when_locked(driver, r):
+    """With 'Lock start/end rows' on, scrollToShow used to decide whether the pinned end
+    row is "currently stuck" by comparing its live bounding rect to the box's bottom edge
+    within 1px — a check that depends on the current scroll position and, in Firefox at
+    some viewport sizes, missed by a fraction of a pixel (sub-pixel layout rounding this
+    project's Chromium-based test harness doesn't reproduce), silently skipping the
+    narrowing and leaving a row stuck half-covered with no further scroll attempted.
+    Narrowing by the pinned rows' own height instead removes the dependency on current
+    scroll position entirely: this pins down that a row needing to clear the pinned
+    outcome row ends up fully clear regardless of where scrolling started from."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1 $2 $3', debounced=True)
+    steps = driver.find_elements('css selector', '#chain .step')
+    r.check(len(steps) >= 8, 'the chain has enough steps for a row near the end', f'{len(steps)}')
+    target_idx = len(steps) - 2  # second-to-last: a row that must clear the pinned outcome row, but is not it
+
+    def clear_from(start_scroll_top):
+        return driver.execute_script(
+            "var t = document.getElementById('trace');"
+            "t.scrollTop = arguments[0];"
+            "var row = t.querySelectorAll('.trace-row:not(.outcome)')[arguments[1]];"
+            "window.__test.scrollToShow(t, row);"
+            "var first = t.firstElementChild, end = t.querySelector('.trace-row.outcome') || t.lastElementChild;"
+            "var tb = t.getBoundingClientRect(), rb = row.getBoundingClientRect();"
+            "var topLimit = tb.top + first.getBoundingClientRect().height;"
+            "var botLimit = tb.bottom - end.getBoundingClientRect().height;"
+            "return {scrollable: t.scrollHeight > t.clientHeight + 1, scrollTop: t.scrollTop,"
+            "        fullyClear: rb.top >= topLimit - 0.5 && rb.bottom <= botLimit + 0.5};",
+            start_scroll_top, target_idx)
+
+    max_scroll = driver.execute_script("var t = document.getElementById('trace'); return t.scrollHeight;")
+    from_top = clear_from(0)
+    from_bottom = clear_from(max_scroll)
+    r.check(from_top and from_top['scrollable'], 'the locked trace is actually scrollable in this scenario', f'{from_top}')
+    r.check(from_top and from_top['fullyClear'], 'starting scrolled to the top, the target row ends up fully clear', f'{from_top}')
+    r.check(from_bottom and from_bottom['fullyClear'], 'starting scrolled to the bottom, the same target row still ends up fully clear', f'{from_bottom}')
+
+
 def test_rule_line_hover_links_its_step(driver, r):
     """Hovering a token in the rule line (a real mouse) links its step: the
     card in section 03, the row in section 04 and the token itself. Gaps
@@ -2450,6 +2488,7 @@ def main():
         test_step_hover_links_to_its_trace_row(driver, r)
         test_trace_row_hover_links_back_to_its_step(driver, r)
         test_final_trace_row_still_highlights_when_pinned(driver, r)
+        test_scroll_to_show_clears_row_near_the_end_when_locked(driver, r)
         test_rule_line_hover_links_its_step(driver, r)
         test_rule_line_caret_links_its_step(driver, r)
         test_batch_rows_keep_their_line_numbers(driver, r)
