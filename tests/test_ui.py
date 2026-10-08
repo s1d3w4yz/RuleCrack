@@ -1740,6 +1740,33 @@ def test_both_view_warns_when_john_would_differ(driver, r):
     set_value(driver, driver.find_element('id', 'wordInput'), 'password', debounced=True)
 
 
+def test_both_view_explains_the_hex_escape_syntax_error(driver, r):
+    """A rule using hashcat's \\xNN byte-escape (like the default rule's final step) is valid
+    hashcat syntax AND valid John-native syntax, but a genuine syntax error specifically inside
+    John's hashcat-compat mode (verified against the real john binary: native mode decodes \\xNN
+    normally, "!! hashcat logic ON" skips that preprocessor and chokes on the literal backslash).
+    That's not a contradiction between the Both view's warning and the John-native view's
+    "Portable" claim — they're different modes with genuinely different behavior for the same
+    text — so the Both view spells out the mechanism instead of leaving it unexplained, and the
+    John-native view shows no such warning since its own check (valid as plain hashcat syntax)
+    is unaffected by a hashcat-compat-mode-only quirk."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 $\\xc2$\\xa3', debounced=True)
+    note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    r.check('syntax error' in note and '\\xNN byte-escape' in note and 'preprocessor' in note
+            and 'valid in real hashcat and in John' in note,
+            'the Both view explains the \\xNN-under-hashcat-compat-mode mechanism, not just that it fails', repr(note))
+
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
+    note2 = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
+    bad2 = driver.execute_script("return [].map.call(document.querySelectorAll('#ruleHl .hl-bad'), function(s){ return s.textContent; });")
+    r.check('Portable' in note2 and 'syntax error' not in note2 and bad2 == [],
+            'the John-native view shows no warning for the same rule (not a contradiction — different mode, different check)', f'{note2!r} {bad2}')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def test_rule_line_underlines_the_offending_token(driver, r):
     """The portability note names what's wrong, but not where — section 02's rule line now
     underlines (wavy, red) the exact token(s) responsible, in both of the cases that can point
@@ -2596,6 +2623,7 @@ def main():
         test_target_views_are_consistent(driver, r)
         test_section_gaps_are_consistent(driver, r)
         test_both_view_warns_when_john_would_differ(driver, r)
+        test_both_view_explains_the_hex_escape_syntax_error(driver, r)
         test_rule_line_underlines_the_offending_token(driver, r)
         test_rule_line_has_a_custom_caret(driver, r)
         test_both_callout_is_a_code_block(driver, r)

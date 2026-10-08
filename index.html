@@ -3781,11 +3781,27 @@ d $1$2$3"></textarea>
               // Narrow down which token(s) John's parser actually chokes on: re-run each step's own
               // token alone through the same John hc-mode check. If the error only emerges from the
               // combination, none will show it individually, and the note above stands on its own.
-              portabilityBadStepIds = enabledSteps.filter(function(s){
+              var badSteps = enabledSteps.filter(function(s){
                 var t = hashcatToken(s.type, s.args);
                 if (t === null) return false;
                 return jRulesApply(t, toBytes(word), {hc: true, minLen: MIN_LEN, maxLen: MAX_LEN}).rc === J_RC_SYNTAX;
-              }).map(function(s){ return s.id; });
+              });
+              portabilityBadStepIds = badSteps.map(function(s){ return s.id; });
+              // The single most common cause has a real explanation, worth giving instead of
+              // leaving "a syntax error of its own" unexplained: hashcat's \xNN byte-escape is
+              // normally decoded by John's OWN rule-text preprocessor (in John's native mode, and
+              // in hashcat itself, which decodes it directly) — but hashcat-compat mode skips
+              // that preprocessor on the assumption hashcat already ran it, so the literal
+              // backslash reaches John's parser unprocessed. Verified against the real john
+              // binary: the exact same rule text runs fine in both hashcat and John's native
+              // mode, and only fails inside "!! hashcat logic ON" — not a contradiction between
+              // the three views, but a genuine quirk specific to that one combination.
+              if (badSteps.some(function(s){ return /\\x[0-9a-fA-F]{2}/.test(hashcatToken(s.type, s.args)); })){
+                lines.push('<span class="warn">This is hashcat’s \\xNN byte-escape: John’s own preprocessor decodes that ' +
+                  'normally (including in John’s native mode), but hashcat-compat mode skips it, so the literal text reaches ' +
+                  'John’s parser unprocessed. The same rule is valid in real hashcat and in John’s native mode — it’s ' +
+                  'specifically this combination that breaks.</span>');
+              }
             } else if (jFinal !== hcFinal){
               var diffMsg = 'differs in John for this word: hashcat gives ' + (hcFinal === null ? '(rejected)' : '“' + hcFinal + '”') +
                 ', John gives ' + (jFinal === null ? '(rejected)' : '“' + jFinal + '”');
