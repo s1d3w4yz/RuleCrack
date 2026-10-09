@@ -990,6 +990,32 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
 
 
+def test_native_compat_dialog_opens_and_closes(driver, r):
+    """The John-native cheat sheet count line links to a reference dialog (built into this same
+    file, not a separate page — the app stays a single self-contained HTML file) breaking down
+    which of the 56 shared operators actually behave identically with no hashcat-compat wrapper.
+    It only appears in the John-native view, opens on click, and closes on its own close button."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+    r.check(driver.execute_script("return document.getElementById('compatOpenBtn');") is None,
+            'the compatibility link does not appear outside the John-native view')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
+    btn = driver.find_element('id', 'compatOpenBtn')
+    btn.click()
+    info = driver.execute_script("""
+      var dlg = document.getElementById('compatDialog');
+      return {open: dlg.open, stats: dlg.querySelectorAll('.compatstat').length,
+              causes: dlg.querySelectorAll('.compatcause').length,
+              ops: dlg.querySelectorAll('.compatops .op').length};
+    """)
+    r.check(info['open'] and info['stats'] == 4 and info['causes'] == 5 and info['ops'] == 56,
+            'the dialog opens with all 56 operators accounted for across its groups', f'{info}')
+    driver.find_element('id', 'compatClose').click()
+    r.check(not driver.execute_script("return document.getElementById('compatDialog').open;"),
+            'the close button closes it')
+    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
+
+
 def test_delete_can_be_undone(driver, r):
     """Deleting a step shows a toast with Undo; Undo (button or Ctrl+Z)
     restores the same step, with its arguments, at its old position;
@@ -2620,6 +2646,7 @@ def main():
         test_batch_box_shows_whole_lines_only(driver, r)
         test_lists_keep_their_scroll_position(driver, r)
         test_compat_operators_have_a_non_color_marker(driver, r)
+        test_native_compat_dialog_opens_and_closes(driver, r)
         test_target_views_are_consistent(driver, r)
         test_section_gaps_are_consistent(driver, r)
         test_both_view_warns_when_john_would_differ(driver, r)

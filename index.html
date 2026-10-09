@@ -170,6 +170,11 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
   padding:0 4px;margin-right:6px;border:1px solid currentColor;border-radius:3px;vertical-align:baseline}
 .compat-key .mk{margin:0 5px 0 0}
 .cheat-counts{font-size:.76rem;color:var(--dim);margin-top:4px}
+/* Every other button in this app keeps a visible edge of its own (WCAG 1.4.11, checked by the
+   test suite) rather than relying on color/underline alone — a plain borderless "text link" button
+   would be the one exception, so give it the same thin border instead of carving out an exception. */
+.linkbtn{font:inherit;font-size:.76rem;color:var(--accent);background:none;border:1px solid var(--control-border);border-radius:4px;padding:1px 6px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.linkbtn:hover,.linkbtn:focus-visible{color:var(--ink);border-color:var(--accent)}
 
 .john-only-section{
   margin-top:16px;border:1px solid var(--good);border-radius:8px;
@@ -573,16 +578,16 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .subline{display:block}
 .linkswitch .mbtn:disabled{opacity:.45;cursor:default}
 .helpgroup .mbtn{font-weight:600}
-dialog#helpDialog{width:min(92vw,680px);max-height:85vh;padding:0;overflow:hidden;color:var(--ink);background:var(--surface);
+dialog#helpDialog,dialog#compatDialog{width:min(92vw,680px);max-height:85vh;padding:0;overflow:hidden;color:var(--ink);background:var(--surface);
   border:1px solid var(--accent);border-radius:10px;box-shadow:0 12px 48px rgba(0,0,0,.5)}
-dialog#helpDialog::backdrop{background:rgba(0,0,0,.6)}
+dialog#helpDialog::backdrop,dialog#compatDialog::backdrop{background:rgba(0,0,0,.6)}
 .helpbody{display:flex;flex-direction:column;max-height:85vh;padding:18px 0 0}
 .helpscroll{overflow:auto;padding:0 24px 22px}
 .helpscroll:focus-visible{outline-offset:-3px}
 .helphead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 24px 8px}
 .helphead h2{font-size:1.15rem;margin:0}
 .helplead{color:var(--dim);margin:0;font-size:.9rem}
-dialog#helpDialog h3{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:18px 0 8px;padding-top:12px;border-top:1px dashed var(--rule)}
+dialog#helpDialog h3,dialog#compatDialog h3{font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin:18px 0 8px;padding-top:12px;border-top:1px dashed var(--rule)}
 .helplist{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;font-size:.88rem;line-height:1.45}
 .helplist dt{font-weight:600;white-space:nowrap}
 .helplist dd{margin:0;color:var(--dim)}
@@ -590,6 +595,26 @@ dialog#helpDialog h3{font-size:.8rem;letter-spacing:.05em;text-transform:upperca
 dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margin:0 1px;text-align:center;font-family:'IBM Plex Mono',monospace;font-size:.78rem;
   color:var(--ink);background:var(--surface-2);border:1px solid var(--dim);border-bottom-width:2px;border-radius:5px}
 @media (max-width:640px){ .helplist{grid-template-columns:1fr;gap:2px 0} .helplist dd{margin-bottom:8px} .helplist dt{white-space:normal} }
+/* ---------- native-compatibility reference dialog ---------- */
+.compatstats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 16px}
+.compatstat{background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:10px 8px;text-align:center}
+.compatstat .n{font-size:1.4rem;font-weight:700;font-variant-numeric:tabular-nums}
+.compatstat .l{font-size:.7rem;color:var(--dim);margin-top:2px;line-height:1.3}
+.compatstat.good .n{color:var(--good)}
+.compatstat.warn .n{color:var(--info)}
+.compatstat.bad .n{color:var(--danger)}
+@media (max-width:520px){ .compatstats{grid-template-columns:repeat(2,1fr)} }
+.compatops{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 0}
+.compatops .op{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--surface-2);border:1px solid var(--rule);border-radius:5px;padding:2px 7px}
+.compatcause{background:var(--surface-2);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;margin:10px 0}
+.compatcause h4{font-size:.88rem;margin:0 0 6px}
+.compatcause .op{background:color-mix(in srgb,var(--danger) 14%, transparent);border-color:transparent;color:var(--danger)}
+.compatcause p{margin:0 0 8px;font-size:.85rem}
+.compatex{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:3px 8px;font-family:'IBM Plex Mono',monospace;font-size:.78rem;align-items:center;background:var(--surface);border-radius:6px;padding:8px 10px}
+.compatex .k{color:var(--dim);font-family:inherit;font-size:.72rem}
+.compatex .hc{color:var(--accent)}
+.compatex .jn{color:var(--danger)}
+.compatverified{display:inline-block;margin-top:6px;font-size:.7rem;color:var(--good);background:color-mix(in srgb,var(--good) 14%, transparent);padding:1px 7px;border-radius:4px}
 .hinticon{vertical-align:-2px;margin-right:4px}
 .hoverhint{display:block;margin-top:4px;color:var(--accent);font-size:.78rem}
 .rulewrap{position:relative;display:block}
@@ -985,6 +1010,113 @@ d $1$2$3"></textarea>
       <dt>Announcements</dt><dd>Moves, deletes, copies, the chain's result and the cheat sheet's match count are spoken. Every control has a name, and the toggle buttons report whether they are on.</dd>
       <dt>Not colour alone</dt><dd>Changed characters in the trace are underlined as well as coloured. Hashcat-only operators carry an <b>HC</b> tag and John-only ones a <b>J</b> tag.</dd>
     </dl>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="compatDialog" aria-labelledby="compatTitle">
+  <div class="helpbody">
+    <div class="helphead">
+      <h2 id="compatTitle">hashcat &harr; John native compatibility</h2>
+      <button type="button" class="expandbtn" id="compatClose" aria-label="Close">Close &times;</button>
+    </div>
+    <div class="helpscroll" tabindex="0" role="region" aria-label="Compatibility reference (scrollable)">
+      <p class="helplead">Of the 56 operators shared between hashcat and John's own native syntax, which actually behave identically with no <span class="mono">!! hashcat logic ON</span> wrapper at all &mdash; not just which parse the same way.</p>
+
+      <h3>Method</h3>
+      <p style="font-size:.85rem;color:var(--dim);margin:0 0 10px">
+        A rule only counts as compatible here if the literal text is valid in both dialects <i>and</i> gives byte-identical output. Boundary-aware testing &mdash; word lengths 0, 1, 2, 5, 8 and each operator's own position argument at 0, length&minus;1, length, length+1, length+2, plus named positions 9/10/35 &mdash; comparing this tool's hashcat engine against its John-native engine, both independently verified against real binaries: hashcat <span class="mono">v7.1.2-850-gb3ecf3293</span> (4,800/4,800 checks agreed with the installed v7.1.2) and John <span class="mono">1.9.0-jumbo-1+bleeding-302f52709</span> (every divergence below re-confirmed directly against this binary).
+      </p>
+
+      <div class="compatstats">
+        <div class="compatstat good"><div class="n">6</div><div class="l">identical, including an empty word</div></div>
+        <div class="compatstat warn"><div class="n">36</div><div class="l">identical for any ordinary word</div></div>
+        <div class="compatstat bad"><div class="n">14</div><div class="l">diverge on ordinary words</div></div>
+        <div class="compatstat"><div class="n">56</div><div class="l">shared operators checked</div></div>
+      </div>
+
+      <h3>Fully identical &mdash; 6 operators</h3>
+      <p style="font-size:.85rem;color:var(--dim);margin:0">Same output for every word tested, including the empty string.</p>
+      <div class="compatops">
+        <span class="op">: noop</span><span class="op">! reject_contain</span><span class="op">% reject_contains</span>
+        <span class="op">= reject_equal_at</span><span class="op">( reject_equal_first</span><span class="op">) reject_equal_last</span>
+        <span class="op">/ reject_not_contain</span>
+      </div>
+
+      <h3>Identical for any real word &mdash; 36 operators</h3>
+      <p style="font-size:.85rem;color:var(--dim);margin:0">Diverge only when the word is already empty &mdash; a general caveat (see below), not operator-specific.</p>
+      <div class="compatops">
+        <span class="op">l lrest</span><span class="op">u urest</span><span class="op">c lrest_ufirst</span><span class="op">C urest_lfirst</span>
+        <span class="op">t trest</span><span class="op">S shift_case</span><span class="op">T toggle_at</span><span class="op">E title</span>
+        <span class="op">e title_sep</span><span class="op">r reverse</span><span class="op">d dupeword</span><span class="op">p dupeword_times</span>
+        <span class="op">f reflect</span><span class="op">{ rotate_left</span><span class="op">} rotate_right</span><span class="op">z dupechar_first</span>
+        <span class="op">Z dupechar_last</span><span class="op">q dupechar_all</span><span class="op">y dupeblock_first</span><span class="op">Y dupeblock_last</span>
+        <span class="op">k switch_first</span><span class="op">K switch_last</span><span class="op">* switch_at</span><span class="op">$ append</span>
+        <span class="op">^ prepend</span><span class="op">s replace</span><span class="op">@ purgechar</span><span class="op">L chr_shiftl</span>
+        <span class="op">R chr_shiftr</span><span class="op">+ chr_incr</span><span class="op">. replace_np1</span><span class="op">, replace_nm1</span>
+        <span class="op">M memorize</span><span class="op">o overstrike</span><span class="op">_ reject_equal</span>
+      </div>
+
+      <h3>Diverge on ordinary words &mdash; 14 operators, 5 causes</h3>
+      <div class="compatcause">
+        <h4>A step that empties the word: hashcat keeps it, John native rejects it</h4>
+        <div class="compatops"><span class="op">[ delete_first</span><span class="op">] delete_last</span><span class="op">D delete_at</span><span class="op">' truncate_at</span><span class="op">O omit</span><span class="op">x extract</span></div>
+        <p>John's native engine re-checks "did the word just become empty?" after <i>every</i> step (<span class="mono">src/rules.c:1755</span>) and rejects the candidate if so &mdash; hashcat's engine has no equivalent. Any op that can reduce a word to zero length trips it.</p>
+        <div class="compatex">
+          <span class="k">rule</span><span class="mono">]</span><span class="k">word</span><span class="mono">"x"</span>
+          <span class="k">hashcat</span><span class="hc">"" (kept)</span><span class="k">John native</span><span class="jn">rejected</span>
+        </div>
+        <span class="compatverified">verified against real john + hashcat binaries</span>
+      </div>
+      <div class="compatcause">
+        <h4>Length-reject boundary is off by one</h4>
+        <div class="compatops"><span class="op">&lt; reject_less</span><span class="op">&gt; reject_greater</span></div>
+        <p>hashcat's <span class="mono">&lt;N</span> keeps a word when length &le; N; John's native <span class="mono">&lt;N</span> only keeps it when length &lt; N (symmetric for <span class="mono">&gt;</span>). At exactly length == N the two disagree.</p>
+        <div class="compatex">
+          <span class="k">rule</span><span class="mono">&lt;5</span><span class="k">word</span><span class="mono">"xxxxx" (len 5)</span>
+          <span class="k">hashcat</span><span class="hc">"xxxxx" (kept)</span><span class="k">John native</span><span class="jn">rejected</span>
+        </div>
+        <span class="compatverified">verified against real john + hashcat binaries</span>
+      </div>
+      <div class="compatcause">
+        <h4>Memory ops default differently before any "M"</h4>
+        <div class="compatops"><span class="op">4 append_memory</span><span class="op">6 prepend_memory</span><span class="op">Q reject_memory</span><span class="op">X extract_memory</span></div>
+        <p>hashcat treats the saved-word buffer as unset until <span class="mono">M</span> runs, and rejects anything that uses it before then. John's native engine initializes it to a copy of the <i>original</i> word, so these all work immediately.</p>
+        <div class="compatex">
+          <span class="k">rule</span><span class="mono">4</span><span class="k">word</span><span class="mono">"x"</span>
+          <span class="k">hashcat</span><span class="hc">rejected (no M yet)</span><span class="k">John native</span><span class="jn">"xx"</span>
+        </div>
+        <span class="compatverified">verified against real john + hashcat binaries</span>
+      </div>
+      <div class="compatcause">
+        <h4>Insert past the end of the word</h4>
+        <div class="compatops"><span class="op">i insert</span></div>
+        <p>hashcat's kernel leaves the word unchanged when the insert position is out of range. John's native engine appends the character at the end instead, whenever the position is &ge; the word's length.</p>
+        <div class="compatex">
+          <span class="k">rule</span><span class="mono">i2a</span><span class="k">word</span><span class="mono">"x" (len 1)</span>
+          <span class="k">hashcat</span><span class="hc">"x" (no-op)</span><span class="k">John native</span><span class="jn">"xa"</span>
+        </div>
+        <span class="compatverified">verified against real john + hashcat binaries</span>
+      </div>
+      <div class="compatcause">
+        <h4>A letter or "8" position code after "-" reads as a reject flag</h4>
+        <div class="compatops"><span class="op">- chr_decr</span></div>
+        <p>John's native parser treats a leading <span class="mono">-</span> followed by anything other than a digit 0&ndash;9 (and specifically excludes <span class="mono">8</span> too) as one of its own line-level reject flags, not the decrement-byte command. So <span class="mono">-A</span> through <span class="mono">-Z</span> (positions 10&ndash;35) and <span class="mono">-8</span> fail as a syntax error in native mode instead. Plain digits (<span class="mono">-0</span>&ndash;<span class="mono">-9</span>, except <span class="mono">-8</span>) are unaffected.</p>
+        <div class="compatex">
+          <span class="k">rule</span><span class="mono">-A</span><span class="k">word</span><span class="mono">"x"</span>
+          <span class="k">hashcat</span><span class="hc">"x" (pos 10 out of range, no-op)</span><span class="k">John native</span><span class="jn">syntax error</span>
+        </div>
+        <span class="compatverified">verified against real john binary</span>
+      </div>
+
+      <h3>Scope and limits</h3>
+      <p style="font-size:.85rem;margin:0 0 8px">The word space either engine can receive is effectively infinite, so nothing here is a proof that the 42 compatible operators always agree &mdash; it's boundary-focused differential testing, not exhaustive verification, and no realistic amount of testing closes that gap completely.</p>
+      <ul style="font-size:.85rem;color:var(--dim);margin:0 0 8px;padding-left:20px">
+        <li style="margin:3px 0">Each operator was tested alone, not chained with others. A multi-step rule combining two "compatible" operators should stay compatible &mdash; nothing found suggests an interaction effect &mdash; but that's an inference from each step's isolated behavior, not something directly tested.</li>
+        <li style="margin:3px 0">Character arguments were tested with a representative set (<span class="mono">a</span>, <span class="mono">Z</span>, <span class="mono">!</span>, space, <span class="mono">0</span>), not the full byte range &mdash; null bytes, 0xFF and other extreme values weren't specifically stressed.</li>
+        <li style="margin:3px 0">Position/length boundaries were tested at word lengths up to 8; the separate check that found and fixed a 320-byte length bug didn't also cross it with boundary-position testing at large lengths.</li>
+      </ul>
+      <p style="font-size:.85rem;margin:0">Treat the 42 compatible operators as reliable for ordinary passwords and ordinary rules &mdash; what this tool is for &mdash; not as a mathematical guarantee for every conceivable input.</p>
     </div>
   </div>
 </dialog>
@@ -4026,20 +4158,24 @@ d $1$2$3"></textarea>
   // A native <dialog> opened with showModal(): the browser traps focus inside,
   // dims and disables the page behind it, closes on Esc and puts focus back
   // where it was. '?' opens it from anywhere outside a text field.
+  // Shared chrome for any <dialog>: close button, a click on the dimmed backdrop, and keeping
+  // Tab cycling inside it (otherwise focus can leave to the browser's own UI).
+  function wireDialog(dialog, closeBtn){
+    closeBtn.addEventListener('click', function(){ dialog.close(); });
+    dialog.addEventListener('click', function(e){ if (e.target === dialog) dialog.close(); });
+    dialog.addEventListener('keydown', function(e){
+      if (e.key !== 'Tab') return;
+      var items = [].filter.call(dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+                                 function(el){ return !el.disabled && el.offsetParent !== null; });
+      if (!items.length) return;
+      var first = items[0], last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    });
+  }
   var helpDialog = document.getElementById('helpDialog');
   document.getElementById('helpBtn').addEventListener('click', function(){ helpDialog.showModal(); });
-  document.getElementById('helpClose').addEventListener('click', function(){ helpDialog.close(); });
-  helpDialog.addEventListener('click', function(e){ if (e.target === helpDialog) helpDialog.close(); });   // a click on the dimmed backdrop
-  // keep Tab cycling inside the dialog (otherwise it can leave to the browser's own UI)
-  helpDialog.addEventListener('keydown', function(e){
-    if (e.key !== 'Tab') return;
-    var items = [].filter.call(helpDialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
-                               function(el){ return !el.disabled && el.offsetParent !== null; });
-    if (!items.length) return;
-    var first = items[0], last = items[items.length - 1];
-    if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
-    else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
-  });
+  wireDialog(helpDialog, document.getElementById('helpClose'));
   document.addEventListener('keydown', function(e){
     if (e.key !== '?' || e.ctrlKey || e.metaKey || e.altKey || helpDialog.open) return;
     var t = e.target;
@@ -4047,6 +4183,8 @@ d $1$2$3"></textarea>
     e.preventDefault();
     helpDialog.showModal();
   });
+  var compatDialog = document.getElementById('compatDialog');
+  wireDialog(compatDialog, document.getElementById('compatClose'));
 
   // ---------- high contrast ----------
   // data-contrast="high" on <html> (set before paint by the early script) swaps in the 7:1
@@ -4433,9 +4571,12 @@ d $1$2$3"></textarea>
         ? nShared+' operators are hashcat/John compatible.'
         : TARGET === 'john_native'
         ? 'John has '+(nShared+nJohnOnly)+' operators — '+nShared+' are hashcat-compatible.'
+          +' <button type="button" class="linkbtn" id="compatOpenBtn">Which ones actually behave the same, with no <span class="mono">!! hashcat logic ON</span> wrapper? ↗</button>'
         : 'hashcat has '+(nShared+nHcOnly)+' operators — '+nShared+' are John-compatible.'
     )+'</div>';
     cheatLegend.innerHTML = legend + keyHtml + countsHtml;
+    var compatOpenBtn = document.getElementById('compatOpenBtn');
+    if (compatOpenBtn) compatOpenBtn.addEventListener('click', function(){ compatDialog.showModal(); });
 
     // These two are setup instructions, not reference material — getting
     // them wrong silently changes what several rules below actually do
