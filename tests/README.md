@@ -44,8 +44,8 @@ Neither reimplements any rule semantics in Python:
   own C/OpenCL kernels against each other. 68 of 69 entries are included;
   one (`/a op4 %3a op4`) was excluded as a likely typo in hashcat's own
   file — it doesn't tokenize as valid syntax under `docs/rules.txt` or
-  `src/rp_cpu.c` by any reading, and its expected output contains literal
-  `4` characters no combination of real ops produces from the given inputs.
+  `src/rp_cpu.c`, and its expected output contains literal `4` characters
+  no combination of real ops produces.
 - **`fixtures/john_native_cases.json`** — the worked examples printed
   directly in John jumbo's `doc/RULES` (the `S`/`V`/`R`/`L` "Crack96"
   examples, and the `p`/`P`/`I` pluralize/past-tense/-ing-form examples),
@@ -122,6 +122,5 @@ Cosmetic/layout behavior — column-height syncing and its expand/collapse
 interactions, the theme toggle, the mode toggle itself, the cheat sheet's
 click-to-insert — is currently only verified by ad hoc Selenium scripts
 written during development, not checked into either persistent suite.
-Per this project's own priority (rule-handling correctness first), that's a
-reasonable gap to leave rather than a thing both suites quietly promise to
-catch.
+Given this project's priority (rule-handling correctness first), that's an
+acknowledged gap, not a silent one.

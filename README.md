@@ -38,12 +38,11 @@ other. A three-way **Target** switch controls which syntax you're building:
 | **Both (hashcat-compatible)** | 56 shared | Only operators John's hashcat-compat mode (`!! hashcat logic ON`) can also build. Checks the *actual* result through both engines and flags it when they diverge for the current word — "buildable in both" isn't always "identical." |
 | **John (native rules)** | 56 shared + 21 John-only | John's own syntax, for the things hashcat genuinely can't express (pluralization, whole-word keyboard shift, John's own character classes, and more). |
 
-A **Native compatibility** reference (button in the cheat sheet, Section 06)
-goes a level deeper: of the 56 operators shared between hashcat and John's
-*native* syntax specifically — no compat-mode wrapper at all — it breaks down
-exactly which ones are byte-for-byte identical, which only diverge on an
-edge case most rules will never hit, and which genuinely behave differently,
-each with a real worked example verified against both tools' actual binaries.
+A **Native compatibility** reference (Section 06's cheat sheet) goes a level
+deeper: of the 56 operators shared with John's *native* syntax — no
+compat-mode wrapper — it shows exactly which are byte-for-byte identical,
+which only diverge on a rare edge case, and which genuinely differ, each
+with a worked example verified against both tools' real binaries.
 
 Every chain step keeps its own compatibility badge regardless of which
 target you're viewing, so switching target never silently breaks a step
@@ -63,18 +62,17 @@ you've already built.
   different things in hashcat syntax vs. John's native grammar. John itself
   resolves `p`/`R`/`L` by whether a digit follows (`p2`/`R2` → hashcat's
   dup-word/bitshift; bare `p`/`R` → John's own pluralize/keyboard-shift) —
-  this tool's John-native parser follows the same rule. Because of this
-  ambiguity, the rulefile validator can't auto-detect a pasted file's
-  dialect; you tell it which one.
+  this tool's John-native parser follows the same rule. This ambiguity is
+  also why the rulefile validator can't auto-detect a pasted file's
+  dialect — you have to say which one.
 - **Named positions.** A position argument also accepts John's own
   `z m l # @ $ * - +` in place of a number, both in the rule line and in a
   step's own argument box.
 - **"Buildable in both" ≠ "identical."** A handful of the 56 shared
   operators — length rejects, `X`, `3`, `e`, and `R`/`L`'s own CPU-vs-kernel
-  split in hashcat — read some words differently between the two engines
-  even in hashcat-compat mode. The Both view catches this live by running
-  the actual word through both engines, not by asserting portability from
-  the operator list alone.
+  split in hashcat — read some words differently even in hashcat-compat
+  mode. The Both view catches this live by running the word through both
+  engines, not by asserting portability from the list alone.
 - **Reference-only.** A few John features are documented but out of scope
   for this tool to build: using a user-defined variable as a position, the
   target-format-dependent line-level reject flags, and single-crack
