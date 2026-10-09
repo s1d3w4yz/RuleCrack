@@ -961,9 +961,11 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
     by more than color: each such row has a letter tag (HC / J) and a
     spoken prefix, and shared operators carry neither — except for the
     independent CPU-only marker (needs hashcat's -j/-k engine, not the -r
-    GPU kernel), which can land on a shared, hashcat-only or John-native
-    row alike, in every view — a reference fact about the operator, same
-    as the HC/John colors, not something scoped to one view's own syntax."""
+    GPU kernel), which can land on a shared or hashcat-only row alike.
+    Unlike HC/John (cross-tool portability facts, relevant regardless of
+    which syntax you're viewing), CPU-only is a purely hashcat-internal
+    detail with no bearing on running a rule through John, so it never
+    appears in the John-native tab."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     js = ("var rows = [].slice.call(document.querySelectorAll('#cheatBody > .cheat-row'));"
           "var count = function(cls){ var colored = rows.filter(function(x){ return x.querySelector('.syntax.' + cls); });"
@@ -979,8 +981,8 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
         c = m[key]
         r.check(c['colored'] > 0 and c['colored'] == c['tagged'] == c['spoken'] and m['marks'] == c['colored'] + m['cpuMarks'],
                 f"{target} tab: every {label}-only operator has the {label} tag and a spoken prefix, and only CPU-only rows get anything extra", f'{m}')
-    r.check(driver.execute_script("return document.querySelectorAll('#cheatBody .desc .mk.tok-cpu').length;") > 0,
-            'the John-native tab also marks its shared-but-CPU-only rows (e.g. memorize, reject_memory)')
+    r.check(driver.execute_script("return document.querySelectorAll('#cheatBody .desc .mk.tok-cpu').length;") == 0,
+            'the John-native tab has no CPU-only marks (a hashcat-internal detail, irrelevant to running a rule through John)')
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
     m = driver.execute_script(js)
     r.check(m['hc']['colored'] == 0 and m['john']['colored'] == 0 and m['marks'] == m['cpuMarks'] and m['cpuMarks'] > 0,

@@ -2757,7 +2757,7 @@ d $1$2$3"></textarea>
             (op.kind==='memorize' || op.group==='Memory (save and reuse the word)' ? '<span class="taglabel">memory</span>' : '')+
             (JOHN_UNSUPPORTED[step.type] ? '<span class="badge hc-only" title="No John the Ripper equivalent at all">⚠ HC-only</span>' : '')+
             (op.johnOnly ? '<span class="badge john-only" title="No hashcat equivalent at all">✓ John-only</span>' : '')+
-            (TARGET !== 'john_native' && op.cpuOnly ? '<span class="badge cpu-only" title="Hashcat’s GPU kernel (-r) doesn’t implement this — only the pure-CPU rules engine (-j / -k) does">⚙ CPU-only</span>' : '')+
+            (TARGET !== 'john_native' && op.cpuOnly ? '<span class="badge cpu-only" title="Hashcat’s GPU kernel (-r) doesn’t implement this — only the pure-CPU rules engine (-j / -k) does">⚙ Hashcat CPU-only</span>' : '')+
             (argsHtml ? '<span class="argrow">'+argsHtml+'</span>' : '')+
           '</div>'+
           '<div class="steplabel">'+escapeHtml(OPS[step.type].label)+'</div>'+
@@ -4522,7 +4522,7 @@ d $1$2$3"></textarea>
     if (cc === 'tok-hc')   mark = '<span class="sr-only">Hashcat only: </span><span class="mk tok-hc" aria-hidden="true" title="No John the Ripper equivalent at all">HC</span>';
     if (cc === 'tok-john') mark = '<span class="sr-only">John only: </span><span class="mk tok-john" aria-hidden="true" title="No hashcat equivalent at all">J</span>';
     // Independent of the mark above — a hashcat-only op can also be CPU-only (a few are both).
-    if (cpuOnly) mark += '<span class="sr-only">CPU only: </span><span class="mk tok-cpu" aria-hidden="true" ' +
+    if (cpuOnly) mark += '<span class="sr-only">Hashcat CPU only: </span><span class="mk tok-cpu" aria-hidden="true" ' +
       'title="Hashcat’s GPU kernel (-r) doesn’t implement this — only the pure-CPU rules engine (-j / -k) does">CPU</span>';
     return mark;
   }
@@ -4545,15 +4545,18 @@ d $1$2$3"></textarea>
     // badge, since there it's one or two items, not a reference list.
     // Pinned here (outside the scrolling list) so it's visible no matter
     // how far down the list you've scrolled.
-    // Shown in all three views, same as the other three key entries — even where, like
-    // "hashcat-only" in this same list, the current view's own filtered rows might never
-    // actually carry it. It's a reference fact about the operator (does it need hashcat's
-    // CPU engine), not something specific to whichever syntax you're currently building.
+    // Unlike the HC-only/John-only entries (cross-tool portability facts, relevant regardless
+    // of which syntax you're looking at), CPU-only is a purely hashcat-internal detail — which
+    // hashcat CLI flag to use — with no bearing on running the rule through John at all. So,
+    // unlike those two, it's left out of the John-native view entirely rather than shown as a
+    // reference fact that view's own rows would need extra wording to explain away.
     var keyHtml = '<div class="compat-key">'+
       '<span><span class="dot shared"></span>works in both</span>'+
       '<span><span class="mk tok-hc" aria-hidden="true">HC</span><span class="tok-hc">hashcat-only</span></span>'+
       '<span><span class="mk tok-john" aria-hidden="true">J</span><span class="tok-john">John-only</span></span>'+
-      '<span><span class="mk tok-cpu" aria-hidden="true">CPU</span><span class="tok-cpu">needs -j/-k, not -r (GPU)</span></span>'+
+      (TARGET !== 'john_native'
+        ? '<span><span class="mk tok-cpu" aria-hidden="true">CPU</span><span class="tok-cpu">needs hashcat’s -j/-k, not -r (GPU)</span></span>'
+        : '')+
       '</div>';
     // Counted straight from OPS/JOHN_UNSUPPORTED, not hardcoded, so this can't drift
     // out of sync if an operator is ever added or reclassified.
@@ -4623,9 +4626,9 @@ d $1$2$3"></textarea>
         // hovering it shows nothing extra rather than a redundant "works
         // in both" on every single row.
         var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
-        // Shown in every view, like the HC/John colors above — a reference fact about the
-        // operator, true regardless of which syntax this view happens to be building.
-        var cpuOnly = !!OPS[k].cpuOnly;
+        // A hashcat-internal detail (which hashcat CLI flag to use), not a hashcat-vs-John
+        // portability fact — left out of the John-native view like the legend entry above.
+        var cpuOnly = TARGET !== 'john_native' && !!OPS[k].cpuOnly;
         html += '<div class="cheat-row">'+
           '<span class="syntax '+cc+'"'+tip+'>'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" aria-label="Add example '+escapeHtml(example)+' ('+escapeHtml(OPS[k].label)+') to the rule line" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
