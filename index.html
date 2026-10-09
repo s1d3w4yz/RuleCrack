@@ -999,6 +999,7 @@ d $1$2$3"></textarea>
     <dl class="helplist">
       <dt>Dark &middot; Light &middot; Auto</dt><dd><b>Auto</b> follows your system's light or dark setting (dark if it doesn't say). Remembered in this browser.</dd>
       <dt>A &nbsp;A &nbsp;A</dt><dd>Three text sizes; the whole page scales. Remembered.</dd>
+      <dt>High contrast</dt><dd>Pushes every text and border color to WCAG AAA (7:1 text, 4.5:1 borders), in either theme. Turns on by itself when your system asks for more contrast.</dd>
       <dt>Link highlights</dt><dd>Turn off the hover, focus and cursor linking between steps, trace and rule line.</dd>
       <dt>Scroll to match</dt><dd>Stop lists from scrolling to the linked item while keeping the highlights. Needs Link highlights on.</dd>
       <dt>Wrap long lines</dt><dd>In the batch test: wrap long entries (default) or keep each on one line and scroll sideways.</dd>
@@ -1008,7 +1009,7 @@ d $1$2$3"></textarea>
     <h3>Screen readers &amp; colour</h3>
     <dl class="helplist">
       <dt>Announcements</dt><dd>Moves, deletes, copies, the chain's result and the cheat sheet's match count are spoken. Every control has a name, and the toggle buttons report whether they are on.</dd>
-      <dt>Not colour alone</dt><dd>Changed characters in the trace are underlined as well as coloured. Hashcat-only operators carry an <b>HC</b> tag and John-only ones a <b>J</b> tag.</dd>
+      <dt>Not colour alone</dt><dd>Changed characters in the trace are underlined as well as coloured. Hashcat-only operators carry an <b>HC</b> tag, John-only ones a <b>J</b> tag, and ones that need hashcat's CPU engine a <b>CPU</b> tag.</dd>
     </dl>
     </div>
   </div>
@@ -5069,11 +5070,13 @@ d $1$2$3"></textarea>
   // ---------- target selector wiring ----------
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
+    // Same wording in all three views — which dialect is active is already shown by the Target
+    // buttons above, so repeating it here would just be saying it twice. The placeholder below
+    // still shows a concrete example in whichever syntax is current, which isn't redundant.
+    ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps below.</span><span class="subline">Paste or type a rule here to replace the steps.</span>';
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="codechip">~</span> operators (like <span class="codechip">~s?CY</span>) won’t parse.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
-      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps below.</span><span class="subline">Paste or type a rule here to replace the steps.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! $1';
     }
   }
