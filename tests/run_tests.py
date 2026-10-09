@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Automated tests for Password Cracking Rule Chain Lab's rule-handling engine (parsing,
+Automated tests for RuleCrack's rule-handling engine (parsing,
 tokenizing, and running hashcat/John rule chains).
 
 This does NOT re-implement the engine or guess expected output — every

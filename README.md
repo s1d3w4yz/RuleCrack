@@ -1,4 +1,4 @@
-# Password Cracking Rule Chain Lab
+# RuleCrack
 
 A single-page tool for learning how password-cracking rules work. Build an
 ordered chain of transformation steps, watch each one apply, and see how
