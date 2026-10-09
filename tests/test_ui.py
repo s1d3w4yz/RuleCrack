@@ -991,15 +991,13 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
 
 
 def test_native_compat_dialog_opens_and_closes(driver, r):
-    """The John-native cheat sheet count line links to a reference dialog (built into this same
-    file, not a separate page — the app stays a single self-contained HTML file) breaking down
-    which of the 56 shared operators actually behave identically with no hashcat-compat wrapper.
-    It only appears in the John-native view, opens on click, and closes on its own close button."""
+    """The cheat sheet header's "Native compatibility" button (next to Expand, visible regardless
+    of target — a discoverable header button, not text buried in the legend below) opens a
+    reference dialog (built into this same file, not a separate page — the app stays a single
+    self-contained HTML file) breaking down which of the 56 shared hashcat/John operators actually
+    behave identically with no hashcat-compat wrapper. It opens on click and closes on its own
+    close button."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
-    driver.execute_script("document.querySelector('#targetBtns [data-target=\"hashcat\"]').click();")
-    r.check(driver.execute_script("return document.getElementById('compatOpenBtn');") is None,
-            'the compatibility link does not appear outside the John-native view')
-    driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
     btn = driver.find_element('id', 'compatOpenBtn')
     btn.click()
     info = driver.execute_script("""

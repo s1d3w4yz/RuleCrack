@@ -170,11 +170,6 @@ header.page p.lead{font-size:1.08rem;color:var(--ink);line-height:1.5;max-width:
   padding:0 4px;margin-right:6px;border:1px solid currentColor;border-radius:3px;vertical-align:baseline}
 .compat-key .mk{margin:0 5px 0 0}
 .cheat-counts{font-size:.76rem;color:var(--dim);margin-top:4px}
-/* Every other button in this app keeps a visible edge of its own (WCAG 1.4.11, checked by the
-   test suite) rather than relying on color/underline alone — a plain borderless "text link" button
-   would be the one exception, so give it the same thin border instead of carving out an exception. */
-.linkbtn{font:inherit;font-size:.76rem;color:var(--accent);background:none;border:1px solid var(--control-border);border-radius:4px;padding:1px 6px;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
-.linkbtn:hover,.linkbtn:focus-visible{color:var(--ink);border-color:var(--accent)}
 
 .john-only-section{
   margin-top:16px;border:1px solid var(--good);border-radius:8px;
@@ -926,6 +921,7 @@ princess</textarea>
     <div class="card cheat" id="cheatCard">
       <div class="sectionhead">
         <h2 id="h-cheat" tabindex="-1"><span class="n">06</span> Rule syntax cheat sheet</h2>
+        <button class="hdrbtn" id="compatOpenBtn" type="button" title="Which hashcat/John operators actually behave the same, not just which parse the same way">⇄ Native compatibility</button>
         <button class="expandbtn" id="cheatExpandBtn" type="button" title="Show the full list instead of scrolling a fixed-height box">&#10530; Expand</button>
       </div>
       <div class="cheat-legend" id="cheatLegend"></div>
@@ -4185,6 +4181,7 @@ d $1$2$3"></textarea>
   });
   var compatDialog = document.getElementById('compatDialog');
   wireDialog(compatDialog, document.getElementById('compatClose'));
+  document.getElementById('compatOpenBtn').addEventListener('click', function(){ compatDialog.showModal(); });
 
   // ---------- high contrast ----------
   // data-contrast="high" on <html> (set before paint by the early script) swaps in the 7:1
@@ -4571,12 +4568,9 @@ d $1$2$3"></textarea>
         ? nShared+' operators are hashcat/John compatible.'
         : TARGET === 'john_native'
         ? 'John has '+(nShared+nJohnOnly)+' operators — '+nShared+' are hashcat-compatible.'
-          +' <button type="button" class="linkbtn" id="compatOpenBtn">Which ones actually behave the same, with no <span class="mono">!! hashcat logic ON</span> wrapper? ↗</button>'
         : 'hashcat has '+(nShared+nHcOnly)+' operators — '+nShared+' are John-compatible.'
     )+'</div>';
     cheatLegend.innerHTML = legend + keyHtml + countsHtml;
-    var compatOpenBtn = document.getElementById('compatOpenBtn');
-    if (compatOpenBtn) compatOpenBtn.addEventListener('click', function(){ compatDialog.showModal(); });
 
     // These two are setup instructions, not reference material — getting
     // them wrong silently changes what several rules below actually do
