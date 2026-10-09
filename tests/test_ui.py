@@ -961,9 +961,9 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
     by more than color: each such row has a letter tag (HC / J) and a
     spoken prefix, and shared operators carry neither — except for the
     independent CPU-only marker (needs hashcat's -j/-k engine, not the -r
-    GPU kernel), which can land on a shared, hashcat-only, or (in the Both
-    tab) a shared-but-CPU-only row alike, and never appears in the
-    John-native tab since the CPU/GPU split is a hashcat engine detail."""
+    GPU kernel), which can land on a shared, hashcat-only or John-native
+    row alike, in every view — a reference fact about the operator, same
+    as the HC/John colors, not something scoped to one view's own syntax."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     js = ("var rows = [].slice.call(document.querySelectorAll('#cheatBody > .cheat-row'));"
           "var count = function(cls){ var colored = rows.filter(function(x){ return x.querySelector('.syntax.' + cls); });"
@@ -979,8 +979,8 @@ def test_compat_operators_have_a_non_color_marker(driver, r):
         c = m[key]
         r.check(c['colored'] > 0 and c['colored'] == c['tagged'] == c['spoken'] and m['marks'] == c['colored'] + m['cpuMarks'],
                 f"{target} tab: every {label}-only operator has the {label} tag and a spoken prefix, and only CPU-only rows get anything extra", f'{m}')
-    r.check(driver.execute_script("return document.querySelectorAll('#cheatBody .desc .mk.tok-cpu').length;") == 0,
-            'the John-native tab has no CPU-only marks (the CPU/GPU split doesn’t apply to John)')
+    r.check(driver.execute_script("return document.querySelectorAll('#cheatBody .desc .mk.tok-cpu').length;") > 0,
+            'the John-native tab also marks its shared-but-CPU-only rows (e.g. memorize, reject_memory)')
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
     m = driver.execute_script(js)
     r.check(m['hc']['colored'] == 0 and m['john']['colored'] == 0 and m['marks'] == m['cpuMarks'] and m['cpuMarks'] > 0,
@@ -1771,16 +1771,17 @@ def test_both_view_explains_the_hex_escape_syntax_error(driver, r):
     normally, "!! hashcat logic ON" skips that preprocessor and chokes on the literal backslash).
     That's not a contradiction between the Both view's warning and the John-native view's
     "Portable" claim — they're different modes with genuinely different behavior for the same
-    text — so the Both view spells out the mechanism instead of leaving it unexplained, and the
+    text — so the Both view names the actual cause (kept to one line; the full mechanism lives in
+    the "Native compatibility" dialog, not repeated here every time this fires), and the
     John-native view shows no such warning since its own check (valid as plain hashcat syntax)
     is unaffected by a hashcat-compat-mode-only quirk."""
     driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"both\"]').click();")
     set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 $\\xc2$\\xa3', debounced=True)
     note = driver.execute_script("return document.getElementById('portabilityNote').textContent;")
-    r.check('syntax error' in note and '\\xNN byte-escape' in note and 'preprocessor' in note
-            and 'valid in real hashcat and in John' in note,
-            'the Both view explains the \\xNN-under-hashcat-compat-mode mechanism, not just that it fails', repr(note))
+    r.check('syntax error' in note and '\\xNN byte-escape' in note and 'isn’t decoded there' in note
+            and 'plain hashcat and John’s native syntax' in note,
+            'the Both view names the \\xNN mechanism, not just that the rule fails', repr(note))
 
     driver.execute_script("document.querySelector('#targetBtns [data-target=\"john_native\"]').click();")
     note2 = driver.execute_script("return document.getElementById('portabilityNote').textContent;")

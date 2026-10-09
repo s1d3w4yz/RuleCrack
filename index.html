@@ -561,6 +561,10 @@ button.tracebtn:hover{border-color:var(--accent);color:var(--accent)}
 .callout.small{font-size:.78rem}
 .codeblock{margin:8px 0;padding:8px 10px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;
   font-family:'IBM Plex Mono',monospace;font-size:.78rem;line-height:1.5;color:var(--ink);white-space:pre;overflow-x:auto}
+/* The inline equivalent of .codeblock — a snippet mentioned mid-sentence, not set off as its own
+   block, but still boxed so it reads as code at a glance instead of blending into the prose. */
+.codechip{display:inline-block;padding:0 5px;background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  font-family:'IBM Plex Mono',monospace;font-size:.92em;color:var(--ink)}
 .calloutlist{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
 
 #ruleParseStatus.ok{color:var(--good)}
@@ -785,7 +789,7 @@ try{
     </div>
     <div id="validatorIntro" hidden>
       <p class="lead">
-        Paste a <span class="mono">.rule</span> file (or a John <span class="mono">List.Rules</span>
+        Paste a <span class="codechip">.rule</span> file (or a John <span class="codechip">List.Rules</span>
         section) and check every line against a real parser, not a guess. Fix a broken line
         inline or in the chain builder, delete what you don't want, then export the cleaned file.
       </p>
@@ -794,14 +798,14 @@ try{
           <span class="term">Pick the syntax first</span>
           <span class="tag">required</span>
           <span>The same letter can mean two different things in hashcat versus John's native grammar
-          (<span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span>,
-          <span class="mono">v</span>, <span class="mono">+</span>/<span class="mono">-</span>), so a file's
+          (<span class="codechip">p</span>, <span class="codechip">R</span>, <span class="codechip">L</span>,
+          <span class="codechip">v</span>, <span class="codechip">+</span>/<span class="codechip">-</span>), so a file's
           dialect can't be auto-detected. <strong>You know which engine it's for — say so below.</strong></span>
         </li>
         <li>
           <span class="term">Blank lines and comments</span>
           <span class="tag">kept</span>
-          <span>Blank lines and <span class="mono">#</span> comments pass through untouched.</span>
+          <span>Blank lines and <span class="codechip">#</span> comments pass through untouched.</span>
         </li>
       </ul>
       <div class="targetrow">
@@ -870,9 +874,9 @@ try{
       <div class="callout small">
         <b>A reject step</b> doesn't transform the word — it decides whether the word
         survives (e.g. "reject unless length ≥ 8"); once one rejects, the chain stops.
-        <br><b>Memory steps</b> (<span class="mono">M 4 6 X Q</span>) save a copy of the word and use it
-        again later in the same rule. For example, <span class="mono">M u 4</span> turns <span class="mono">abc</span>
-        into <span class="mono">ABCabc</span>. <span class="mono">Q</span> rejects the word if it equals the saved copy.
+        <br><b>Memory steps</b> (<span class="codechip">M 4 6 X Q</span>) save a copy of the word and use it
+        again later in the same rule. For example, <span class="codechip">M u 4</span> turns <span class="codechip">abc</span>
+        into <span class="codechip">ABCabc</span>. <span class="codechip">Q</span> rejects the word if it equals the saved copy.
       </div>
     </div>
 
@@ -1017,7 +1021,7 @@ d $1$2$3"></textarea>
       <button type="button" class="expandbtn" id="compatClose" aria-label="Close">Close &times;</button>
     </div>
     <div class="helpscroll" tabindex="0" role="region" aria-label="Compatibility reference (scrollable)">
-      <p class="helplead">Of the 56 operators shared between hashcat and John's own native syntax, which actually behave identically with no <span class="mono">!! hashcat logic ON</span> wrapper at all &mdash; not just which parse the same way.</p>
+      <p class="helplead">Of the 56 operators shared between hashcat and John's own native syntax, which actually behave identically with no <span class="codechip">!! hashcat logic ON</span> wrapper at all &mdash; not just which parse the same way.</p>
 
       <h3>Method</h3>
       <p style="font-size:.85rem;color:var(--dim);margin:0 0 10px">
@@ -1057,7 +1061,7 @@ d $1$2$3"></textarea>
       <div class="compatcause">
         <h4>A step that empties the word: hashcat keeps it, John native rejects it</h4>
         <div class="compatops"><span class="op">[ delete_first</span><span class="op">] delete_last</span><span class="op">D delete_at</span><span class="op">' truncate_at</span><span class="op">O omit</span><span class="op">x extract</span></div>
-        <p>John's native engine rejects the candidate the moment any step empties the word (<span class="mono">src/rules.c:1755</span>); hashcat has no such check.</p>
+        <p>John's native engine rejects the candidate the moment any step empties the word (<span class="codechip">src/rules.c:1755</span>); hashcat has no such check.</p>
         <div class="compatex">
           <span class="k">rule</span><span class="mono">]</span><span class="k">word</span><span class="mono">"x"</span>
           <span class="k">hashcat</span><span class="hc">"" (kept)</span><span class="k">John native</span><span class="jn">rejected</span>
@@ -1067,7 +1071,7 @@ d $1$2$3"></textarea>
       <div class="compatcause">
         <h4>Length-reject boundary is off by one</h4>
         <div class="compatops"><span class="op">&lt; reject_less</span><span class="op">&gt; reject_greater</span></div>
-        <p>hashcat's <span class="mono">&lt;N</span> keeps a word when length &le; N; John's native version only when length &lt; N (and symmetrically for <span class="mono">&gt;</span>) &mdash; so at exactly length == N, they disagree.</p>
+        <p>hashcat's <span class="codechip">&lt;N</span> keeps a word when length &le; N; John's native version only when length &lt; N (and symmetrically for <span class="codechip">&gt;</span>) &mdash; so at exactly length == N, they disagree.</p>
         <div class="compatex">
           <span class="k">rule</span><span class="mono">&lt;5</span><span class="k">word</span><span class="mono">"xxxxx" (len 5)</span>
           <span class="k">hashcat</span><span class="hc">"xxxxx" (kept)</span><span class="k">John native</span><span class="jn">rejected</span>
@@ -1077,7 +1081,7 @@ d $1$2$3"></textarea>
       <div class="compatcause">
         <h4>Memory ops default differently before any "M"</h4>
         <div class="compatops"><span class="op">4 append_memory</span><span class="op">6 prepend_memory</span><span class="op">Q reject_memory</span><span class="op">X extract_memory</span></div>
-        <p>hashcat rejects anything that uses the saved-word buffer before <span class="mono">M</span> sets it; John's native engine pre-fills it with the <i>original</i> word, so these work immediately.</p>
+        <p>hashcat rejects anything that uses the saved-word buffer before <span class="codechip">M</span> sets it; John's native engine pre-fills it with the <i>original</i> word, so these work immediately.</p>
         <div class="compatex">
           <span class="k">rule</span><span class="mono">4</span><span class="k">word</span><span class="mono">"x"</span>
           <span class="k">hashcat</span><span class="hc">rejected (no M yet)</span><span class="k">John native</span><span class="jn">"xx"</span>
@@ -1097,7 +1101,7 @@ d $1$2$3"></textarea>
       <div class="compatcause">
         <h4>A letter or "8" position code after "-" reads as a reject flag</h4>
         <div class="compatops"><span class="op">- chr_decr</span></div>
-        <p>John's native parser reads a leading <span class="mono">-</span> followed by anything but a digit &mdash; plus <span class="mono">-8</span> specifically &mdash; as one of its own reject flags, not the decrement-byte command. So <span class="mono">-A</span> through <span class="mono">-Z</span> (positions 10&ndash;35) and <span class="mono">-8</span> fail as a syntax error instead of decrementing that position.</p>
+        <p>John's native parser reads a leading <span class="codechip">-</span> followed by anything but a digit &mdash; plus <span class="codechip">-8</span> specifically &mdash; as one of its own reject flags, not the decrement-byte command. So <span class="codechip">-A</span> through <span class="codechip">-Z</span> (positions 10&ndash;35) and <span class="codechip">-8</span> fail as a syntax error instead of decrementing that position.</p>
         <div class="compatex">
           <span class="k">rule</span><span class="mono">-A</span><span class="k">word</span><span class="mono">"x"</span>
           <span class="k">hashcat</span><span class="hc">"x" (pos 10 out of range, no-op)</span><span class="k">John native</span><span class="jn">syntax error</span>
@@ -1109,7 +1113,7 @@ d $1$2$3"></textarea>
       <p style="font-size:.85rem;margin:0 0 8px">Nothing here is a proof of compatibility &mdash; the word space either engine can receive is effectively infinite. This is boundary-focused differential testing, not exhaustive verification.</p>
       <ul style="font-size:.85rem;color:var(--dim);margin:0 0 8px;padding-left:20px">
         <li style="margin:3px 0">Operators were tested alone, not chained &mdash; a rule combining two "compatible" ones should behave the same, but that's inferred, not directly tested.</li>
-        <li style="margin:3px 0">Character arguments used a representative set (<span class="mono">a</span>, <span class="mono">Z</span>, <span class="mono">!</span>, space, <span class="mono">0</span>), not the full byte range &mdash; null bytes and 0xFF weren't specifically tested.</li>
+        <li style="margin:3px 0">Character arguments used a representative set (<span class="codechip">a</span>, <span class="codechip">Z</span>, <span class="codechip">!</span>, space, <span class="codechip">0</span>), not the full byte range &mdash; null bytes and 0xFF weren't specifically tested.</li>
         <li style="margin:3px 0">Boundaries were tested at word lengths up to 8, not cross-tested at large lengths too (where a separate check already found and fixed a 320-byte length bug).</li>
       </ul>
       <p style="font-size:.85rem;margin:0">Treat the 42 compatible operators as reliable for ordinary passwords and rules &mdash; not a guarantee for every conceivable input.</p>
@@ -3904,33 +3908,31 @@ d $1$2$3"></textarea>
               // hashcat-compat mode, doesn't accept this exact rule text — that's a hard
               // incompatibility, not a result that merely differs, so it replaces the
               // "Portable" claim instead of being tacked on alongside it.
-              lines = ['<span class="warn">⚠ Every operator here is shared, but John’s hashcat-compat mode ' +
-                'refuses this exact rule text as a syntax error of its own.</span>'];
+              var syntaxMsg = 'John’s hashcat-compat mode refuses this exact rule as a syntax error, even though every operator in it is shared.';
               noteEl.className = 'sub warn';
               // Narrow down which token(s) John's parser actually chokes on: re-run each step's own
               // token alone through the same John hc-mode check. If the error only emerges from the
-              // combination, none will show it individually, and the note above stands on its own.
+              // combination, none will show it individually, and the generic message above stands.
               var badSteps = enabledSteps.filter(function(s){
                 var t = hashcatToken(s.type, s.args);
                 if (t === null) return false;
                 return jRulesApply(t, toBytes(word), {hc: true, minLen: MIN_LEN, maxLen: MAX_LEN}).rc === J_RC_SYNTAX;
               });
               portabilityBadStepIds = badSteps.map(function(s){ return s.id; });
-              // The single most common cause has a real explanation, worth giving instead of
-              // leaving "a syntax error of its own" unexplained: hashcat's \xNN byte-escape is
-              // normally decoded by John's OWN rule-text preprocessor (in John's native mode, and
-              // in hashcat itself, which decodes it directly) — but hashcat-compat mode skips
-              // that preprocessor on the assumption hashcat already ran it, so the literal
-              // backslash reaches John's parser unprocessed. Verified against the real john
-              // binary: the exact same rule text runs fine in both hashcat and John's native
-              // mode, and only fails inside "!! hashcat logic ON" — not a contradiction between
-              // the three views, but a genuine quirk specific to that one combination.
+              // The single most common cause has a real explanation, worth naming instead of leaving
+              // "a syntax error of its own" unexplained: hashcat's \xNN byte-escape is normally
+              // decoded by John's OWN rule-text preprocessor (in native mode, and in hashcat itself,
+              // which decodes it directly) — but hashcat-compat mode skips that preprocessor on the
+              // assumption hashcat already ran it, so the literal backslash reaches John's parser
+              // unprocessed. Verified against the real john binary: the exact same rule text runs
+              // fine in both hashcat and John's native mode, and only fails inside
+              // "!! hashcat logic ON" — kept to one line, with the full mechanism in the "Native
+              // compatibility" dialog rather than repeated here every time this fires.
               if (badSteps.some(function(s){ return /\\x[0-9a-fA-F]{2}/.test(hashcatToken(s.type, s.args)); })){
-                lines.push('<span class="warn">This is hashcat’s \\xNN byte-escape: John’s own preprocessor decodes that ' +
-                  'normally (including in John’s native mode), but hashcat-compat mode skips it, so the literal text reaches ' +
-                  'John’s parser unprocessed. The same rule is valid in real hashcat and in John’s native mode — it’s ' +
-                  'specifically this combination that breaks.</span>');
+                syntaxMsg = 'John’s hashcat-compat mode refuses this exact rule as a syntax error — its \\xNN byte-escape ' +
+                  'isn’t decoded there, though the rule works in plain hashcat and John’s native syntax.';
               }
+              lines = ['<span class="warn">⚠ ' + syntaxMsg + '</span>'];
             } else if (jFinal !== hcFinal){
               var diffMsg = 'differs in John for this word: hashcat gives ' + (hcFinal === null ? '(rejected)' : '“' + hcFinal + '”') +
                 ', John gives ' + (jFinal === null ? '(rejected)' : '“' + jFinal + '”');
@@ -4543,13 +4545,15 @@ d $1$2$3"></textarea>
     // badge, since there it's one or two items, not a reference list.
     // Pinned here (outside the scrolling list) so it's visible no matter
     // how far down the list you've scrolled.
+    // Shown in all three views, same as the other three key entries — even where, like
+    // "hashcat-only" in this same list, the current view's own filtered rows might never
+    // actually carry it. It's a reference fact about the operator (does it need hashcat's
+    // CPU engine), not something specific to whichever syntax you're currently building.
     var keyHtml = '<div class="compat-key">'+
       '<span><span class="dot shared"></span>works in both</span>'+
       '<span><span class="mk tok-hc" aria-hidden="true">HC</span><span class="tok-hc">hashcat-only</span></span>'+
       '<span><span class="mk tok-john" aria-hidden="true">J</span><span class="tok-john">John-only</span></span>'+
-      (TARGET !== 'john_native'
-        ? '<span><span class="mk tok-cpu" aria-hidden="true">CPU</span><span class="tok-cpu">needs -j/-k, not -r (GPU)</span></span>'
-        : '')+
+      '<span><span class="mk tok-cpu" aria-hidden="true">CPU</span><span class="tok-cpu">needs -j/-k, not -r (GPU)</span></span>'+
       '</div>';
     // Counted straight from OPS/JOHN_UNSUPPORTED, not hardcoded, so this can't drift
     // out of sync if an operator is ever added or reclassified.
@@ -4580,23 +4584,23 @@ d $1$2$3"></textarea>
     var topCallout = '';
     if (TARGET === 'both'){
       topCallout = '<div class="callout small" style="margin-bottom:14px">'+
-        '<b>Using these in John?</b> Put the include inside a hashcat-compat section of your <span class="mono">john.conf</span>:'+
+        '<b>Using these in John?</b> Put the include inside a hashcat-compat section of your <span class="codechip">john.conf</span>:'+
         '<pre class="codeblock">[List.Rules:MyRules]\n!! hashcat logic ON\n.include \'mychain.rule\'\n!! hashcat logic OFF</pre>'+
         '<ul class="calloutlist">'+
           '<li>Inside that section, John runs these rules like hashcat does.</li>'+
-          '<li>Outside it, <span class="mono">p</span>, <span class="mono">R</span>, <span class="mono">L</span> and '+
-            '<span class="mono">+</span>/<span class="mono">-</span> (when no digit follows) mean John’s own commands instead.</li>'+
-          '<li><span class="mono">vNX</span> (hashcat’s insert-every-N) isn’t listed here: John always reads '+
-            '<span class="mono">v</span> as “assign a variable”, so it can’t run in John.</li>'+
+          '<li>Outside it, <span class="codechip">p</span>, <span class="codechip">R</span>, <span class="codechip">L</span> and '+
+            '<span class="codechip">+</span>/<span class="codechip">-</span> (when no digit follows) mean John’s own commands instead.</li>'+
+          '<li><span class="codechip">vNX</span> (hashcat’s insert-every-N) isn’t listed here: John always reads '+
+            '<span class="codechip">v</span> as “assign a variable”, so it can’t run in John.</li>'+
         '</ul>'+
       '</div>';
     } else if (TARGET === 'john_native'){
       topCallout = '<div class="callout small" style="margin-bottom:14px">'+
         '<b>This is John’s own syntax.</b>'+
         '<ul class="calloutlist">'+
-          '<li>Include it directly in <span class="mono">john.conf</span>.</li>'+
-          '<li><i>Don’t</i> wrap it in <span class="mono">!! hashcat logic ON</span>: that mode changes how '+
-            '<span class="mono">p R L + -</span> are read and would break them.</li>'+
+          '<li>Include it directly in <span class="codechip">john.conf</span>.</li>'+
+          '<li><i>Don’t</i> wrap it in <span class="codechip">!! hashcat logic ON</span>: that mode changes how '+
+            '<span class="codechip">p R L + -</span> are read and would break them.</li>'+
         '</ul>'+
       '</div>';
     }
@@ -4619,9 +4623,9 @@ d $1$2$3"></textarea>
         // hovering it shows nothing extra rather than a redundant "works
         // in both" on every single row.
         var tip = cc==='tok-hc' ? ' title="No John the Ripper equivalent at all"' : (cc==='tok-john' ? ' title="No hashcat equivalent at all"' : '');
-        // The CPU/GPU split is a hashcat engine detail (which kernel runs the rule), not a
-        // hashcat-vs-John thing, so it's irrelevant — and not shown — in the John-native view.
-        var cpuOnly = TARGET !== 'john_native' && !!OPS[k].cpuOnly;
+        // Shown in every view, like the HC/John colors above — a reference fact about the
+        // operator, true regardless of which syntax this view happens to be building.
+        var cpuOnly = !!OPS[k].cpuOnly;
         html += '<div class="cheat-row">'+
           '<span class="syntax '+cc+'"'+tip+'>'+escapeHtml(cheat.syntax)+'</span>'+
           '<button class="ex" data-token="'+escapeHtml(example)+'" aria-label="Add example '+escapeHtml(example)+' ('+escapeHtml(OPS[k].label)+') to the rule line" title="Add to the rule line">'+escapeHtml(example)+'</button>'+
@@ -5063,7 +5067,7 @@ d $1$2$3"></textarea>
   var ruleLineSub = document.getElementById('ruleLineSub');
   function updateRuleLineHints(){
     if (TARGET === 'john_native'){
-      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="mono">~</span> operators (like <span class="mono">~s?CY</span>) won’t parse.</span>';
+      ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps.</span><span class="subline"><b>John-native</b> syntax: paste or type one to replace it.</span><span class="subline">Hashcat-only <span class="codechip">~</span> operators (like <span class="codechip">~s?CY</span>) won’t parse.</span>';
       ruleTextInput.placeholder = 'c sa4 se3 si1 so0 ss5 $! p';
     } else {
       ruleLineSub.innerHTML = '<span class="subline">The same rule written as text. It updates as you edit the steps below.</span><span class="subline">Paste or type a rule here to replace the steps.</span>';
