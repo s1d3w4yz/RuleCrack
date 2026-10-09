@@ -640,6 +640,18 @@ dialog#helpDialog kbd{display:inline-block;min-width:1.6em;padding:1px 6px;margi
 /* a step that needs hashcat's CPU engine (-j/-k) and won't run from a GPU rule file (-r) — solid,
    not wavy, since it's not an error so much as "this needs the other engine" */
 .rulehl .hl-cpu{text-decoration:underline solid var(--info);text-decoration-thickness:2px;text-underline-offset:2px}
+/* regexr.com-style: what the hovered token does, right above it. Positioned (in JS) by its
+   horizontal center so it tracks the token even as the line scrolls; bottom:100% + the margin
+   below put it just above the input, out of the way of the text and the native caret. */
+.ruletooltip{position:absolute;bottom:100%;margin-bottom:7px;transform:translateX(-50%);
+  display:none;max-width:320px;width:max-content;padding:6px 10px;border-radius:6px;
+  background:var(--surface);border:1px solid var(--accent);box-shadow:0 4px 16px rgba(0,0,0,.35);
+  font-family:'Source Sans 3',system-ui,sans-serif;font-size:.78rem;line-height:1.4;color:var(--ink);
+  white-space:normal;pointer-events:none;z-index:5}
+.ruletooltip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  border:5px solid transparent;border-top-color:var(--accent)}
+.ruletooltip::before{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%) translateY(-1px);
+  border:5px solid transparent;border-top-color:var(--surface)}
 
 .cheat{max-height:calc(100vh - 64px);overflow:hidden}
 .cheat.expanded{max-height:none;overflow:visible}
@@ -845,6 +857,7 @@ try{
           <input type="text" id="ruleTextInput" class="mono" autocomplete="off" spellcheck="false" placeholder="c sa4 se3 si1 so0 ss5 $! $1" aria-labelledby="h-rule" aria-describedby="ruleLineSub ruleParseStatus portabilityNote">
           <span class="rulehl" id="ruleHl" aria-hidden="true"></span>
           <span class="fakecaret" id="fakeCaret" aria-hidden="true"></span>
+          <span class="ruletooltip" id="ruleTooltip" role="tooltip" aria-hidden="true"></span>
         </span>
       </label>
       <div id="ruleParseStatus" class="sub" style="margin-top:-6px" aria-live="polite"></div>
@@ -4959,14 +4972,47 @@ d $1$2$3"></textarea>
     if (x < 0 || !charW) return null;
     var i = Math.floor(x / charW);
     var hit = ruleMatches().filter(function(m){ return i >= m.from && i < m.to; })[0];
-    return hit ? hit.step : null;
+    if (!hit) return null;
+    hit.charW = charW;
+    return hit;
   }
+  // A regexr.com-style tooltip: what the hovered token actually does, right where you're
+  // already looking, instead of having to glance over at its linked card in section 03 — most
+  // useful when that card is out of view (a narrow/stacked layout, or a long chain scrolled
+  // past it). Reuses the exact same per-operator caption() every trace row already shows, just
+  // called directly from the step's own args instead of from a full chain run, since none of
+  // them need the actual word — only the args are already known from the step itself.
+  var ruleTooltip = document.getElementById('ruleTooltip');
+  function showRuleTooltip(hit){
+    var op = OPS[hit.step.type];
+    // Caption alone, not label + caption: the label is a generic template ("Replace all X
+    // with Y"), the caption is that same op resolved with the step's actual args ("Replace
+    // every 'a' with '4' (case-sensitive)") — already the exact text the trace rows show, and
+    // already self-sufficient, so prepending the label just repeats it for any no-argument op.
+    ruleTooltip.textContent = op.caption(hit.step.args);
+    ruleTooltip.style.display = 'block';
+    // Centered over the token, clamped so it can't overhang either edge of the box.
+    var boxW = ruleTextInput.clientWidth;
+    var mid = (hit.from + (hit.to - hit.from) / 2) * hit.charW - ruleTextInput.scrollLeft;
+    var half = ruleTooltip.offsetWidth / 2;
+    ruleTooltip.style.left = Math.max(half, Math.min(boxW - half, mid)) + 'px';
+  }
+  function hideRuleTooltip(){ ruleTooltip.style.display = 'none'; }
   ruleTextInput.addEventListener('mousemove', function(e){
-    var st = ruleStepAt(e.clientX);
-    if (st){ if (st.id != hoverStepId || linkSource !== 'rule') showStepToken(st.id, 'rule'); }
-    else if (linkSource === 'rule') hideStepToken();   // over a gap or past the end of the text
+    var hit = ruleStepAt(e.clientX);
+    var st = hit && hit.step;
+    if (st){
+      if (st.id != hoverStepId || linkSource !== 'rule') showStepToken(st.id, 'rule');
+      showRuleTooltip(hit);
+    } else if (linkSource === 'rule'){
+      hideStepToken();   // over a gap or past the end of the text
+    }
+    if (!st) hideRuleTooltip();
   });
-  ruleTextInput.addEventListener('mouseleave', function(){ if (linkSource === 'rule') hideStepToken(); });
+  ruleTextInput.addEventListener('mouseleave', function(){
+    if (linkSource === 'rule') hideStepToken();
+    hideRuleTooltip();
+  });
   // The text cursor links a step too, whenever the mouse isn't pointing at one
   // (and it's the keyboard route to the same link): the token the caret is
   // inside or at the end of — or at the start of, if it isn't at the end of

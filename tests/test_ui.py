@@ -1859,6 +1859,52 @@ def test_rule_line_has_a_custom_caret(driver, r):
     driver.execute_script("document.getElementById('ruleTextInput').blur();")
 
 
+def test_rule_line_tooltip_explains_the_hovered_token(driver, r):
+    """A regexr.com-style tooltip (#ruleTooltip): hovering a token in the rule line shows what
+    that step actually does, right there, instead of needing to glance over at its linked card
+    in section 03 — most useful when that card is out of view. Shows the same caption() text the
+    trace rows already use, resolved with the step's own current args, not the generic label (for
+    a no-argument op those two are near-identical, so showing the label too would just repeat it).
+    It tracks the hovered token, not just whichever step last had a link, and disappears over a
+    gap between tokens."""
+    driver.find_element('css selector', '.mbtn[data-mode="builder"]').click()
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'l sa4', debounced=True)
+
+    def hover_x(offset):
+        driver.execute_script(
+            "var r = document.getElementById('ruleTextInput').getBoundingClientRect();"
+            "var ev = new MouseEvent('mousemove', {bubbles:true, clientX: r.left+arguments[0], clientY: r.top+r.height/2});"
+            "document.getElementById('ruleTextInput').dispatchEvent(ev);", offset)
+
+    def tooltip():
+        return driver.execute_script(
+            "var t = document.getElementById('ruleTooltip');"
+            "return {shown: getComputedStyle(t).display !== 'none', text: t.textContent};")
+
+    # first token: 'l' (lowercase everything), a no-arg op — label and caption are near-identical,
+    # so the tooltip should show just the one (no "Label — Label." doubling up)
+    hover_x(12)
+    t1 = tooltip()
+    r.check(t1['shown'] and t1['text'] == 'Lowercase everything' and t1['text'].count('Lowercase') == 1,
+            "a no-arg op's tooltip isn't doubled (label and caption said the same thing)", f'{t1}')
+
+    # second token: 'sa4' (replace X with Y) — the tooltip should show the *resolved* caption,
+    # not the generic "Replace all X with Y" template
+    hover_x(32)
+    t2 = tooltip()
+    r.check(t2['shown'] and "'a'" in t2['text'] and "'4'" in t2['text'],
+            "an op with args shows its resolved caption, not the generic template", f'{t2}')
+
+    # the gap between tokens (the space) has no step, so no tooltip
+    hover_x(24)
+    t3 = tooltip()
+    r.check(not t3['shown'], 'no tooltip over the gap between tokens', f'{t3}')
+
+    driver.execute_script("document.getElementById('ruleTextInput').dispatchEvent(new MouseEvent('mouseleave', {bubbles:true}));")
+    r.check(not tooltip()['shown'], 'the tooltip hides when the mouse leaves the rule line')
+    set_value(driver, driver.find_element('id', 'ruleTextInput'), 'c sa4 se3 si1 so0 ss5 $! $1', debounced=True)
+
+
 def test_both_callout_is_a_code_block(driver, r):
     """The Both setup callout is a 4-line code block plus three short
     points (not one dense paragraph)."""
@@ -2654,6 +2700,7 @@ def main():
         test_both_view_explains_the_hex_escape_syntax_error(driver, r)
         test_rule_line_underlines_the_offending_token(driver, r)
         test_rule_line_has_a_custom_caret(driver, r)
+        test_rule_line_tooltip_explains_the_hovered_token(driver, r)
         test_both_callout_is_a_code_block(driver, r)
         test_cheat_search_keeps_john_only_explanation(driver, r)
         test_page_has_no_phantom_scroll(driver, r)
